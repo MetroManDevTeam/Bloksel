@@ -1,5 +1,5 @@
 // src/world/chunk.rs
-use crate::terrain_generator::{BlockData, Chunk, ChunkCoord, ChunkMesh, Integrity, Orientation};
+use crate::terrain_generator::{BlockData, Chunk, ChunkCoord, ChunkMesh, Integrity, Orientation, TerrainGenerator};
 use crate::chunk_renderer::ChunkRenderer;
 use glam::{IVec3, Vec3};
 use std::collections::HashMap;
@@ -54,15 +54,14 @@ impl ChunkManager {
     }
 
     pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
-        // Store original block data in compressed format
         let mut compressed = Vec::new();
-        
+
         for x in 0..self.world_config.chunk_size {
             for y in 0..self.world_config.chunk_size {
                 for z in 0..self.world_config.chunk_size {
                     if let Some(block) = &chunk.blocks[x][y][z] {
                         let mut sub_blocks = Vec::new();
-                        
+
                         for ((sx, sy, sz), sub) in &block.grid {
                             if sub.id != 0 {
                                 sub_blocks.push(CompressedSubBlock {
@@ -88,22 +87,47 @@ impl ChunkManager {
         self.chunks.insert(coord, chunk);
     }
 
+    pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, seed: u32) -> &Chunk {
+        if !self.chunks.contains_key(&coord) {
+            let chunk = self.generate_chunk(coord, seed);
+            self.add_chunk(coord, chunk);
+        }
+        self.chunks.get(&coord).unwrap()
+    }
+
+    pub fn generate_chunk(&self, coord: ChunkCoord, seed: u32) -> Chunk {
+        let generator = TerrainGenerator::new(
+            seed,
+            self.world_config.chunk_size,
+            self.world_config.sub_resolution,
+        );
+
+        let mut chunk = Chunk::new(self.world_config.chunk_size, self.world_config.sub_resolution);
+
+        generator.generate_into_chunk(&mut chunk, coord);
+
+        // Future hook for real topographic data:
+        // if let Some(topographic_data) = load_dem_for_coord(coord) {
+        //     generator.override_with_topographic(&mut chunk, topographic_data);
+        // }
+
+        chunk
+    }
+
     pub fn generate_merged_mesh(&self) -> ChunkMesh {
         let mut merged_mesh = ChunkMesh::new();
         let mut index_offset = 0;
 
-        for (coord, chunk) in &self.chunks {
+        for (_coord, chunk) in &self.chunks {
             let mesh = self.renderer.generate_mesh(chunk);
-            
-            // Merge vertex data
+
             merged_mesh.vertex_data.extend(mesh.vertex_data.iter());
-            
-            // Adjust indices and merge
+
             for idx in mesh.index_data {
                 merged_mesh.index_data.push(idx + index_offset);
             }
-            
-            index_offset += mesh.vertex_data.len() as u32 / 14; // 14 components per vertex
+
+            index_offset += mesh.vertex_data.len() as u32 / 14;
         }
 
         merged_mesh
@@ -114,7 +138,7 @@ impl ChunkManager {
         fs::create_dir_all(&world_dir)?;
 
         let mut chunks_to_save = Vec::new();
-        
+
         for (coord, compressed) in &self.compressed_cache {
             let serialized = SerializedChunk {
                 coord: *coord,
@@ -126,7 +150,7 @@ impl ChunkManager {
         let path = format!("{}/world.dat", world_dir);
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
-        
+
         bincode::serialize_into(&mut writer, &chunks_to_save)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
@@ -148,7 +172,7 @@ impl ChunkManager {
             for compressed in serialized.blocks {
                 let (x, y, z) = compressed.position;
                 let mut block = BlockData::new(compressed.id);
-                
+
                 for sub in compressed.sub_blocks {
                     block.grid.insert(
                         (sub.local_pos.0, sub.local_pos.1, sub.local_pos.2),
@@ -157,10 +181,10 @@ impl ChunkManager {
                             integrity: sub.integrity,
                             orientation: sub.orientation,
                             ..Default::default()
-                        }
+                        },
                     );
                 }
-                
+
                 chunk.blocks[x][y][z] = Some(block);
             }
 
@@ -195,7 +219,7 @@ impl ChunkManager {
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&BlockData, IVec3)> {
         let (block, chunk_coord) = self.get_block_at(world_pos)?;
         let sub_size = 1.0 / self.world_config.sub_resolution as f32;
-        
+
         let local_pos = world_pos - Vec3::new(
             chunk_coord.x as f32 * self.world_config.chunk_size as f32,
             chunk_coord.y as f32 * self.world_config.chunk_size as f32,
