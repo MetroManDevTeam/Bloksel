@@ -1,11 +1,11 @@
 [package]
-name = "voxel-engine"
+name = "Boksel"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["MetroMan"]
 description = "A high-performance voxel engine with PBR rendering and advanced terrain generation"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourusername/voxel-engine"
+repository = "https://github.com/MetroManSR/ourvoxelworldproject/"
 keywords = ["voxel", "game-engine", "procedural-generation"]
 categories = ["game-engines", "rendering"]
 
