@@ -106,24 +106,15 @@ impl ShaderProgram {
     }
 
     /// Sets up block material properties including variants
-    pub fn set_block_material(&mut self, material: &BlockMaterial, variant: Option<&MaterialModifiers>) -> Result<(), ShaderError> {
-        self.set_uniform_vec3("material.albedo", &material.albedo)?;
+    
+    pub fn set_block_material(&mut self, material: &BlockMaterial) -> Result<(), ShaderError> {
+        self.set_uniform_vec4("material.albedo", &material.albedo)?;
         self.set_uniform_1f("material.roughness", material.roughness)?;
         self.set_uniform_1f("material.metallic", material.metallic)?;
-        
-        if let Some(mods) = variant {
-            self.set_uniform_1i("material.hasVariants", 1)?;
-            self.set_uniform_vec3("material.variantAlbedoMod", 
-                &mods.albedo_factor.unwrap_or([1.0, 1.0, 1.0]))?;
-            self.set_uniform_1f("material.roughnessMod", 
-                mods.roughness_offset.unwrap_or(0.0))?;
-            self.set_uniform_1f("material.metallicMod", 
-                mods.metallic_offset.unwrap_or(0.0))?;
-        } else {
-            self.set_uniform_1i("material.hasVariants", 0)?;
-        }
+        self.set_uniform_vec3("material.emissive", &material.emissive)?;
         Ok(())
     }
+
 
     /// Sets connected texture directions using bitflags
     pub fn set_connected_textures(&mut self, connections: u8) -> Result<(), ShaderError> {
