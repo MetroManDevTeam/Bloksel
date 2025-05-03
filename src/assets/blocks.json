@@ -1,0 +1,38 @@
+[
+    {
+        "id": 1,
+        "name": "Stone",
+        "default_integrity": "Full",
+        "default_orientation": "Up",
+        "default_density": "Solid",
+        "default_physics": "Steady",
+        "texture_path": "textures/stone.png"
+    },
+    {
+        "id": 2,
+        "name": "Grass",
+        "default_integrity": "Full",
+        "default_orientation": "Up",
+        "default_density": "Medium",
+        "default_physics": "Steady",
+        "texture_path": "textures/grass.png"
+    },
+    {
+        "id": 3,
+        "name": "Dirt",
+        "default_integrity": "Full",
+        "default_orientation": "Up",
+        "default_density": "Medium",
+        "default_physics": "Steady",
+        "texture_path": "textures/dirt.png"
+    },
+    {
+        "id": 4,
+        "name": "Sand",
+        "default_integrity": "Full",
+        "default_orientation": "Up",
+        "default_density": "Light",
+        "default_physics": "Gravity",
+        "texture_path": "textures/sand.png"
+    }
+]
