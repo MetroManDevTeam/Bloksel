@@ -60,6 +60,19 @@ pub enum BlockCategory {
     Mechanical,
 }
 
+// Remove duplicate BlockMaterial definition and use this single version
+#[derive(Clone, Serialize, Deserialize)]
+pub struct BlockMaterial {
+    pub id: u16,
+    pub name: String,
+    pub albedo: [f32; 4],
+    pub roughness: f32,
+    pub metallic: f32,
+    pub emissive: [f32; 3],
+    pub texture_path: Option<String>,
+    pub normal_map_path: Option<String>,
+}
+
 // ========================
 // Block Identification
 // ========================
