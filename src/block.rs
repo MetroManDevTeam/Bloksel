@@ -1,4 +1,4 @@
-// block.rs - Complete Implementation with Advanced Tinting System
+// block.rs - Complete Implementation with Advanced Color Variation System
 
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
@@ -67,7 +67,7 @@ pub enum BlockCategory {
 pub struct BlockMaterial {
     pub id: u16,
     pub name: String,
-    pub albedo: [f32; 4],        // Base color (RGBA)
+    pub albedo: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
     pub emissive: [f32; 3],
@@ -76,6 +76,8 @@ pub struct BlockMaterial {
     pub occlusion_map_path: Option<String>,
     #[serde(default)]
     pub tintable: bool,
+    #[serde(default)]
+    pub grayscale_base: bool,
     #[serde(default)]
     pub tint_mask_path: Option<String>,
     #[serde(default)]
@@ -136,36 +138,66 @@ pub enum TintMaskChannel {
 pub struct BlockId {
     pub base_id: u32,
     pub variation: u16,
+    pub color_id: u16,
 }
 
 impl BlockId {
     pub fn new(base_id: u32) -> Self {
-        Self { base_id, variation: 0 }
+        Self { base_id, variation: 0, color_id: 0 }
     }
 
     pub fn with_variation(base_id: u32, variation: u16) -> Self {
-        Self { base_id, variation }
+        Self { base_id, variation, color_id: 0 }
     }
 
-    pub fn from_combined(combined: u64) -> Self {
-        Self {
-            base_id: (combined >> 16) as u32,
-            variation: (combined & 0xFFFF) as u16,
+    pub fn with_color(base_id: u32, color_id: u16) -> Self {
+        Self { base_id, variation: 0, color_id }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, BlockError> {
+        let parts: Vec<&str> = s.split(':').collect();
+        let base_id = parts[0].parse().map_err(|_| BlockError::InvalidIdFormat)?;
+        
+        let mut variation = 0;
+        let mut color_id = 0;
+        
+        if parts.len() > 1 {
+            for part in &parts[1..] {
+                if part.starts_with('C') {
+                    color_id = part[1..].parse().map_err(|_| BlockError::InvalidIdFormat)?;
+                } else {
+                    variation = part.parse().map_err(|_| BlockError::InvalidIdFormat)?;
+                }
+            }
         }
+        
+        Ok(Self { base_id, variation, color_id })
     }
 
     pub fn to_combined(&self) -> u64 {
-        ((self.base_id as u64) << 16) | (self.variation as u64)
+        ((self.base_id as u64) << 32) | 
+        ((self.variation as u64) << 16) | 
+        (self.color_id as u64)
+    }
+
+    pub fn is_colored(&self) -> bool {
+        self.color_id != 0
     }
 }
 
 impl Display for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.variation == 0 {
-            write!(f, "{}", self.base_id)
-        } else {
-            write!(f, "{}:{}", self.base_id, self.variation)
+        write!(f, "{}", self.base_id)?;
+        
+        if self.variation != 0 || self.color_id != 0 {
+            write!(f, ":{}", self.variation)?;
         }
+        
+        if self.color_id != 0 {
+            write!(f, ":C{}", self.color_id)?;
+        }
+        
+        Ok(())
     }
 }
 
@@ -198,6 +230,8 @@ pub struct BlockDefinition {
     #[serde(default)]
     pub variations: Vec<BlockVariant>,
     #[serde(default)]
+    pub color_variations: Vec<ColorVariant>,
+    #[serde(default)]
     pub tint_settings: TintSettings,
 }
 
@@ -209,8 +243,15 @@ pub struct BlockVariant {
     pub texture_overrides: HashMap<BlockFacing, String>,
     #[serde(default)]
     pub material_modifiers: MaterialModifiers,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColorVariant {
+    pub id: u16,
+    pub name: String,
+    pub color: [f32; 4],
     #[serde(default)]
-    pub tint_color: Option<[f32; 4]>,
+    pub material_modifiers: MaterialModifiers,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -287,52 +328,53 @@ impl BlockMaterial {
         let strength = settings.strength.clamp(0.0, 1.0);
         
         if settings.affects_albedo {
-            match settings.blend_mode {
-                TintBlendMode::Multiply => {
-                    self.albedo[0] *= 1.0 + (tint[0] - 1.0) * strength;
-                    self.albedo[1] *= 1.0 + (tint[1] - 1.0) * strength;
-                    self.albedo[2] *= 1.0 + (tint[2] - 1.0) * strength;
-                    self.albedo[3] *= 1.0 + (tint[3] - 1.0) * strength;
-                }
-                TintBlendMode::Overlay => {
-                    self.albedo[0] = if self.albedo[0] < 0.5 {
-                        2.0 * self.albedo[0] * tint[0] * strength
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.albedo[0]) * (1.0 - tint[0] * strength)
-                    }.clamp(0.0, 1.0);
-                    self.albedo[1] = if self.albedo[1] < 0.5 {
-                        2.0 * self.albedo[1] * tint[1] * strength
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.albedo[1]) * (1.0 - tint[1] * strength)
-                    }.clamp(0.0, 1.0);
-                    self.albedo[2] = if self.albedo[2] < 0.5 {
-                        2.0 * self.albedo[2] * tint[2] * strength
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.albedo[2]) * (1.0 - tint[2] * strength)
-                    }.clamp(0.0, 1.0);
-                    self.albedo[3] = if self.albedo[3] < 0.5 {
-                        2.0 * self.albedo[3] * tint[3] * strength
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.albedo[3]) * (1.0 - tint[3] * strength)
-                    }.clamp(0.0, 1.0);
-                }
-                TintBlendMode::Screen => {
-                    self.albedo[0] = 1.0 - (1.0 - self.albedo[0]) * (1.0 - tint[0] * strength);
-                    self.albedo[1] = 1.0 - (1.0 - self.albedo[1]) * (1.0 - tint[1] * strength);
-                    self.albedo[2] = 1.0 - (1.0 - self.albedo[2]) * (1.0 - tint[2] * strength);
-                    self.albedo[3] = 1.0 - (1.0 - self.albedo[3]) * (1.0 - tint[3] * strength);
-                }
-                TintBlendMode::Additive => {
-                    self.albedo[0] = (self.albedo[0] + tint[0] * strength).clamp(0.0, 1.0);
-                    self.albedo[1] = (self.albedo[1] + tint[1] * strength).clamp(0.0, 1.0);
-                    self.albedo[2] = (self.albedo[2] + tint[2] * strength).clamp(0.0, 1.0);
-                    self.albedo[3] = (self.albedo[3] + tint[3] * strength).clamp(0.0, 1.0);
-                }
-                TintBlendMode::Replace => {
-                    self.albedo[0] = self.albedo[0] * (1.0 - strength) + tint[0] * strength;
-                    self.albedo[1] = self.albedo[1] * (1.0 - strength) + tint[1] * strength;
-                    self.albedo[2] = self.albedo[2] * (1.0 - strength) + tint[2] * strength;
-                    self.albedo[3] = self.albedo[3] * (1.0 - strength) + tint[3] * strength;
+            if self.grayscale_base {
+                // Special handling for grayscale textures
+                let luminance = 0.2126 * self.albedo[0] + 0.7152 * self.albedo[1] + 0.0722 * self.albedo[2];
+                
+                self.albedo[0] = luminance * tint[0] * strength + self.albedo[0] * (1.0 - strength);
+                self.albedo[1] = luminance * tint[1] * strength + self.albedo[1] * (1.0 - strength);
+                self.albedo[2] = luminance * tint[2] * strength + self.albedo[2] * (1.0 - strength);
+            } else {
+                // Standard tinting for colored textures
+                match settings.blend_mode {
+                    TintBlendMode::Multiply => {
+                        self.albedo[0] *= 1.0 + (tint[0] - 1.0) * strength;
+                        self.albedo[1] *= 1.0 + (tint[1] - 1.0) * strength;
+                        self.albedo[2] *= 1.0 + (tint[2] - 1.0) * strength;
+                    }
+                    TintBlendMode::Overlay => {
+                        self.albedo[0] = if self.albedo[0] < 0.5 {
+                            2.0 * self.albedo[0] * tint[0] * strength
+                        } else {
+                            1.0 - 2.0 * (1.0 - self.albedo[0]) * (1.0 - tint[0] * strength)
+                        }.clamp(0.0, 1.0);
+                        self.albedo[1] = if self.albedo[1] < 0.5 {
+                            2.0 * self.albedo[1] * tint[1] * strength
+                        } else {
+                            1.0 - 2.0 * (1.0 - self.albedo[1]) * (1.0 - tint[1] * strength)
+                        }.clamp(0.0, 1.0);
+                        self.albedo[2] = if self.albedo[2] < 0.5 {
+                            2.0 * self.albedo[2] * tint[2] * strength
+                        } else {
+                            1.0 - 2.0 * (1.0 - self.albedo[2]) * (1.0 - tint[2] * strength)
+                        }.clamp(0.0, 1.0);
+                    }
+                    TintBlendMode::Screen => {
+                        self.albedo[0] = 1.0 - (1.0 - self.albedo[0]) * (1.0 - tint[0] * strength);
+                        self.albedo[1] = 1.0 - (1.0 - self.albedo[1]) * (1.0 - tint[1] * strength);
+                        self.albedo[2] = 1.0 - (1.0 - self.albedo[2]) * (1.0 - tint[2] * strength);
+                    }
+                    TintBlendMode::Additive => {
+                        self.albedo[0] = (self.albedo[0] + tint[0] * strength).clamp(0.0, 1.0);
+                        self.albedo[1] = (self.albedo[1] + tint[1] * strength).clamp(0.0, 1.0);
+                        self.albedo[2] = (self.albedo[2] + tint[2] * strength).clamp(0.0, 1.0);
+                    }
+                    TintBlendMode::Replace => {
+                        self.albedo[0] = self.albedo[0] * (1.0 - strength) + tint[0] * strength;
+                        self.albedo[1] = self.albedo[1] * (1.0 - strength) + tint[1] * strength;
+                        self.albedo[2] = self.albedo[2] * (1.0 - strength) + tint[2] * strength;
+                    }
                 }
             }
         }
@@ -349,17 +391,17 @@ impl BlockMaterial {
                         2.0 * self.emissive[0] * tint[0] * strength
                     } else {
                         1.0 - 2.0 * (1.0 - self.emissive[0]) * (1.0 - tint[0] * strength)
-                    }.clamp(0.0, 1.0);
+                    }.clamp(0.0, f32::MAX);
                     self.emissive[1] = if self.emissive[1] < 0.5 {
                         2.0 * self.emissive[1] * tint[1] * strength
                     } else {
                         1.0 - 2.0 * (1.0 - self.emissive[1]) * (1.0 - tint[1] * strength)
-                    }.clamp(0.0, 1.0);
+                    }.clamp(0.0, f32::MAX);
                     self.emissive[2] = if self.emissive[2] < 0.5 {
                         2.0 * self.emissive[2] * tint[2] * strength
                     } else {
                         1.0 - 2.0 * (1.0 - self.emissive[2]) * (1.0 - tint[2] * strength)
-                    }.clamp(0.0, 1.0);
+                    }.clamp(0.0, f32::MAX);
                 }
                 TintBlendMode::Screen => {
                     self.emissive[0] = 1.0 - (1.0 - self.emissive[0]) * (1.0 - tint[0] * strength);
@@ -429,6 +471,35 @@ impl BlockMaterial {
     }
 }
 
+impl Block {
+    pub fn get_primary_id(&self) -> BlockId {
+        self.sub_blocks.values().next().map(|sb| sb.id).unwrap_or_else(|| BlockId::new(0))
+    }
+
+    pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
+        let primary = self.get_primary_id();
+        let mut material = registry.get_material(primary).unwrap_or_default();
+        
+        if let Some(def) = registry.get(primary) {
+            // Apply regular variant modifiers if exists
+            if let Some(variant) = registry.get_variant(primary) {
+                material.apply_modifiers(&variant.material_modifiers);
+            }
+            
+            // Apply color tint if exists
+            if primary.is_colored() {
+                if let Some(color_variant) = registry.get_color_variant(primary) {
+                    material.apply_tint(color_variant.color, &def.tint_settings);
+                    
+                    // Apply color-specific material modifiers
+                    material.apply_modifiers(&color_variant.material_modifiers);
+                }
+            }
+        }
+        
+        material
+    }
+}
 
 // ========================
 // Block Registry
@@ -443,13 +514,17 @@ pub struct BlockRegistry {
 }
 
 impl BlockRegistry {
-    pub fn initialize_default() -> Self {
-        let mut registry = Self {
+    pub fn new() -> Self {
+        Self {
             blocks: HashMap::new(),
             name_to_id: HashMap::new(),
             base_id_to_variants: HashMap::new(),
             material_cache: HashMap::new(),
-        };
+        }
+    }
+
+    pub fn initialize_default() -> Self {
+        let mut registry = Self::new();
 
         // Include the generated block data
         let blocks_data = include!("blocks_data.rs");
@@ -468,13 +543,18 @@ impl BlockRegistry {
         self.name_to_id.insert(def.name.clone(), id);
         self.material_cache.insert(id, def.material.clone());
         
-        // Handle variations
+        // Handle regular variations
         self.base_id_to_variants.entry(id.base_id)
             .or_default()
             .push(id);
         
         for variant in def.variations {
-            let variant_id = BlockId::with_variation(id.base_id, variant.id);
+            let variant_id = BlockId {
+                base_id: id.base_id,
+                variation: variant.id,
+                color_id: 0,
+            };
+            
             let mut variant_def = def.clone();
             variant_def.id = variant_id;
             variant_def.name = variant.name.clone();
@@ -490,6 +570,57 @@ impl BlockRegistry {
             
             self.blocks.insert(variant_id, variant_def);
             self.material_cache.insert(variant_id, variant_material);
+        }
+        
+        // Handle color variations
+        for color_variant in def.color_variations {
+            let color_id = BlockId {
+                base_id: id.base_id,
+                variation: 0,
+                color_id: color_variant.id,
+            };
+            
+            let mut color_def = def.clone();
+            color_def.id = color_id;
+            color_def.name = format!("{} {}", def.name, color_variant.name);
+            
+            // Apply color to material
+            let mut color_material = def.material.clone();
+            color_material.apply_tint(color_variant.color, &def.tint_settings);
+            color_material.apply_modifiers(&color_variant.material_modifiers);
+            
+            self.blocks.insert(color_id, color_def);
+            self.material_cache.insert(color_id, color_material);
+        }
+    }
+
+    pub fn add_color_palette(&mut self, base_id: u32, palette: &[([f32; 4], &str)]) {
+        if let Some(base_def) = self.get_base(base_id).cloned() {
+            for (i, (color, name)) in palette.iter().enumerate() {
+                let color_id = (i + 1) as u16;
+                let color_block_id = BlockId {
+                    base_id,
+                    variation: 0,
+                    color_id,
+                };
+
+                let mut color_def = base_def.clone();
+                color_def.id = color_block_id;
+                color_def.name = format!("{} {}", base_def.name, name);
+                
+                // Add to color variations
+                color_def.color_variations.push(ColorVariant {
+                    id: color_id,
+                    name: name.to_string(),
+                    color: *color,
+                    material_modifiers: MaterialModifiers::default(),
+                });
+
+                self.blocks.insert(color_block_id, color_def);
+                self.base_id_to_variants.entry(base_id)
+                    .or_default()
+                    .push(color_block_id);
+            }
         }
     }
 
@@ -512,30 +643,29 @@ impl BlockRegistry {
             .find(|v| v.id == id.variation)
     }
 
+    pub fn get_color_variant(&self, id: BlockId) -> Option<&ColorVariant> {
+        self.get(id.base_id)?
+            .color_variations
+            .iter()
+            .find(|v| v.id == id.color_id)
+    }
+
     pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
         self.name_to_id.get(name).and_then(|id| self.get(*id))
     }
 
-    pub fn generate_color_variants(&mut self, base_id: u32, colors: &[([f32; 4], &str)]) {
-        if let Some(base_def) = self.get_base(base_id).cloned() {
-            for (i, (color, name)) in colors.iter().enumerate() {
-                let variant_id = (i + 1) as u16;
-                let variant = BlockVariant {
-                    id: variant_id,
-                    name: format!("{} {}", base_def.name, name),
-                    tint_color: Some(*color),
-                    ..Default::default()
-                };
-                
-                let mut variant_def = base_def.clone();
-                variant_def.id = BlockId::with_variation(base_id, variant_id);
-                variant_def.name = variant.name.clone();
-                variant_def.variations.clear();
-                variant_def.variations.push(variant);
-                
-                self.add_block(variant_def);
-            }
-        }
+    pub fn get_all_colors(&self, base_id: u32) -> Vec<(BlockId, [f32; 4])> {
+        self.base_id_to_variants.get(&base_id)
+            .map(|ids| ids.iter()
+                .filter_map(|id| {
+                    if id.color_id != 0 {
+                        self.get_color_variant(*id).map(|v| (*id, v.color))
+                    } else {
+                        None
+                    }
+                })
+                .collect())
+            .unwrap_or_default()
     }
 }
 
@@ -553,4 +683,6 @@ pub enum BlockError {
     ConnectionError(String),
     #[error("Material error: {0}")]
     MaterialError(String),
-}
+    #[error("Color variant error: {0}")]
+    ColorVariantError(String),
+                        }
