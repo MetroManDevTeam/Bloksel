@@ -1,9 +1,11 @@
-use serde::Deserialize;
+// block.rs
+
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockIntegrity {
     Full,
     Half,
@@ -11,7 +13,7 @@ pub enum BlockIntegrity {
     Special,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockOrientation {
     North,
     East,
@@ -21,7 +23,7 @@ pub enum BlockOrientation {
     Down,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockDensity {
     Light,
     Medium,
@@ -29,7 +31,7 @@ pub enum BlockDensity {
     Solid,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockPhysics {
     Steady,
     Gravity,
@@ -37,7 +39,7 @@ pub enum BlockPhysics {
     Slow,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: u32,
     pub name: String,
@@ -52,109 +54,109 @@ pub struct BlockDefinition {
     pub texture_path: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Block {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct SubBlock {
     pub id: u32,
     pub integrity: BlockIntegrity,
     pub orientation: BlockOrientation,
     pub density: BlockDensity,
     pub physics: BlockPhysics,
-    pub definition: BlockDefinition,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Block {
+    grid: HashMap<(u8, u8, u8), SubBlock>, // 3D grid of sub-blocks
+    resolution: u8, // Grid size (e.g., 4x4x4)
 }
 
 impl Block {
-    pub fn from_code(code: &str, registry: &BlockRegistry) -> Option<Self> {
-        let parts: Vec<&str> = code.split('-').collect();
-        if parts.len() != 5 {
-            return None;
-        }
-
-        let id = parts[0].parse().ok()?;
-        let definition = registry.get(id)?;
-
-        Some(Self {
+    pub fn uniform(id: u32, resolution: u8, def: &BlockDefinition) -> Self {
+        let sub = SubBlock {
             id,
-            integrity: match parts[1] {
-                "F" => BlockIntegrity::Full,
-                "H" => BlockIntegrity::Half,
-                "Q" => BlockIntegrity::Quarter,
-                "S" => BlockIntegrity::Special,
-                _ => definition.default_integrity,
-            },
-            orientation: match parts[2] {
-                "N" => BlockOrientation::North,
-                "E" => BlockOrientation::East,
-                "S" => BlockOrientation::South,
-                "W" => BlockOrientation::West,
-                "U" => BlockOrientation::Up,
-                "D" => BlockOrientation::Down,
-                _ => definition.default_orientation,
-            },
-            density: match parts[3] {
-                "L" => BlockDensity::Light,
-                "M" => BlockDensity::Medium,
-                "H" => BlockDensity::Heavy,
-                "S" => BlockDensity::Solid,
-                _ => definition.default_density,
-            },
-            physics: match parts[4] {
-                "S" => BlockPhysics::Steady,
-                "G" => BlockPhysics::Gravity,
-                "P" => BlockPhysics::Passable,
-                "L" => BlockPhysics::Slow,
-                _ => definition.default_physics,
-            },
-            definition: definition.clone(),
-        })
-    }
-
-    pub fn to_code(&self) -> String {
-        format!(
-            "{}-{}-{}-{}-{}",
-            self.id,
-            self.integrity_code(),
-            self.orientation_code(),
-            self.density_code(),
-            self.physics_code()
-        )
-    }
-
-    fn integrity_code(&self) -> &str {
-        match self.integrity {
-            BlockIntegrity::Full => "F",
-            BlockIntegrity::Half => "H",
-            BlockIntegrity::Quarter => "Q",
-            BlockIntegrity::Special => "S",
+            integrity: def.default_integrity,
+            orientation: def.default_orientation,
+            density: def.default_density,
+            physics: def.default_physics,
+        };
+        
+        let mut grid = HashMap::new();
+        for x in 0..resolution {
+            for y in 0..resolution {
+                for z in 0..resolution {
+                    grid.insert((x, y, z), sub.clone());
+                }
+            }
         }
+        
+        Self { grid, resolution }
     }
 
-    fn orientation_code(&self) -> &str {
-        match self.orientation {
-            BlockOrientation::North => "N",
-            BlockOrientation::East => "E",
-            BlockOrientation::South => "S",
-            BlockOrientation::West => "W",
-            BlockOrientation::Up => "U",
-            BlockOrientation::Down => "D",
+    pub fn encode(&self) -> String {
+        if self.is_uniform() {
+            return self.grid.values().next().map(|s| s.id.to_string()).unwrap_or_default();
         }
+
+        let mut parts = Vec::new();
+        for ((x, y, z), sub) in &self.grid {
+            let state = format!(
+                "{}{}{}{}",
+                sub.integrity_code(),
+                sub.orientation_code(),
+                sub.density_code(),
+                sub.physics_code()
+            );
+            parts.push(format!("{},{},{}:{}:{}", x, y, z, sub.id, state));
+        }
+        parts.join("|")
     }
 
-    fn density_code(&self) -> &str {
-        match self.density {
-            BlockDensity::Light => "L",
-            BlockDensity::Medium => "M",
-            BlockDensity::Heavy => "H",
-            BlockDensity::Solid => "S",
+    pub fn decode(s: &str, resolution: u8, registry: &BlockRegistry) -> Self {
+        if !s.contains('|') && !s.contains(':') {
+            let id = s.parse().unwrap_or(0);
+            let def = registry.get(id).unwrap();
+            return Self::uniform(id, resolution, def);
         }
+
+        let mut grid = HashMap::new();
+        for part in s.split('|') {
+            let [pos, id_state] = part.splitn(2, ':').collect::<Vec<_>>();
+            let [x, y, z] = pos.splitn(3, ',')
+                .map(|v| v.parse().unwrap())
+                .collect::<Vec<u8>>();
+            
+            let [id, state] = id_state.splitn(2, ':').collect::<Vec<_>>();
+            let sub = SubBlock {
+                id: id.parse().unwrap(),
+                integrity: BlockIntegrity::from_code(&state[0..1]),
+                orientation: BlockOrientation::from_code(&state[1..2]),
+                density: BlockDensity::from_code(&state[2..3]),
+                physics: BlockPhysics::from_code(&state[3..4]),
+            };
+            
+            grid.insert((x, y, z), sub);
+        }
+        
+        Self { grid, resolution }
     }
 
-    fn physics_code(&self) -> &str {
-        match self.physics {
-            BlockPhysics::Steady => "S",
-            BlockPhysics::Gravity => "G",
-            BlockPhysics::Passable => "P",
-            BlockPhysics::Slow => "L",
+    pub fn is_uniform(&self) -> bool {
+        let first = match self.grid.values().next() {
+            Some(v) => v,
+            None => return true, // All air
+        };
+        
+        self.grid.values().all(|v| v == first)
+    }
+
+    pub fn place_sub_block(&mut self, x: u8, y: u8, z: u8, sub: SubBlock) {
+        if x >= self.resolution || y >= self.resolution || z >= self.resolution {
+            return;
         }
+        self.grid.insert((x, y, z), sub);
+    }
+
+    pub fn get_sub_block(&self, x: u8, y: u8, z: u8) -> Option<&SubBlock> {
+        self.grid.get(&(x, y, z))
     }
 }
 
@@ -178,16 +180,5 @@ impl BlockRegistry {
 
     pub fn get(&self, id: u32) -> Option<&BlockDefinition> {
         self.blocks.get(&id)
-    }
-
-    pub fn create_default_block(&self, id: u32) -> Option<Block> {
-        self.get(id).map(|definition| Block {
-            id,
-            integrity: definition.default_integrity,
-            orientation: definition.default_orientation,
-            density: definition.default_density,
-            physics: definition.default_physics,
-            definition: definition.clone(),
-        })
     }
 }
