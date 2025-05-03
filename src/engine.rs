@@ -204,8 +204,8 @@ impl VoxelEngine {
             io_pool,
             load_queue: load_send,
             unload_queue: unload_send,
-            running: Arc::new(AtomicBool::new(true))),
-            frame_counter: Arc::new(Mutex::new(0))),
+            running: Arc::new(AtomicBool::new(true)),
+            frame_counter: Arc::new(Mutex::new(0)),
             last_tick: Instant::now(),
             config,
         };
@@ -499,4 +499,26 @@ struct ViewFrustum {
 struct AABB {
     min: Vec3,
     max: Vec3,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct PlayerState {
+    pub position: Vec3,
+    pub rotation: Vec2,
+    pub health: f32,
+    pub inventory: Vec<BlockId>,
+}
+
+struct ThreadPoolStats {
+    active_threads: usize,
+    queued_tasks: usize,
+}
+
+struct Plane {
+    normal: Vec3,
+    distance: f32,
+}
+
+struct ViewFrustum {
+    planes: [Plane; 6],
 }
