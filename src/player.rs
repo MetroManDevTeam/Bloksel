@@ -1,36 +1,66 @@
-use glam::{Vec3, Vec2};
-use std::f32::consts::PI;
-use winit::event::{ElementState, VirtualKeyCode};
+use glam::{Vec3, Vec2, Mat4};
+use std::f32::consts::{PI, FRAC_PI_2};
+use winit::event::{ElementState, VirtualKeyCode, MouseScrollDelta};
 use crate::terrain_generator::{ChunkCoord, BlockData, Chunk, TerrainGenerator};
-use crate::chunk_renderer::ChunkRenderer;
+use crate::block::BlockPhysics;
+
+#[derive(Debug, PartialEq)]
+pub enum PlayerState {
+    Normal,
+    Flying,
+    Spectator,
+}
 
 #[derive(Debug)]
 pub struct Player {
+    // Core properties
     pub position: Vec3,
     pub velocity: Vec3,
-    pub rotation: Vec2, // x = yaw, y = pitch
-    pub size: Vec3,     // Collision box size
+    pub rotation: Vec2,
+    pub size: Vec3,
+    
+    // State management
+    pub state: PlayerState,
     pub on_ground: bool,
-    pub flying: bool,
-    pub speed: f32,
+    
+    // Movement parameters
+    pub base_speed: f32,
+    pub speed_multiplier: f32,
     pub jump_force: f32,
     pub gravity: f32,
+    
+    // Camera controls
     pub sensitivity: f32,
+    pub zoom_level: f32,
+    pub max_zoom: f32,
+    pub min_zoom: f32,
+    
+    // World interaction
+    pub chunk_size: i32,
+    pub collision_enabled: bool,
+    pub last_safe_position: Vec3,
 }
 
 impl Default for Player {
     fn default() -> Self {
         Self {
-            position: Vec3::new(0.0, 70.0, 0.0), // Start above ground
+            position: Vec3::new(0.0, 70.0, 0.0),
             velocity: Vec3::ZERO,
-            rotation: Vec2::new(0.0, 0.0), // Looking forward
-            size: Vec3::new(0.6, 1.8, 0.6), // Minecraft-like dimensions
+            rotation: Vec2::new(0.0, 0.0),
+            size: Vec3::new(0.6, 1.8, 0.6),
+            state: PlayerState::Normal,
             on_ground: false,
-            flying: false,
-            speed: 5.0,
+            base_speed: 5.0,
+            speed_multiplier: 1.0,
             jump_force: 8.0,
             gravity: 20.0,
             sensitivity: 0.002,
+            zoom_level: 1.0,
+            max_zoom: 2.5,
+            min_zoom: 0.4,
+            chunk_size: 30,
+            collision_enabled: true,
+            last_safe_position: Vec3::new(0.0, 70.0, 0.0),
         }
     }
 }
@@ -42,12 +72,62 @@ impl Player {
         terrain: &TerrainGenerator,
         input: &PlayerInput,
     ) {
-        // Handle rotation (mouse look)
-        self.rotation.x += input.mouse_delta.x * self.sensitivity;
-        self.rotation.y = (self.rotation.y + input.mouse_delta.y * self.sensitivity)
-            .clamp(-PI * 0.49, PI * 0.49); // Prevent over-rotation up/down
+        self.handle_rotation(input);
+        self.handle_movement(dt, input);
+        self.handle_zoom(input);
+        self.apply_physics(dt);
+        self.update_position(dt, terrain);
+        self.clamp_rotation();
+        self.update_safe_position();
+    }
 
-        // Calculate movement direction based on rotation
+    fn handle_rotation(&mut self, input: &PlayerInput) {
+        // Smooth rotation with edge case protection
+        let mouse_delta = input.mouse_delta * self.sensitivity * self.zoom_level;
+        self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euler();
+        self.rotation.y = (self.rotation.y + mouse_delta.y)
+            .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
+    }
+
+    fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
+        let movement = self.calculate_movement_vector(input);
+        let speed = self.calculate_current_speed(input);
+
+        match self.state {
+            PlayerState::Spectator => {
+                // Instant velocity response with speed multiplier
+                self.velocity = movement * speed * self.speed_multiplier;
+                if input.fly_up {
+                    self.velocity.y = speed * self.speed_multiplier;
+                }
+                if input.fly_down {
+                    self.velocity.y = -speed * self.speed_multiplier;
+                }
+            }
+            PlayerState::Flying => {
+                // Smoother flight controls
+                self.velocity = self.velocity.lerp(movement * speed, dt * 10.0);
+                if input.fly_up {
+                    self.velocity.y = speed;
+                }
+                if input.fly_down {
+                    self.velocity.y = -speed;
+                }
+            }
+            PlayerState::Normal => {
+                // Ground-based movement with air control
+                let acceleration = if self.on_ground { 15.0 } else { 3.0 };
+                self.velocity.x += movement.x * acceleration * dt;
+                self.velocity.z += movement.z * acceleration * dt;
+                
+                let friction = if self.on_ground { 0.7 } else { 0.98 };
+                self.velocity.x *= friction;
+                self.velocity.z *= friction;
+            }
+        }
+    }
+
+    fn calculate_movement_vector(&self, input: &PlayerInput) -> Vec3 {
         let forward = Vec3::new(
             self.rotation.x.sin(),
             0.0,
@@ -55,197 +135,208 @@ impl Player {
         ).normalize();
 
         let right = Vec3::new(
-            (self.rotation.x + PI/2.0).sin(),
+            (self.rotation.x + FRAC_PI_2).sin(),
             0.0,
-            (self.rotation.x + PI/2.0).cos(),
+            (self.rotation.x + FRAC_PI_2).cos(),
         ).normalize();
 
-        // Apply gravity if not flying
-        if !self.flying {
-            self.velocity.y -= self.gravity * dt;
-        } else {
-            self.velocity.y = 0.0;
-        }
-
-        // Handle jumping
-        if input.jump && (self.on_ground || self.flying) {
-            self.velocity.y = if self.flying { 0.0 } else { self.jump_force };
-            self.on_ground = false;
-        }
-
-        // Handle sprinting
-        let current_speed = if input.sprint {
-            self.speed * 1.5
-        } else {
-            self.speed
-        };
-
-        // Calculate movement vector
         let mut move_vec = Vec3::ZERO;
-        if input.forward {
-            move_vec += forward;
-        }
-        if input.backward {
-            move_vec -= forward;
-        }
-        if input.left {
-            move_vec -= right;
-        }
-        if input.right {
-            move_vec += right;
-        }
+        if input.forward { move_vec += forward; }
+        if input.backward { move_vec -= forward; }
+        if input.left { move_vec -= right; }
+        if input.right { move_vec += right; }
 
-        // Normalize and apply speed
         if move_vec.length_squared() > 0.0 {
-            move_vec = move_vec.normalize() * current_speed;
-        }
-
-        // Apply movement to velocity
-        if self.flying {
-            // Flying movement (ignore ground friction)
-            self.velocity.x = move_vec.x;
-            self.velocity.z = move_vec.z;
-            
-            // Handle vertical flying movement
-            if input.fly_up {
-                self.velocity.y = current_speed;
-            }
-            if input.fly_down {
-                self.velocity.y = -current_speed;
-            }
+            move_vec.normalize()
         } else {
-            // Ground movement with air control
-            let acceleration = if self.on_ground { 15.0 } else { 3.0 };
-            self.velocity.x += move_vec.x * acceleration * dt;
-            self.velocity.z += move_vec.z * acceleration * dt;
-            
-            // Apply friction
-            let friction = if self.on_ground { 0.7 } else { 0.98 };
-            self.velocity.x *= friction;
-            self.velocity.z *= friction;
+            move_vec
+        }
+    }
+
+    fn calculate_current_speed(&self, input: &PlayerInput) -> f32 {
+        let base = match self.state {
+            PlayerState::Spectator => self.base_speed * 3.0,
+            _ => self.base_speed,
+        };
+        
+        if input.sprint {
+            base * 2.0
+        } else {
+            base
+        }
+    }
+
+    fn apply_physics(&mut self, dt: f32) {
+        match self.state {
+            PlayerState::Normal => {
+                self.velocity.y -= self.gravity * dt;
+                self.velocity.y = self.velocity.y.clamp(-self.gravity, self.gravity);
+            }
+            PlayerState::Flying => {
+                self.velocity.y *= 0.95;
+            }
+            PlayerState::Spectator => {
+                self.velocity *= 0.85;
+            }
         }
 
-        // Move the player with collision detection
-        self.move_with_collision(dt, terrain);
+        // Prevent extreme velocities
+        self.velocity = self.velocity.clamp_length_max(100.0);
+    }
+
+    fn update_position(&mut self, dt: f32, terrain: &TerrainGenerator) {
+        if self.collision_enabled && self.state != PlayerState::Spectator {
+            self.move_with_collision(dt, terrain);
+        } else {
+            // Spectator mode free movement
+            self.position += self.velocity * dt;
+        }
     }
 
     fn move_with_collision(&mut self, dt: f32, terrain: &TerrainGenerator) {
+        let original_position = self.position;
         let mut new_position = self.position + self.velocity * dt;
 
-        // Check for collisions in each axis separately
-        let mut collision_info = CollisionInfo::default();
-
-        // X-axis collision
-        let x_position = Vec3::new(new_position.x, self.position.y, self.position.z);
-        self.check_collision(x_position, terrain, &mut collision_info);
-        if collision_info.collided {
-            new_position.x = self.position.x;
-            self.velocity.x = 0.0;
+        // Multi-axis collision check
+        for axis in 0..3 {
+            let mut test_position = new_position;
+            test_position[axis] = self.position[axis];
+            
+            if self.check_collision(test_position, terrain) {
+                self.velocity[axis] = 0.0;
+                new_position[axis] = self.position[axis];
+            }
         }
 
-        // Y-axis collision
-        let y_position = Vec3::new(self.position.x, new_position.y, self.position.z);
-        collision_info.reset();
-        self.check_collision(y_position, terrain, &mut collision_info);
-        if collision_info.collided {
-            new_position.y = if collision_info.from_below {
-                self.position.y + 0.1 // Small step up
-            } else {
-                self.position.y
-            };
-            self.velocity.y = 0.0;
-            self.on_ground = collision_info.from_below;
-        } else {
-            self.on_ground = false;
-        }
-
-        // Z-axis collision
-        let z_position = Vec3::new(self.position.x, self.position.y, new_position.z);
-        collision_info.reset();
-        self.check_collision(z_position, terrain, &mut collision_info);
-        if collision_info.collided {
-            new_position.z = self.position.z;
-            self.velocity.z = 0.0;
+        // Vertical collision handling
+        if self.velocity.y != 0.0 {
+            let test_position = Vec3::new(new_position.x, new_position.y, self.position.z);
+            if self.check_collision(test_position, terrain) {
+                self.velocity.y = 0.0;
+                self.on_ground = self.velocity.y < 0.0;
+                new_position.y = self.position.y;
+            }
         }
 
         self.position = new_position;
+
+        // Fallback to last safe position if stuck
+        if self.check_collision(self.position, terrain) {
+            self.position = self.last_safe_position;
+            self.velocity = Vec3::ZERO;
+        }
     }
 
-    fn check_collision(
-        &self,
-        position: Vec3,
-        terrain: &TerrainGenerator,
-        info: &mut CollisionInfo,
-    ) {
-        // Check blocks in the player's bounding box
+    fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
+        if !self.collision_enabled || self.state == PlayerState::Spectator {
+            return false;
+        }
+
         let min = position - self.size * 0.5;
         let max = position + self.size * 0.5;
 
-        // Check blocks in the collision area
         for x in (min.x.floor() as i32)..=(max.x.ceil() as i32) {
             for y in (min.y.floor() as i32)..=(max.y.ceil() as i32) {
                 for z in (min.z.floor() as i32)..=(max.z.ceil() as i32) {
-                    // Get the chunk coordinates
-                    let chunk_x = x.div_euclid(30);
-                    let chunk_y = y.div_euclid(30);
-                    let chunk_z = z.div_euclid(30);
-                    
-                    // Get local block coordinates
-                    let local_x = x.rem_euclid(30) as usize;
-                    let local_y = y.rem_euclid(30) as usize;
-                    let local_z = z.rem_euclid(30) as usize;
+                    let chunk_coord = ChunkCoord {
+                        x: x.div_euclid(self.chunk_size),
+                        y: y.div_euclid(self.chunk_size),
+                        z: z.div_euclid(self.chunk_size),
+                    };
 
-                    // Check if the block is solid
-                    if let Some(chunk) = terrain.get_chunk(ChunkCoord { x: chunk_x, y: chunk_y, z: chunk_z }) {
+                    let local_x = x.rem_euclid(self.chunk_size) as usize;
+                    let local_y = y.rem_euclid(self.chunk_size) as usize;
+                    let local_z = z.rem_euclid(self.chunk_size) as usize;
+
+                    if let Some(chunk) = terrain.get_chunk(chunk_coord) {
                         let chunk = chunk.read();
-                        if let Some(block) = chunk.blocks[local_x][local_y][local_z] {
-                            if block.physics == Physics::Steady || block.physics == Physics::Gravity {
-                                info.collided = true;
-                                
-                                // Check if we're colliding from below
-                                if position.y - self.size.y * 0.5 < y as f32 + 1.0 &&
-                                   self.position.y - self.size.y * 0.5 >= y as f32 + 1.0 {
-                                    info.from_below = true;
-                                }
-                                return;
+                        if let Some(block) = &chunk.blocks[local_x][local_y][local_z] {
+                            if block.physics == BlockPhysics::Steady {
+                                return true;
                             }
                         }
                     }
                 }
             }
         }
+        false
     }
 
-    pub fn get_view_matrix(&self) -> [[f32; 4]; 4] {
-        let rotation_x = glam::Mat4::from_rotation_x(-self.rotation.y);
-        let rotation_y = glam::Mat4::from_rotation_y(-self.rotation.x);
-        let translation = glam::Mat4::from_translation(-self.position);
+    fn update_safe_position(&mut self) {
+        if self.on_ground && self.velocity.length() < 0.1 {
+            self.last_safe_position = self.position;
+        }
+    }
+
+    fn clamp_rotation(&mut self) {
+        self.rotation.x = self.rotation.x.rem_euler();
+        self.rotation.y = self.rotation.y.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
+    }
+
+    fn handle_zoom(&mut self, input: &PlayerInput) {
+        if self.state != PlayerState::Spectator {
+            return;
+        }
+
+        let zoom_speed = 0.1;
+        match input.zoom_delta {
+            MouseScrollDelta::LineDelta(_, y) => {
+                self.zoom_level = (self.zoom_level - y * zoom_speed)
+                    .clamp(self.min_zoom, self.max_zoom);
+            }
+            MouseScrollDelta::PixelDelta(pos) => {
+                self.zoom_level = (self.zoom_level - pos.y as f32 * 0.01)
+                    .clamp(self.min_zoom, self.max_zoom);
+            }
+        }
+    }
+
+    pub fn get_view_matrix(&self) -> Mat4 {
+        let rotation_x = Mat4::from_rotation_x(-self.rotation.y);
+        let rotation_y = Mat4::from_rotation_y(-self.rotation.x);
+        let translation = Mat4::from_translation(-self.position);
         
-        let view_matrix = rotation_x * rotation_y * translation;
-        view_matrix.to_cols_array_2d()
+        // Apply zoom for spectator mode
+        let zoom = Mat4::from_scale(Vec3::splat(self.zoom_level));
+        
+        rotation_x * rotation_y * translation * zoom
     }
 
-    pub fn toggle_flying(&mut self) {
-        self.flying = !self.flying;
-        if self.flying {
-            self.velocity.y = 0.0;
+    pub fn toggle_state(&mut self) {
+        self.state = match self.state {
+            PlayerState::Normal => PlayerState::Flying,
+            PlayerState::Flying => PlayerState::Spectator,
+            PlayerState::Spectator => PlayerState::Normal,
+        };
+
+        // State transition logic
+        match self.state {
+            PlayerState::Spectator => {
+                self.collision_enabled = false;
+                self.velocity = Vec3::ZERO;
+                self.zoom_level = 1.0;
+            }
+            PlayerState::Flying => {
+                self.collision_enabled = true;
+                self.velocity.y = 0.0;
+            }
+            PlayerState::Normal => {
+                self.collision_enabled = true;
+                self.position = self.last_safe_position;
+            }
+        }
+    }
+
+    pub fn handle_key_input(&mut self, key: VirtualKeyCode, state: ElementState) {
+        let pressed = state == ElementState::Pressed;
+        match key {
+            VirtualKeyCode::Tab if pressed => self.toggle_state(),
+            _ => {}
         }
     }
 }
 
 #[derive(Default)]
-struct CollisionInfo {
-    collided: bool,
-    from_below: bool,
-}
-
-impl CollisionInfo {
-    fn reset(&mut self) {
-        self.collided = false;
-        self.from_below = false;
-    }
-}
-
 pub struct PlayerInput {
     pub forward: bool,
     pub backward: bool,
@@ -256,35 +347,11 @@ pub struct PlayerInput {
     pub fly_up: bool,
     pub fly_down: bool,
     pub mouse_delta: Vec2,
+    pub zoom_delta: MouseScrollDelta,
 }
 
-impl Default for PlayerInput {
-    fn default() -> Self {
-        Self {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            sprint: false,
-            fly_up: false,
-            fly_down: false,
-            mouse_delta: Vec2::ZERO,
-        }
-    }
-}
-
-pub fn handle_key_input(input: &mut PlayerInput, key: VirtualKeyCode, state: ElementState) {
-    let pressed = state == ElementState::Pressed;
-    match key {
-        VirtualKeyCode::W | VirtualKeyCode::Up => input.forward = pressed,
-        VirtualKeyCode::S | VirtualKeyCode::Down => input.backward = pressed,
-        VirtualKeyCode::A | VirtualKeyCode::Left => input.left = pressed,
-        VirtualKeyCode::D | VirtualKeyCode::Right => input.right = pressed,
-        VirtualKeyCode::Space => input.jump = pressed,
-        VirtualKeyCode::LShift => input.sprint = pressed,
-        VirtualKeyCode::Q => input.fly_down = pressed,
-        VirtualKeyCode::E => input.fly_up = pressed,
-        _ => (),
+impl PlayerInput {
+    pub fn handle_mouse_scroll(&mut self, delta: MouseScrollDelta) {
+        self.zoom_delta = delta;
     }
 }
