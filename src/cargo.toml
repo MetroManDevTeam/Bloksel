@@ -1,0 +1,54 @@
+[package]
+name = "voxel-engine"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A high-performance voxel engine with PBR rendering and advanced terrain generation"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/voxel-engine"
+keywords = ["voxel", "game-engine", "procedural-generation"]
+categories = ["game-engines", "rendering"]
+
+[dependencies]
+# Core dependencies
+glam = "0.24"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+log = "0.4"
+simple-logger = "4.0"
+bitflags = "2.0"
+
+# Threading and synchronization
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+rayon = "1.7"
+atomic = { version = "0.5", features = ["serde"] }
+
+# Graphics and windowing
+winit = "0.28"
+gl = "0.14"
+image = "0.24"
+cgmath = { version = "0.18", optional = true }  # Alternative math library
+
+# Utility
+rand = "0.8"
+noise = "0.8"  # For terrain generation
+bincode = "1.3"  # For world serialization
+flate2 = { version = "1.0", optional = true }  # For compressed world saves
+
+[dev-dependencies]
+criterion = "0.4"
+pretty_assertions = "1.3"
+
+[features]
+default = []
+compressed-saves = ["dep:flate2"]
+debug-rendering = []  # Enables debug visualization
+alternative-math = ["dep:cgmath"]  # Use cgmath instead of glam for math
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
