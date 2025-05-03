@@ -175,6 +175,14 @@ impl ChunkRenderer {
     }
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
+        if chunk.sub_resolution > 1 {
+            self.generate_sub_block_mesh(chunk)
+        } else {
+            self.generate_block_mesh(chunk)
+        }
+    }
+
+    fn generate_block_mesh(&self, chunk: &Chunk) -> ChunkMesh {
         let mut vertex_data = Vec::new();
         let mut index_data = Vec::new();
         let mut current_index = 0;
@@ -227,6 +235,108 @@ impl ChunkRenderer {
         }
     }
 
+    fn generate_sub_block_mesh(&self, chunk: &Chunk) -> ChunkMesh {
+        let mut mesh = ChunkMesh::new();
+        let sub_size = 1.0 / chunk.sub_resolution as f32;
+
+        for (bx, col) in chunk.blocks.iter().enumerate() {
+            for (by, row) in col.iter().enumerate() {
+                for (bz, block) in row.iter().enumerate() {
+                    if let Some(block) = block {
+                        for ((sx, sy, sz), sub) in &block.grid {
+                            if sub.id == 0 { continue; }
+
+                            let x = bx as f32 + (*sx as f32 * sub_size);
+                            let y = by as f32 + (*sy as f32 * sub_size);
+                            let z = bz as f32 + (*sz as f32 * sub_size);
+
+                            self.add_sub_block(
+                                x, y, z,
+                                sub_size,
+                                sub,
+                                &mut mesh.vertex_data,
+                                &mut mesh.index_data,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        
+        mesh
+    }
+
+    fn add_sub_block(
+        &self,
+        x: f32, y: f32, z: f32,
+        size: f32,
+        sub: &BlockData,
+        vertices: &mut Vec<f32>,
+        indices: &mut Vec<u32>,
+    ) {
+        let (min, max) = match sub.integrity {
+            Integrity::Full => (Vec3::ZERO, Vec3::ONE * size),
+            Integrity::Half => match sub.orientation {
+                Orientation::Up => (Vec3::new(0.0, 0.5, 0.0), Vec3::ONE * size),
+                _ => (Vec3::ZERO, Vec3::ONE * size),
+            },
+            _ => (Vec3::ZERO, Vec3::ONE * size),
+        };
+
+        let base_index = vertices.len() / 14; // Each vertex has 14 components
+        let material = self.materials.get(&sub.id).unwrap_or_else(|| {
+            log::warn!("Unknown block ID: {}, using default material", sub.id);
+            &self.materials.get(&1).unwrap() // Fallback to stone
+        });
+
+        for vertex in self.cube_vertices(min, max) {
+            // Position
+            vertices.extend(&[x + vertex.x, y + vertex.y, z + vertex.z]);
+
+            // Normal (simplified, should be calculated per face)
+            vertices.extend(&[0.0, 1.0, 0.0]);
+
+            // Color (using top color for all faces for now)
+            vertices.extend(&[
+                material.top_color.x,
+                material.top_color.y,
+                material.top_color.z,
+                material.top_color.w,
+            ]);
+
+            // Texture coordinates (simplified)
+            vertices.extend(&[0.0, 0.0]);
+
+            // Block ID (for shader)
+            vertices.push(sub.id as f32);
+
+            // Flag for texture/color (0 = color, 1 = texture)
+            vertices.push(if material.texture_id.is_some() { 1.0 } else { 0.0 });
+        }
+
+        for idx in self.cube_indices(base_index as u32) {
+            indices.push(idx);
+        }
+    }
+
+    fn cube_vertices(&self, min: Vec3, max: Vec3) -> Vec<Vec3> {
+        vec![
+            min, Vec3::new(max.x, min.y, min.z), Vec3::new(max.x, max.y, min.z), Vec3::new(min.x, max.y, min.z),
+            Vec3::new(min.x, min.y, max.z), Vec3::new(max.x, min.y, max.z), max, Vec3::new(min.x, max.y, max.z)
+        ]
+    }
+
+    fn cube_indices(&self, base_index: u32) -> Vec<u32> {
+        vec![
+            base_index, base_index + 1, base_index + 2, base_index + 2, base_index + 3, base_index,
+            base_index + 4, base_index + 5, base_index + 6, base_index + 6, base_index + 7, base_index + 4,
+            base_index, base_index + 4, base_index + 7, base_index + 7, base_index + 3, base_index,
+            base_index + 1, base_index + 5, base_index + 6, base_index + 6, base_index + 2, base_index + 1,
+            base_index + 3, base_index + 7, base_index + 6, base_index + 6, base_index + 2, base_index + 3,
+            base_index, base_index + 1, base_index + 5, base_index + 5, base_index + 4, base_index
+        ]
+    }
+
     fn add_block_face(
         &self,
         x: f32, y: f32, z: f32,
@@ -241,7 +351,7 @@ impl ChunkRenderer {
         let face_color = match face {
             0 | 1 | 4 | 5 => material.side_color,    // Vertical faces
             2 => material.bottom_color,              // Bottom face
-            3 => material.top_color,                 // Top face
+            3 => material.top_color,                // Top face
             _ => material.side_color,
         };
 
@@ -542,4 +652,4 @@ pub struct Vertex {
     tex_coords: [f32; 2],
     block_id: f32,
     use_texture: f32,
-}
+                            }
