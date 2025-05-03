@@ -22,6 +22,17 @@ pub enum RenderError {
     TextureError(#[from] image::ImageError),
 }
 
+#[derive(Default)]
+pub struct ChunkMesh {
+    pub vertex_data: Vec<f32>,
+    pub index_data: Vec<u32>,
+    pub vao: u32,
+    pub vbo: u32,
+    pub ebo: u32,
+    pub index_count: i32,
+    pub needs_upload: bool,
+}
+
 pub struct ChunkRenderer {
     materials: HashMap<u16, BlockMaterial>,
     texture_atlas: Option<RgbaImage>,
@@ -188,6 +199,45 @@ impl ChunkRenderer {
         }
     }
 
+    fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<()> {
+    unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, chunk.vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
+            mesh.vertex_data.as_ptr() as *const _,
+            gl::STATIC_DRAW,
+        );
+
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.ebo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
+            mesh.index_data.as_ptr() as *const _,
+            gl::STATIC_DRAW,
+        );
+
+        // Set vertex attributes
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 18 * 4, std::ptr::null());
+        gl::EnableVertexAttribArray(0);
+        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 18 * 4, (3 * 4) as *const _);
+        gl::EnableVertexAttribArray(1);
+        gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, 18 * 4, (6 * 4) as *const _);
+        gl::EnableVertexAttribArray(2);
+        gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, 18 * 4, (9 * 4) as *const _);
+        gl::EnableVertexAttribArray(3);
+        gl::VertexAttribPointer(4, 2, gl::FLOAT, gl::FALSE, 18 * 4, (12 * 4) as *const _);
+        gl::EnableVertexAttribArray(4);
+        gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, 18 * 4, (14 * 4) as *const _);
+        gl::EnableVertexAttribArray(5);
+        gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, 18 * 4, (18 * 4) as *const _);
+        gl::EnableVertexAttribArray(6);
+
+        chunk.needs_upload = false;
+        Ok(())
+    }
+}
+
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
         match self.lod_level {
             0 => self.generate_greedy_mesh(chunk),
@@ -284,51 +334,7 @@ impl ChunkRenderer {
         }
     }
 
-    fn upload_chunk_data(&self, chunk: &mut Chunk) -> Result<()> {
-        unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, chunk.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
-                mesh.vertex_data.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
-                mesh.index_data.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            // Set vertex attributes
-            // Position
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 18 * 4, ptr::null());
-            gl::EnableVertexAttribArray(0);
-            // Normal
-            gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 18 * 4, (3 * 4) as *const _);
-            gl::EnableVertexAttribArray(1);
-            // Tangent
-            gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, 18 * 4, (6 * 4) as *const _);
-            gl::EnableVertexAttribArray(2);
-            // Bitangent
-            gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, 18 * 4, (9 * 4) as *const _);
-            gl::EnableVertexAttribArray(3);
-            // TexCoords
-            gl::VertexAttribPointer(4, 2, gl::FLOAT, gl::FALSE, 18 * 4, (12 * 4) as *const _);
-            gl::EnableVertexAttribArray(4);
-            // Albedo
-            gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, 18 * 4, (14 * 4) as *const _);
-            gl::EnableVertexAttribArray(5);
-            // PBR
-            gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, 18 * 4, (18 * 4) as *const _);
-            gl::EnableVertexAttribArray(6);
-
-            chunk.needs_upload = false;
-            Ok(())
-        }
-    }
+    
 }
 
 // Additional helper types and implementations
