@@ -237,31 +237,6 @@ struct QuadTree {
     bounds: AABB,
     depth: u8,
 }
-
-impl QuadTree {
-    fn new(size: u32) -> Self {
-        let half_size = size as f32 / 2.0;
-        Self {
-            nodes: [None, None, None, None],
-            chunks: Vec::new(),
-            bounds: AABB {
-                min: Vec3::new(-half_size, -256.0, -half_size),
-                max: Vec3::new(half_size, 256.0, half_size),
-            },
-            depth: 0,
-        }
-    }
-
-    fn insert(&mut self, coord: ChunkCoord) {
-        // Implementation of quad tree insertion
-    }
-
-    fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
-        // Implementation of frustum culling
-        Vec::new()
-    }
-}
-
 // ========================
 // Engine Implementation
 // ========================
@@ -641,12 +616,7 @@ struct ViewFrustum {
     planes: [Plane; 6],
 }
 
-impl ViewFrustum {
-    fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
-        // Implementation of frustum plane extraction
-        Self { planes: [Plane::default(); 6] }
-    }
-}
+
 
 #[derive(Default)]
 struct Plane {
@@ -659,10 +629,124 @@ struct AABB {
     max: Vec3,
 }
 
+impl QuadTree {
+    fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
+        let mut visible_chunks = Vec::new();
+        
+        // First check if this node is visible at all
+        if !self.bounds.intersects_frustum(frustum) {
+            return visible_chunks;
+        }
+
+        // Add all chunks in this node that are visible
+        for chunk in &self.chunks {
+            let chunk_aabb = AABB {
+                min: Vec3::new(
+                    chunk.x as f32 * 32.0,
+                    0.0,
+                    chunk.z as f32 * 32.0
+                ),
+                max: Vec3::new(
+                    (chunk.x + 1) as f32 * 32.0,
+                    256.0,
+                    (chunk.z + 1) as f32 * 32.0
+                ),
+            };
+            
+            if chunk_aabb.intersects_frustum(frustum) {
+                visible_chunks.push(*chunk);
+            }
+        }
+
+        // Recursively check child nodes
+        for node in &self.nodes {
+            if let Some(child) = node {
+                visible_chunks.extend(child.query(frustum));
+            }
+        }
+
+        visible_chunks
+    }
+}
+
+// Supporting AABB intersection implementation
 impl AABB {
     fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
-        // Implementation of frustum-AABB intersection test
+        for plane in &frustum.planes {
+            let mut min_point = Vec3::new(self.min.x, self.min.y, self.min.z);
+            let mut max_point = Vec3::new(self.max.x, self.max.y, self.max.z);
+            
+            if plane.normal.x > 0.0 {
+                min_point.x = self.max.x;
+                max_point.x = self.min.x;
+            }
+            if plane.normal.y > 0.0 {
+                min_point.y = self.max.y;
+                max_point.y = self.min.y;
+            }
+            if plane.normal.z > 0.0 {
+                min_point.z = self.max.z;
+                max_point.z = self.min.z;
+            }
+            
+            if plane.normal.dot(min_point) + plane.distance < 0.0 {
+                return false;
+            }
+        }
         true
+    }
+}
+
+// Supporting ViewFrustum plane extraction
+impl ViewFrustum {
+    fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
+        let vp = proj * view;
+        let mut planes = [Plane::default(); 6];
+        
+        // Left plane
+        planes[0].normal = Vec3::new(vp.x_axis[3] + vp.x_axis[0],
+                                    vp.y_axis[3] + vp.y_axis[0],
+                                    vp.z_axis[3] + vp.z_axis[0]);
+        planes[0].distance = vp.w_axis[3] + vp.w_axis[0];
+        
+        // Right plane
+        planes[1].normal = Vec3::new(vp.x_axis[3] - vp.x_axis[0],
+                                    vp.y_axis[3] - vp.y_axis[0],
+                                    vp.z_axis[3] - vp.z_axis[0]);
+        planes[1].distance = vp.w_axis[3] - vp.w_axis[0];
+        
+        // Bottom plane
+        planes[2].normal = Vec3::new(vp.x_axis[3] + vp.x_axis[1],
+                                    vp.y_axis[3] + vp.y_axis[1],
+                                    vp.z_axis[3] + vp.z_axis[1]);
+        planes[2].distance = vp.w_axis[3] + vp.w_axis[1];
+        
+        // Top plane
+        planes[3].normal = Vec3::new(vp.x_axis[3] - vp.x_axis[1],
+                                    vp.y_axis[3] - vp.y_axis[1],
+                                    vp.z_axis[3] - vp.z_axis[1]);
+        planes[3].distance = vp.w_axis[3] - vp.w_axis[1];
+        
+        // Near plane
+        planes[4].normal = Vec3::new(vp.x_axis[3] + vp.x_axis[2],
+                                    vp.y_axis[3] + vp.y_axis[2],
+                                    vp.z_axis[3] + vp.z_axis[2]);
+        planes[4].distance = vp.w_axis[3] + vp.w_axis[2];
+        
+        // Far plane
+        planes[5].normal = Vec3::new(vp.x_axis[3] - vp.x_axis[2],
+                                    vp.y_axis[3] - vp.y_axis[2],
+                                    vp.z_axis[3] - vp.z_axis[2]);
+        planes[5].distance = vp.w_axis[3] - vp.w_axis[2];
+        
+        // Normalize all planes
+        for plane in &mut planes {
+            let length = plane.normal.length();
+            plane.normal /= length;
+            plane.distance /= length;
+        }
+        
+        Self { planes }
     }
 }
 
