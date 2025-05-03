@@ -1,21 +1,21 @@
-// engine.rs - Complete Voxel Engine Core
-
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::collections::{HashMap, VecDeque, BTreeMap};
 use std::path::{Path, PathBuf};
 use std::time::{Instant, Duration};
-use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
-use crossbeam_channel::{bounded, Sender, Receiver, select};
+use std::f32::consts::PI;
+use parking_lot::{Mutex, RwLock};
+use crossbeam_channel::{bounded, Sender, Receiver};
 use rayon::{ThreadPool, ThreadPoolBuilder};
-use glam::{Vec3, Vec4, Mat4, IVec3, EulerRot};
-use image::{RgbaImage, ImageBuffer};
+use glam::{Vec3, Vec4, Mat4, IVec3, Vec3Swizzles};
+use serde::{Serialize, Deserialize};
 use anyhow::{Result, Context};
 use crate::{
-    player::Player,
-    chunk::{Chunk, ChunkCoord, SerializedChunk},
+    player::{Player, PlayerInput, PlayerState},
+    chunk::{Chunk, ChunkCoord, SerializedChunk, ChunkMesh},
     block::{BlockRegistry, BlockId},
-    renderer::{ChunkRenderer, RenderStats},
-    terrain::TerrainGenerator,
+    chunk_renderer::{ChunkRenderer, RenderStats},
+    terrain_generator::{TerrainGenerator, BiomeType},
+    shader::ShaderProgram,
 };
 
 // ========================
@@ -39,17 +39,21 @@ pub struct VoxelEngine {
     io_pool: Arc<ThreadPool>,
     load_queue: Sender<ChunkCoord>,
     unload_queue: Sender<ChunkCoord>,
+    load_receiver: Receiver<ChunkCoord>,
+    unload_receiver: Receiver<ChunkCoord>,
     
     // State
     running: Arc<AtomicBool>,
     frame_counter: Arc<Mutex<u64>>,
     last_tick: Instant,
+    last_save: Instant,
     
     // Configuration
     pub config: EngineConfig,
+    pub shader: Arc<ShaderProgram>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EngineConfig {
     pub world_seed: u64,
     pub render_distance: u32,
@@ -59,6 +63,9 @@ pub struct EngineConfig {
     pub max_chunk_pool_size: usize,
     pub vsync: bool,
     pub async_loading: bool,
+    pub fov: f32,
+    pub view_distance: f32,
+    pub save_interval: f32,
 }
 
 // ========================
@@ -69,6 +76,7 @@ struct ChunkPool {
     available: Mutex<VecDeque<Arc<Chunk>>>,
     in_use: Mutex<HashMap<ChunkCoord, Arc<Chunk>>>,
     template: Arc<Chunk>,
+    max_size: usize,
 }
 
 impl ChunkPool {
@@ -77,6 +85,7 @@ impl ChunkPool {
             available: Mutex::new(VecDeque::with_capacity(max_size)),
             in_use: Mutex::new(HashMap::with_capacity(max_size)),
             template: base_chunk,
+            max_size,
         }
     }
 
@@ -90,7 +99,7 @@ impl ChunkPool {
         }
 
         if in_use.len() + available.len() < self.max_size {
-            let new_chunk = Arc::new(Chunk::from_template(&self.template));
+            let new_chunk = Arc::new(Chunk::from_template(&self.template, coord));
             in_use.insert(coord, new_chunk.clone());
             Ok(new_chunk)
         } else {
@@ -103,6 +112,7 @@ impl ChunkPool {
         if let Some(chunk) = in_use.remove(&coord) {
             let mut available = self.available.lock();
             if available.len() < self.max_size {
+                chunk.reset(coord);
                 available.push_back(chunk);
             }
             Ok(())
@@ -113,9 +123,18 @@ impl ChunkPool {
 
     fn warmup(&self, count: usize) {
         let mut available = self.available.lock();
-        while available.len() < count {
-            available.push_back(Arc::new(Chunk::from_template(&self.template)));
+        while available.len() < count.min(self.max_size) {
+            available.push_back(Arc::new(Chunk::from_template(
+                &self.template,
+                ChunkCoord::new(0, 0, 0)
+            ));
         }
+    }
+
+    fn current_memory_usage(&self) -> usize {
+        let available = self.available.lock().len();
+        let in_use = self.in_use.lock().len();
+        (available + in_use) * std::mem::size_of::<Chunk>()
     }
 }
 
@@ -127,25 +146,88 @@ struct SpatialPartition {
     quadtree: QuadTree,
     lod_state: HashMap<ChunkCoord, u32>,
     spatial_index: BTreeMap<u64, ChunkCoord>,
+    last_player_pos: Vec3,
 }
 
 impl SpatialPartition {
+    fn new(config: &EngineConfig) -> Self {
+        Self {
+            quadtree: QuadTree::new(config.render_distance),
+            lod_state: HashMap::new(),
+            spatial_index: BTreeMap::new(),
+            last_player_pos: Vec3::ZERO,
+        }
+    }
+
     fn update(&mut self, player_pos: Vec3, view_frustum: &ViewFrustum, config: &EngineConfig) {
+        if player_pos.distance(self.last_player_pos) > config.chunk_size as f32 * 0.5 {
+            self.rebuild_quadtree(player_pos, config);
+            self.last_player_pos = player_pos;
+        }
+
         let visible = self.quadtree.query(view_frustum);
         self.update_lod(player_pos, &visible, config);
-        self.rebalance_tree();
+    }
+
+    fn rebuild_quadtree(&mut self, center: Vec3, config: &EngineConfig) {
+        self.quadtree = QuadTree::new(config.render_distance);
+        self.spatial_index.clear();
+        
+        let radius = config.render_distance as i32;
+        let center_chunk = ChunkCoord::from_world_pos(center, config.chunk_size);
+        
+        for x in -radius..=radius {
+            for z in -radius..=radius {
+                let coord = ChunkCoord {
+                    x: center_chunk.x + x,
+                    y: center_chunk.y,
+                    z: center_chunk.z + z,
+                };
+                let key = self.spatial_key(coord);
+                self.spatial_index.insert(key, coord);
+                self.quadtree.insert(coord);
+            }
+        }
     }
 
     fn update_lod(&mut self, center: Vec3, visible: &[ChunkCoord], config: &EngineConfig) {
         for coord in visible {
-            let distance = self.calculate_distance(center, coord);
+            let distance = self.calculate_distance(center, coord, config.chunk_size);
             let lod = self.calculate_lod_level(distance, config);
             self.lod_state.insert(*coord, lod);
         }
     }
 
-    fn rebalance_tree(&mut self) {
-        // Implementation of quad tree rebalancing
+    fn calculate_distance(&self, pos: Vec3, coord: &ChunkCoord, chunk_size: u32) -> f32 {
+        let chunk_center = coord.to_world_center(chunk_size);
+        pos.distance(chunk_center)
+    }
+
+    fn calculate_lod_level(&self, distance: f32, config: &EngineConfig) -> u32 {
+        if distance < config.view_distance * 0.3 {
+            0
+        } else if distance < config.view_distance * 0.6 {
+            1
+        } else {
+            2
+        }
+    }
+
+    fn spatial_key(&self, coord: ChunkCoord) -> u64 {
+        ((coord.x as u64) << 32) | (coord.z as u64)
+    }
+
+    fn get_visible_chunks(&self) -> Vec<ChunkCoord> {
+        self.spatial_index.values().cloned().collect()
+    }
+
+    fn get_loading_priority(&self, player_pos: Vec3, chunk_size: u32) -> Vec<ChunkCoord> {
+        let mut chunks: Vec<_> = self.spatial_index.values().cloned().collect();
+        chunks.sort_by_key(|c| {
+            let center = c.to_world_center(chunk_size);
+            (player_pos.distance(center) * 1000.0) as u32
+        });
+        chunks
     }
 }
 
@@ -156,6 +238,30 @@ struct QuadTree {
     depth: u8,
 }
 
+impl QuadTree {
+    fn new(size: u32) -> Self {
+        let half_size = size as f32 / 2.0;
+        Self {
+            nodes: [None, None, None, None],
+            chunks: Vec::new(),
+            bounds: AABB {
+                min: Vec3::new(-half_size, -256.0, -half_size),
+                max: Vec3::new(half_size, 256.0, half_size),
+            },
+            depth: 0,
+        }
+    }
+
+    fn insert(&mut self, coord: ChunkCoord) {
+        // Implementation of quad tree insertion
+    }
+
+    fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
+        // Implementation of frustum culling
+        Vec::new()
+    }
+}
+
 // ========================
 // Engine Implementation
 // ========================
@@ -164,7 +270,11 @@ impl VoxelEngine {
     pub fn new(config: EngineConfig) -> Result<Self> {
         // Initialize core systems
         let block_registry = Arc::new(BlockRegistry::initialize_default());
-        let terrain_generator = Arc::new(TerrainGenerator::new(config.world_seed));
+        let terrain_generator = Arc::new(TerrainGenerator::new(
+            config.world_seed as u32,
+            block_registry.clone()
+        ));
+        
         let chunk_renderer = Arc::new(ChunkRenderer::new(config.texture_atlas_size)?);
         let player = Arc::new(Mutex::new(Player::default()));
         
@@ -188,10 +298,16 @@ impl VoxelEngine {
         let (unload_send, unload_recv) = bounded(1024);
         
         // Initialize chunk systems
-        let base_chunk = Arc::new(Chunk::empty(config.chunk_size));
+        let base_chunk = Arc::new(Chunk::empty(config.chunk_size as usize));
         let chunk_pool = Arc::new(ChunkPool::new(base_chunk, config.max_chunk_pool_size));
-        let spatial_partition = Arc::new(Mutex::new(SpatialPartition::new()));
+        let spatial_partition = Arc::new(Mutex::new(SpatialPartition::new(&config)));
         
+        // Load shader
+        let shader = Arc::new(ShaderProgram::new(
+            "shaders/voxel.vert",
+            "shaders/voxel.frag"
+        )?);
+
         let engine = Self {
             block_registry,
             terrain_generator,
@@ -204,48 +320,62 @@ impl VoxelEngine {
             io_pool,
             load_queue: load_send,
             unload_queue: unload_send,
+            load_receiver: load_recv,
+            unload_receiver: unload_recv,
             running: Arc::new(AtomicBool::new(true)),
             frame_counter: Arc::new(Mutex::new(0)),
             last_tick: Instant::now(),
+            last_save: Instant::now(),
             config,
+            shader,
         };
         
         // Start worker threads
-        engine.start_workers(load_recv, unload_recv);
+        engine.start_workers();
         Ok(engine)
     }
 
-    fn start_workers(&self, load_recv: Receiver<ChunkCoord>, unload_recv: Receiver<ChunkCoord>) {
-        // Chunk generation worker
+    fn start_workers(&self) {
+        let running = self.running.clone();
         let terrain = self.terrain_generator.clone();
-        let pool = self.generation_pool.clone();
-        let active = self.active_chunks.clone();
-        
-        pool.spawn(move || {
-            for coord in load_recv.iter() {
-                let chunk = match terrain.generate_chunk(coord) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::error!("Failed to generate chunk: {}", e);
-                        continue;
+        let active_chunks = self.active_chunks.clone();
+        let chunk_pool = self.chunk_pool.clone();
+        let load_recv = self.load_receiver.clone();
+
+        // Generation worker
+        self.generation_pool.spawn(move || {
+            while running.load(Ordering::SeqCst) {
+                if let Ok(coord) = load_recv.recv_timeout(Duration::from_millis(100)) {
+                    match chunk_pool.acquire(coord) {
+                        Ok(chunk) => {
+                            if let Err(e) = terrain.generate_into_chunk(&chunk) {
+                                log::error!("Failed to generate chunk: {}", e);
+                            } else {
+                                active_chunks.write().insert(coord, chunk);
+                            }
+                        }
+                        Err(e) => log::error!("Failed to acquire chunk: {}", e),
                     }
-                };
-                
-                let mut active = active.write();
-                active.insert(coord, Arc::new(chunk));
+                }
             }
         });
         
-        // Chunk saving worker
-        let io_pool = self.io_pool.clone();
-        let active = self.active_chunks.clone();
-        
-        io_pool.spawn(move || {
-            for coord in unload_recv.iter() {
-                let mut active = active.write();
-                if let Some(chunk) = active.remove(&coord) {
-                    if let Err(e) = Self::save_chunk(coord, &chunk) {
-                        log::error!("Failed to save chunk: {}", e);
+        // Saving worker
+        let running = self.running.clone();
+        let active_chunks = self.active_chunks.clone();
+        let chunk_pool = self.chunk_pool.clone();
+        let unload_recv = self.unload_receiver.clone();
+
+        self.io_pool.spawn(move || {
+            while running.load(Ordering::SeqCst) {
+                if let Ok(coord) = unload_recv.recv_timeout(Duration::from_millis(100)) {
+                    if let Some(chunk) = active_chunks.write().remove(&coord) {
+                        if let Err(e) = Self::save_chunk(coord, &chunk) {
+                            log::error!("Failed to save chunk: {}", e);
+                        }
+                        if let Err(e) = chunk_pool.release(coord) {
+                            log::error!("Failed to release chunk: {}", e);
+                        }
                     }
                 }
             }
@@ -258,12 +388,11 @@ impl VoxelEngine {
         while self.running.load(Ordering::SeqCst) {
             let frame_start = Instant::now();
             
-            // Update systems
             self.handle_input()?;
             self.update_world()?;
             self.render_frame()?;
+            self.auto_save()?;
             
-            // Maintain target frame rate
             let elapsed = frame_start.elapsed();
             if elapsed < target_frame_time {
                 std::thread::sleep(target_frame_time - elapsed);
@@ -306,11 +435,13 @@ impl VoxelEngine {
     fn stream_chunks(&self, player_pos: Vec3) -> Result<()> {
         let spatial = self.spatial_partition.lock();
         let visible = spatial.get_visible_chunks();
-        let priority_list = spatial.get_loading_priority();
+        let priority_list = spatial.get_loading_priority(player_pos, self.config.chunk_size);
         
         // Request loading of high-priority chunks
         for coord in priority_list.iter().take(16) {
-            self.load_queue.send(*coord)?;
+            if let Err(e) = self.load_queue.send(*coord) {
+                log::error!("Failed to queue chunk load: {}", e);
+            }
         }
         
         // Unload distant chunks
@@ -322,7 +453,9 @@ impl VoxelEngine {
         
         for coord in to_unload {
             active.remove(&coord);
-            self.unload_queue.send(coord)?;
+            if let Err(e) = self.unload_queue.send(coord) {
+                log::error!("Failed to queue chunk unload: {}", e);
+            }
         }
         
         Ok(())
@@ -344,8 +477,15 @@ impl VoxelEngine {
             .collect();
         
         // Prepare render batch
-        self.chunk_renderer.begin_frame(view_matrix, proj_matrix);
-        self.chunk_renderer.render_batch(chunks_to_render);
+        self.chunk_renderer.begin_frame(&view_matrix, &proj_matrix);
+        for chunk in chunks_to_render {
+            self.chunk_renderer.render_chunk(
+                chunk,
+                &self.shader,
+                &view_matrix,
+                &proj_matrix
+            )?;
+        }
         
         if self.config.debug_mode {
             self.render_debug_info();
@@ -355,36 +495,59 @@ impl VoxelEngine {
         Ok(())
     }
 
+    fn auto_save(&mut self) -> Result<()> {
+        if self.last_save.elapsed().as_secs_f32() > self.config.save_interval {
+            self.save_world(Path::new("worlds/current"))?;
+            self.last_save = Instant::now();
+        }
+        Ok(())
+    }
+
+    // ========================
+    // Physics System
+    // ========================
+
+    fn update_physics(&self, delta_time: f32) -> Result<()> {
+        let mut player = self.player.lock();
+        let input = PlayerInput::default(); // Should come from input system
+        
+        player.update(
+            delta_time,
+            &*self.terrain_generator,
+            &input
+        );
+        
+        Ok(())
+    }
+
     // ========================
     // Utility Methods
     // ========================
     
     fn calculate_view_frustum(&self) -> ViewFrustum {
         let player = self.player.lock();
-        player.get_view_frustum()
+        let view_matrix = player.get_view_matrix();
+        let proj_matrix = self.calculate_projection_matrix();
+        ViewFrustum::from_matrices(&view_matrix, &proj_matrix)
     }
     
     fn calculate_projection_matrix(&self) -> Mat4 {
-        // Implementation based on window size and FOV
         Mat4::perspective_rh(
-            45.0f32.to_radians(),
+            self.config.fov.to_radians(),
             self.window_aspect_ratio(),
             0.1,
-            1000.0
+            self.config.view_distance
         )
     }
     
     fn window_aspect_ratio(&self) -> f32 {
-        // Implementation based on window manager
-        16.0 / 9.0
+        16.0 / 9.0 // Should come from window system
     }
-}
 
-// ========================
-// Serialization
-// ========================
+    // ========================
+    // Serialization
+    // ========================
 
-impl VoxelEngine {
     pub fn save_world(&self, path: &Path) -> Result<()> {
         let active = self.active_chunks.read();
         let chunks: Vec<_> = active.iter()
@@ -412,15 +575,22 @@ impl VoxelEngine {
             active.insert(coord, Arc::new(loaded));
         }
         
+        self.player.lock().load_state(world_data.player_state);
         Ok(())
     }
-}
 
-// ========================
-// Debug & Metrics
-// ========================
+    fn save_chunk(coord: ChunkCoord, chunk: &Chunk) -> Result<()> {
+        if chunk.modified {
+            let serialized = SerializedChunk::from_chunk(coord, chunk);
+            serialized.save(&coord.file_path())?;
+        }
+        Ok(())
+    }
 
-impl VoxelEngine {
+    // ========================
+    // Debug & Metrics
+    // ========================
+
     pub fn get_stats(&self) -> EngineStats {
         let active = self.active_chunks.read();
         let render_stats = self.chunk_renderer.get_stats();
@@ -430,7 +600,10 @@ impl VoxelEngine {
             active_chunks: active.len(),
             render_stats,
             memory_usage: self.chunk_pool.current_memory_usage(),
-            thread_stats: self.get_thread_stats(),
+            thread_stats: ThreadPoolStats {
+                active_threads: self.generation_pool.current_num_threads(),
+                queued_tasks: self.load_receiver.len(),
+            },
         }
     }
 
@@ -445,35 +618,6 @@ impl VoxelEngine {
 }
 
 // ========================
-// Input Handling
-// ========================
-
-impl VoxelEngine {
-    fn handle_input(&mut self) -> Result<()> {
-        // Implementation would interface with window system
-        // Handle keyboard/mouse events
-        Ok(())
-    }
-}
-
-// ========================
-// Physics System
-// ========================
-
-impl VoxelEngine {
-    fn update_physics(&self, delta_time: f32) -> Result<()> {
-        let mut player = self.player.lock();
-        player.update_physics(
-            delta_time,
-            &*self.terrain_generator,
-            &self.active_chunks.read()
-        );
-        
-        Ok(())
-    }
-}
-
-// ========================
 // Supporting Types
 // ========================
 
@@ -484,6 +628,7 @@ struct WorldSave {
     player_state: PlayerState,
 }
 
+#[derive(Default)]
 struct EngineStats {
     frame_count: u64,
     active_chunks: usize,
@@ -496,29 +641,37 @@ struct ViewFrustum {
     planes: [Plane; 6],
 }
 
-struct AABB {
-    min: Vec3,
-    max: Vec3,
+impl ViewFrustum {
+    fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
+        // Implementation of frustum plane extraction
+        Self { planes: [Plane::default(); 6] }
+    }
 }
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct PlayerState {
-    pub position: Vec3,
-    pub rotation: Vec2,
-    pub health: f32,
-    pub inventory: Vec<BlockId>,
-}
-
-struct ThreadPoolStats {
-    active_threads: usize,
-    queued_tasks: usize,
-}
-
+#[derive(Default)]
 struct Plane {
     normal: Vec3,
     distance: f32,
 }
 
-struct ViewFrustum {
-    planes: [Plane; 6],
+struct AABB {
+    min: Vec3,
+    max: Vec3,
 }
+
+impl AABB {
+    fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
+        // Implementation of frustum-AABB intersection test
+        true
+    }
+}
+
+// Implement Drop for proper cleanup
+impl Drop for VoxelEngine {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::SeqCst);
+        if let Err(e) = self.save_world(Path::new("worlds/current")) {
+            log::error!("Failed to save world on shutdown: {}", e);
+        }
+    }
+    }
