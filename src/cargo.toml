@@ -1,0 +1,38 @@
+[package]
+name = "ourvoxelworld"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Core engine
+glam = { version = "0.24", features = ["scalar-math"] }
+noise = { version = "0.8", features = ["simd"] }  # For terrain generation
+parking_lot = "0.12"  # Mutex/RwLock utilities
+
+# Graphics
+wgpu = { version = "0.16", features = ["spirv"] }
+bytemuck = { version = "1.14", features = ["derive"] }
+image = "0.24"  # Texture loading
+
+# UI (matches yours)
+eframe = "0.22"
+egui = "0.22"
+winit = "0.29"
+
+# Utility
+env_logger = "0.10"
+thiserror = "1.0"  # Better error handling
+serde = { version = "1.0", features = ["derive"] }  # For save files
+rayon = "1.7"  # Parallel processing
+
+# Windows-specific (matches yours)
+winapi = { version = "0.3", features = ["winuser", "windef", "libloaderapi"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+dx12 = { version = "0.5", optional = true }  # Optional DX12 backend
+
+[features]
+default = ["wgpu/glsl"]  # Default to GLSL shaders
+vulkan = ["wgpu/vulkan"]  # Alternate graphics backend
+metal = ["wgpu/metal"]    # macOS support
+dx12 = ["wgpu/dx12"]      # Windows DX12
