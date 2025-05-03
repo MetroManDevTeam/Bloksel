@@ -227,40 +227,21 @@ impl Player {
         }
     }
 
+
+    
+        
     fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
-        if !self.collision_enabled || self.state == PlayerState::Spectator {
-            return false;
-        }
-
-        let min = position - self.size * 0.5;
-        let max = position + self.size * 0.5;
-
-        for x in (min.x.floor() as i32)..=(max.x.ceil() as i32) {
-            for y in (min.y.floor() as i32)..=(max.y.ceil() as i32) {
-                for z in (min.z.floor() as i32)..=(max.z.ceil() as i32) {
-                    let chunk_coord = ChunkCoord {
-                        x: x.div_euclid(self.chunk_size),
-                        y: y.div_euclid(self.chunk_size),
-                        z: z.div_euclid(self.chunk_size),
-                    };
-
-                    let local_x = x.rem_euclid(self.chunk_size) as usize;
-                    let local_y = y.rem_euclid(self.chunk_size) as usize;
-                    let local_z = z.rem_euclid(self.chunk_size) as usize;
-
-                    if let Some(chunk) = terrain.get_chunk(chunk_coord) {
-                        let chunk = chunk.read();
-                        if let Some(block) = &chunk.blocks[local_x][local_y][local_z] {
-                            if block.physics == BlockPhysics::Steady {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
+        let chunk_coord = ChunkCoord::from_world(position);
+        if let Some(chunk) = terrain.get_chunk(chunk_coord) {
+            let local_pos = position - chunk_coord.to_world();
+            // Perform the actual collision check using the chunk data
+            return chunk.read().is_solid_at(local_pos);
         }
         false
     }
+
+        
+    
 
     fn update_safe_position(&mut self) {
         if self.on_ground && self.velocity.length() < 0.1 {
