@@ -7,6 +7,7 @@ use serde::{Serialize, Deserialize};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
+use crate::block::{Block, BlockId};  
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorldConfig {
@@ -74,7 +75,7 @@ impl ChunkManager {
                     if let Some(block) = &chunk.blocks[x][y][z] {
                         let mut sub_blocks = Vec::new();
 
-                        for ((sx, sy, sz), sub) in &block.grid {
+                        for ((sx, sy, sz), sub) in &block.sub_blocks  {
                             if sub.id != 0 {
                                 sub_blocks.push(CompressedSubBlock {
                                     local_pos: (*sx, *sy, *sz),
@@ -87,7 +88,7 @@ impl ChunkManager {
 
                         compressed.push(CompressedBlock {
                             position: (x, y, z),
-                            id: block.id,
+                            id: block.get_primary_id(),
                             sub_blocks,
                         });
                     }
@@ -109,14 +110,17 @@ impl ChunkManager {
 
     pub fn generate_chunk(&self, coord: ChunkCoord, seed: u32) -> Chunk {
         let generator = TerrainGenerator::new(
-            seed,
-            self.world_config.chunk_size,
-            self.world_config.sub_resolution,
-        );
+    seed,
+    self.block_registry.clone()  // Pass Arc<BlockRegistry>
+);
 
-        let mut chunk = Chunk::new(self.world_config.chunk_size, self.world_config.sub_resolution);
+        let mut chunk = Chunk::new(
+    self.world_config.chunk_size,
+    self.world_config.sub_resolution,
+    coord // Add the ChunkCoord from context
+);
 
-        generator.generate_into_chunk(&mut chunk, coord);
+        generator.generate_chunk(&mut chunk, coord);
 
         // Future hook for real topographic data:
         // if let Some(topographic_data) = load_dem_for_coord(coord) {
@@ -179,6 +183,7 @@ impl ChunkManager {
             let mut chunk = Chunk::new(
                 self.world_config.chunk_size,
                 self.world_config.sub_resolution,
+                coord
             );
 
             for compressed in serialized.blocks {

@@ -4,7 +4,7 @@ use winit::event::{ElementState, VirtualKeyCode, MouseScrollDelta};
 use crate::terrain_generator::{ChunkCoord, BlockData, Chunk, TerrainGenerator};
 use crate::block::BlockPhysics;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum PlayerState {
     Normal,
     Flying,

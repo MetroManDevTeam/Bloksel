@@ -156,14 +156,11 @@ impl ShaderProgram {
         Ok(())
     }
 
-    pub fn set_uniform_vec4(&mut self, name: &str, value: &[f32; 4]) -> Result<(), ShaderError> {
-           // Assuming you have a method to get the uniform location
-           let location = self.get_uniform_location(name)?;
-           unsafe {
-               gl::Uniform4f(location, value[0], value[1], value[2], value[3]);
-           }
-           Ok(())
-       }
+    pub fn set_uniform_vec4(&mut self, name: &str, value: &[f32; 4]) -> Result<()> {
+    let loc = self.get_uniform_location(name)?;
+    unsafe { gl::Uniform4f(loc, value[0], value[1], value[2], value[3]) };
+    Ok(())
+}
 
     pub fn set_uniform_mat4(&mut self, name: &str, value: &[f32; 16]) -> Result<(), ShaderError> {
         let loc = self.get_uniform_location(name)?;

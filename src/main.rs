@@ -3,9 +3,9 @@ use anyhow::Result;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    event_loop::EventLoop,
+    window::{Window, WindowBuilder}, // Correct WindowBuilder path
+    event::{ElementState, MouseScrollDelta, VirtualKeyCode} // VirtualKeyCode exists in 0.28
 };
 
 mod engine;

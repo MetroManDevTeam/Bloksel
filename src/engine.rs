@@ -762,3 +762,8 @@ impl Drop for VoxelEngine {
         }
     }
     }
+
+    struct ThreadPoolStats {
+    active_threads: usize,
+    queued_tasks: usize,
+}

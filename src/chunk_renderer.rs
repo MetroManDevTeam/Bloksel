@@ -262,10 +262,80 @@ impl ChunkRenderer {
             .unwrap_or(&[Vec2::ZERO; 4]);
 
         let (vertices, normals, tangents, bitangents) = match face {
-            0 => (/* West face vertices */), // Implementation details
-            // ... other faces
-             _ => panic!("Invalid face direction"),
-        };
+    // West face
+    0 => (
+        [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 1.0, 1.0),
+            Vec3::new(0.0, 0.0, 1.0)
+        ],
+        [Vec3::NEG_X; 4],
+        [Vec3::NEG_Z; 4],
+        [Vec3::NEG_Y; 4]
+    ),
+    // East face
+    1 => (
+        [
+            Vec3::new(1.0, 0.0, 1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(1.0, 1.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0)
+        ],
+        [Vec3::X; 4],
+        [Vec3::Z; 4],
+        [Vec3::Y; 4]
+    ),
+    // Bottom face
+    2 => (
+        [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 1.0),
+            Vec3::new(0.0, 0.0, 1.0)
+        ],
+        [Vec3::NEG_Y; 4],
+        [Vec3::X; 4],
+        [Vec3::Z; 4]
+    ),
+    // Top face
+    3 => (
+        [
+            Vec3::new(0.0, 1.0, 1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(1.0, 1.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0)
+        ],
+        [Vec3::Y; 4],
+        [Vec3::X; 4],
+        [Vec3::NEG_Z; 4]
+    ),
+    // North face
+    4 => (
+        [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0)
+        ],
+        [Vec3::NEG_Z; 4],
+        [Vec3::X; 4],
+        [Vec3::Y; 4]
+    ),
+    // South face
+    5 => (
+        [
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(0.0, 1.0, 1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(1.0, 0.0, 1.0)
+        ],
+        [Vec3::Z; 4],
+        [Vec3::X; 4],
+        [Vec3::Y; 4]
+    ),
+    _ => panic!("Invalid face direction")
+};
 
         for i in 0..4 {
             mesh.vertex_data.extend_from_slice(&[
@@ -280,8 +350,12 @@ impl ChunkRenderer {
                 // Texture coordinates
                 tex_coords[i].x, tex_coords[i].y,
                 // Material properties
-                material.albedo.x, material.albedo.y, material.albedo.z, material.albedo.w,
-                material.roughness, material.metallic,
+                material.albedo[0], // Red component
+                material.albedo[1], // Green component
+                material.albedo[2], // Blue component
+                material.albedo[3], // Alpha component
+                material.roughness,
+                material.metallic,  
             ]);
         }
 
@@ -326,19 +400,6 @@ impl ChunkRenderer {
     }
 
     
-}
-
-// Additional helper types and implementations
-#[derive(Default)]
-pub struct BlockMaterial {
-    pub id: u16,
-    pub name: String,
-    pub albedo: Vec4,
-    pub roughness: f32,
-    pub metallic: f32,
-    pub emissive: Vec3,
-    pub texture_path: Option<String>,
-    pub normal_map_path: Option<String>,
 }
 
 #[derive(Debug)]

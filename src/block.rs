@@ -10,19 +10,22 @@ use bitflags::bitflags;
 // Core Type Definitions
 // ========================
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)] // Add Serialize/Deserialize
+// In block.rs add Default implementations
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BlockFacing {
+    #[default]
+    None,
     North,
     South,
     East,
     West,
     Up,
     Down,
-    None,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)] // Add Serialize/Deserialize
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum BlockOrientation {
+    #[default]
     Wall,
     Floor,
     Ceiling,
@@ -32,7 +35,7 @@ pub enum BlockOrientation {
 }
 
 bitflags! {
-    #[derive(Serialize, Deserialize, Clone, Copy)] // Add Serialize/Deserialize
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct ConnectedDirections: u8 {
         const NORTH = 0b00000001;
         const SOUTH = 0b00000010;
@@ -64,7 +67,7 @@ pub enum BlockCategory {
 pub struct BlockMaterial {
     pub id: u16,
     pub name: String,
-    pub albedo: [f32; 4],
+    pub albedo: Vec4,
     pub roughness: f32,
     pub metallic: f32,
     pub emissive: [f32; 3],
@@ -503,7 +506,6 @@ impl BlockMaterial {
     }
 }
 
-#[derive(Clone)]
 impl Block {
     pub fn get_primary_id(&self) -> BlockId {
         self.sub_blocks.values().next().map(|sb| sb.id).unwrap_or_else(|| BlockId::new(0))
@@ -515,10 +517,11 @@ impl Block {
         color_id: 0
     };
 
-    pub fn new(id: BlockId, resolution: u8) -> Self {
+        pub fn new(id: BlockId, resolution: u8) -> Self {
         Self {
             sub_blocks: HashMap::new(),
             resolution,
+            current_connections: ConnectedDirections::empty()
         }
     }
 
@@ -531,17 +534,14 @@ impl Block {
         let mut material = registry.get_material(primary).unwrap_or_default();
         
         if let Some(def) = registry.get(primary) {
-            // Apply regular variant modifiers if exists
             if let Some(variant) = registry.get_variant(primary) {
                 material.apply_modifiers(&variant.material_modifiers);
             }
             
-            // Apply color tint if exists
             if primary.is_colored() {
                 if let Some(color_variant) = registry.get_color_variant(primary) {
                     material.apply_tint(color_variant.color, &def.tint_settings);
                     
-                    // Apply color-specific material modifiers
                     material.apply_modifiers(&color_variant.material_modifiers);
                 }
             }
@@ -551,7 +551,6 @@ impl Block {
     }
 }
 
-#[derive(Clone)]
 impl SubBlock {
     pub fn new(id: BlockId) -> Self {
         Self {
@@ -559,14 +558,172 @@ impl SubBlock {
             metadata: 0,
             facing: BlockFacing::None,
             orientation: BlockOrientation::Wall,
-             current_connections: ConnectedDirections::empty(),
+            connections: ConnectedDirections::empty(),
         }
+    }
+
+    pub fn update_connections(&mut self, directions: ConnectedDirections) {
+        self.connections = directions;
+    }
+
+    pub fn has_connection(&self, direction: ConnectedDirections) -> bool {
+        self.connections.contains(direction)
+    }
+
+    pub fn set_facing(&mut self, facing: BlockFacing) {
+        self.facing = facing;
+    }
+
+    pub fn set_orientation(&mut self, orientation: BlockOrientation) {
+        self.orientation = orientation;
     }
 }
 
 // ========================
 // Block Registry
 // ========================
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockPhysics {
+    pub density: f32,
+    pub friction: f32,
+    pub restitution: f32,
+    pub dynamic: bool,
+    pub passable: bool,
+    pub break_resistance: f32,
+    pub flammability: f32,
+    pub thermal_conductivity: f32,
+    pub emissive: bool,
+    pub light_level: u8,
+}
+
+impl Default for BlockPhysics {
+    fn default() -> Self {
+        Self {
+            density: 1000.0, // Water density as default
+            friction: 0.6,
+            restitution: 0.0,
+            dynamic: false,
+            passable: false,
+            break_resistance: 1.0,
+            flammability: 0.0,
+            thermal_conductivity: 0.5,
+            emissive: false,
+            light_level: 0,
+        }
+    }
+}
+
+impl BlockPhysics {
+    pub fn solid(density: f32) -> Self {
+        Self {
+            density,
+            friction: 0.6,
+            restitution: 0.1,
+            dynamic: false,
+            passable: false,
+            ..Default::default()
+        }
+    }
+
+    pub fn liquid(density: f32) -> Self {
+        Self {
+            density,
+            friction: 0.0,
+            restitution: 0.0,
+            dynamic: true,
+            passable: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn gas() -> Self {
+        Self {
+            density: 1.2, // Air density
+            friction: 0.0,
+            restitution: 0.0,
+            dynamic: true,
+            passable: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn mass(&self, volume: f32) -> f32 {
+        self.density * volume
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockPhysics {
+    pub density: f32,
+    pub friction: f32,
+    pub restitution: f32,
+    pub dynamic: bool,
+    pub passable: bool,
+    pub break_resistance: f32,
+    pub flammability: f32,
+    pub thermal_conductivity: f32,
+    pub emissive: bool,
+    pub light_level: u8,
+}
+
+impl Default for BlockPhysics {
+    fn default() -> Self {
+        Self {
+            density: 1000.0, 
+            friction: 0.6,
+            restitution: 0.0,
+            dynamic: false,
+            passable: false,
+            break_resistance: 1.0,
+            flammability: 0.0,
+            thermal_conductivity: 0.5,
+            emissive: false,
+            light_level: 0,
+        }
+    }
+}
+
+impl BlockPhysics {
+    pub fn solid(density: f32) -> Self {
+        Self {
+            density,
+            friction: 0.6,
+            restitution: 0.1,
+            dynamic: false,
+            passable: false,
+            ..Default::default()
+        }
+    }
+
+    pub fn liquid(density: f32) -> Self {
+        Self {
+            density,
+            friction: 0.0,
+            restitution: 0.0,
+            dynamic: true,
+            passable: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn gas() -> Self {
+        Self {
+            density: 1.2, // Air density
+            friction: 0.0,
+            restitution: 0.0,
+            dynamic: true,
+            passable: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn mass(&self, volume: f32) -> f32 {
+        self.density * volume
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct BlockRegistry {
@@ -586,13 +743,14 @@ impl BlockRegistry {
         }
     }
 
+    include!("blocks_data.rs");
+
     pub fn initialize_default() -> Self {
         let mut registry = Self::new();
 
         // Include the generated block data
-        let blocks_data = include!("blocks_data.rs");
-        for def in blocks_data {
-            registry.add_block(def);
+        for def in BLOCKS {
+            registry.add_block(def.clone());
         }
 
         registry

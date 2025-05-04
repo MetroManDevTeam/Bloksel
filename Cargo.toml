@@ -8,6 +8,7 @@ edition = "2024"
 anyhow = "1.0.98"
 bincode = "2.0.1"
 bitflag = "0.10.1"
+bitflags = { version = "2.0", features = ["serde"] }
 crossbeam-channel = "0.5.15"
 gl = "0.14.0"
 glam = "0.30.3"

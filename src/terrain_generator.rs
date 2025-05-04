@@ -28,7 +28,7 @@ pub enum BiomeType {
 
 pub struct Chunk {
     pub blocks: Vec<Vec<Vec<Option<Block>>>>,
-    pub sub_resolution: usize,  // Add this line
+    pub sub_resolution: usize, 
     pub coord: ChunkCoord,
     pub chunk_size: usize,
     pub mesh: ChunkMesh,
@@ -45,6 +45,19 @@ pub struct ChunkMesh {
     pub needs_upload: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ChunkCoord {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+impl ChunkCoord {
+    pub fn new(x: i32, y: i32, z: i32) -> Self {
+        Self { x, y, z }
+    }
+}
+
 impl ChunkMesh {
     pub fn new() -> Self {
         Self {
@@ -59,11 +72,10 @@ impl ChunkMesh {
     }
 }
 
-// In terrain_generator.rs
 impl Chunk {
         
     pub fn transform_matrix(&self) -> glam::Mat4 {
-        let chunk_size = self.blocks.len() as f32; // Or use stored chunk size
+        let chunk_size = self.blocks.len() as f32;
         glam::Mat4::from_translation(glam::Vec3::new(
             self.coord.x as f32 * chunk_size,
             self.coord.y as f32 * chunk_size,
@@ -73,16 +85,15 @@ impl Chunk {
 
       pub fn new(size: usize, sub_resolution: usize, coord: ChunkCoord) -> Self {
         Chunk {
-            blocks: vec![vec![vec![None; size]; size]],  // 3D array of Option<Block>
-            sub_resolution,  // Store sub-voxel resolution
-            coord,           // Chunk coordinate position
+            blocks: vec![vec![vec![None; size]; size]],
+            sub_resolution,
+            coord,         
             chunk_size: size,
-            mesh: ChunkMesh::new(),  // Initialize empty mesh
+            mesh: ChunkMesh::new(),  
         }
     }
 
       pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Option<Block>) {
-        // Ensure coordinates are within chunk bounds
         if x < self.blocks.len() 
             && y < self.blocks[0].len() 
             && z < self.blocks[0][0].len() 
@@ -94,6 +105,82 @@ impl Chunk {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockData {
+    pub id: BlockId,
+    pub grid: HashMap<(u8, u8, u8), SubBlock>,
+    pub physics: BlockPhysics,
+    pub integrity: f32,
+    pub orientation: Orientation,
+    pub metadata: u32,
+    pub temperature: f32,
+    pub custom_data: Option<Vec<u8>>,
+}
+
+impl Default for BlockData {
+    fn default() -> Self {
+        Self {
+            id: BlockId::AIR,
+            grid: HashMap::new(),
+            physics: BlockPhysics::default(),
+            integrity: 1.0,
+            orientation: Orientation::default(),
+            metadata: 0,
+            temperature: 293.15, 
+            custom_data: None,
+        }
+    }
+}
+
+impl BlockData {
+    pub fn new(id: BlockId) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
+    }
+
+    pub fn with_physics(id: BlockId, physics: BlockPhysics) -> Self {
+        Self {
+            id,
+            physics,
+            ..Default::default()
+        }
+    }
+
+    pub fn is_air(&self) -> bool {
+        self.id == BlockId::AIR
+    }
+
+    pub fn is_solid(&self) -> bool {
+        !self.physics.passable
+    }
+
+    pub fn is_liquid(&self) -> bool {
+        self.physics.passable && self.physics.dynamic
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        !self.is_air() && !self.is_liquid()
+    }
+
+    pub fn light_level(&self) -> u8 {
+        self.physics.light_level
+    }
+
+    pub fn rotate(&mut self, new_orientation: Orientation) {
+        self.orientation = new_orientation;
+    }
+
+    pub fn damage(&mut self, amount: f32) {
+        self.integrity = (self.integrity - amount).max(0.0);
+    }
+
+    pub fn heal(&mut self, amount: f32) {
+        self.integrity = (self.integrity + amount).min(1.0);
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TerrainConfig {
     pub seed: u32,
@@ -101,6 +188,56 @@ pub struct TerrainConfig {
     pub terrain_amplitude: f64,
     pub cave_threshold: f64,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Orientation {
+    North,
+    South,
+    East,
+    West,
+    Up,
+    Down,
+    Custom(f32, f32, f32, f32),
+    None,
+}
+
+impl Default for Orientation {
+    fn default() -> Self {
+        Orientation::North
+    }
+}
+
+impl Orientation {
+    pub fn to_matrix(&self) -> glam::Mat4 {
+        match self {
+            Orientation::North => glam::Mat4::IDENTITY,
+            Orientation::South => glam::Mat4::from_rotation_y(std::f32::consts::PI),
+            Orientation::East => glam::Mat4::from_rotation_y(std::f32::consts::FRAC_PI_2),
+            Orientation::West => glam::Mat4::from_rotation_y(-std::f32::consts::FRAC_PI_2),
+            Orientation::Up => glam::Mat4::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            Orientation::Down => glam::Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2),
+            Orientation::Custom(x, y, z, w) => glam::Mat4::from_quat(glam::Quat::from_xyzw(*x, *y, *z, *w)),
+            Orientation::None => glam::Mat4::IDENTITY,
+        }
+    }
+
+    pub fn facing(&self) -> glam::Vec3 {
+        match self {
+            Orientation::North => glam::Vec3::NEG_Z,
+            Orientation::South => glam::Vec3::Z,
+            Orientation::East => glam::Vec3::X,
+            Orientation::West => glam::Vec3::NEG_X,
+            Orientation::Up => glam::Vec3::Y,
+            Orientation::Down => glam::Vec3::NEG_Y,
+            Orientation::Custom(x, y, z, w) => {
+                let quat = glam::Quat::from_xyzw(*x, *y, *z, *w);
+                quat.mul_vec3(glam::Vec3::NEG_Z)
+            }
+            Orientation::None => glam::Vec3::ZERO,
+        }
+    }
+}
+
 
 pub struct TerrainGenerator {
     config: TerrainConfig,
@@ -133,6 +270,21 @@ impl TerrainGenerator {
         generator
     }
 
+   fn create_noise_layer(
+        &self,
+        seed_offset: u32,
+        frequency: f64,
+        persistence: f64,
+        octaves: usize
+    ) -> Perlin {
+        let mut perlin = Perlin::new();
+        perlin.seed = self.config.seed + seed_offset;
+        perlin.frequency = frequency;
+        perlin.persistence = persistence;
+        perlin.octaves = octaves;
+        perlin
+    }
+
 
 
     fn initialize_noise_layers(&self) {
@@ -157,14 +309,12 @@ impl TerrainGenerator {
         frequency: f64,
         persistence: f64,
         octaves: usize
-    ) -> noise::Perlin {
-         Perlin::new(/* u32 */)       
-            .set_seed(self.config.seed.wrapping_add(seed_offset) as u32)
-            .with_frequency(frequency)
-            .with_persistence(persistence)
-            .with_octaves(octaves)
-            .with_lacunarity(2.0)  // Important for terrain variation
-    }
+    ) -> let perlin = Perlin::new()
+    .set_seed(seed)
+    .set_frequency(frequency)
+    .set_persistence(persistence)
+    .set_lacunarity(lacunarity)
+    .set_octaves(octaves);
 
         fn biome_height_modifier(&self, biome: BiomeType) -> f64 {
         match biome {

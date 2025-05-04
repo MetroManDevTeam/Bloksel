@@ -110,7 +110,11 @@ impl WorldEngine {
     // Chunk generation with LOD
     fn generate_chunk(coord: ChunkCoord) -> Arc<Chunk> {
         let lod_level = Self::determine_lod_level(coord);
-        let mut chunk = Chunk::new(32); // 32x32x32 default
+        let mut chunk = Chunk::new(
+    self.world_config.chunk_size,
+    self.world_config.sub_resolution,
+    coord  // Add this parameter
+);
         
         // Parallel terrain generation
         rayon::scope(|s| {
