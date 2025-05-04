@@ -108,10 +108,10 @@ impl ShaderProgram {
     /// Sets up block material properties including variants
     
     pub fn set_block_material(&mut self, material: &BlockMaterial) -> Result<(), ShaderError> {
-        self.set_uniform_vec4("material.albedo", &material.albedo)?;
+        self.set_uniform_vec4("material.albedo", &material.albedo.to_array())?;
         self.set_uniform_1f("material.roughness", material.roughness)?;
         self.set_uniform_1f("material.metallic", material.metallic)?;
-        self.set_uniform_vec3("material.emissive", &material.emissive)?;
+        self.set_uniform_vec3("material.emissive",&[f32; 3])?;
         Ok(())
     }
 
@@ -155,6 +155,15 @@ impl ShaderProgram {
         unsafe { gl::Uniform3f(loc, value[0], value[1], value[2]) };
         Ok(())
     }
+
+    pub fn set_uniform_vec4(&mut self, name: &str, value: &[f32; 4]) -> Result<(), ShaderError> {
+           // Assuming you have a method to get the uniform location
+           let location = self.get_uniform_location(name)?;
+           unsafe {
+               gl::Uniform4f(location, value[0], value[1], value[2], value[3]);
+           }
+           Ok(())
+       }
 
     pub fn set_uniform_mat4(&mut self, name: &str, value: &[f32; 16]) -> Result<(), ShaderError> {
         let loc = self.get_uniform_location(name)?;

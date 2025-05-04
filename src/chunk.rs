@@ -16,7 +16,7 @@ pub struct WorldConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct SerializedChunk {
+pub struct SerializedChunk {
     coord: ChunkCoord,
     blocks: Vec<CompressedBlock>,
 }
@@ -42,6 +42,18 @@ pub struct ChunkManager {
     world_config: WorldConfig,
     compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>>,
 }
+
+pub fn new() -> Self {
+        Self {
+            vertex_data: Vec::new(),
+            index_data: Vec::new(),
+            vao: 0,
+            vbo: 0,
+            ebo: 0,
+            index_count: 0,
+            needs_upload: true,
+        }
+    }
 
 impl ChunkManager {
     pub fn new(world_config: WorldConfig, renderer: ChunkRenderer) -> Self {

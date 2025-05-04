@@ -1,0 +1,24 @@
+
+[package]
+name = "ourvoxelworldproject"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+bincode = "2.0.1"
+bitflag = "0.10.1"
+crossbeam-channel = "0.5.15"
+gl = "0.14.0"
+glam = "0.30.3"
+image = "0.25.6"
+log = "0.4.27"
+noise = "0.9.0"
+parking_lot = "0.12.3"
+rand_chacha = "0.9.0"
+rayon = "1.10.0"
+simple_logger = "5.0.0"
+thiserror = "2.0.12"
+winit = "0.30.10"
+serde = { version = "1.0", features = ["derive"] }
+rand = "0.9.1"

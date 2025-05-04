@@ -22,16 +22,7 @@ pub enum RenderError {
     TextureError(#[from] image::ImageError),
 }
 
-#[derive(Default)]
-pub struct ChunkMesh {
-    pub vertex_data: Vec<f32>,
-    pub index_data: Vec<u32>,
-    pub vao: u32,
-    pub vbo: u32,
-    pub ebo: u32,
-    pub index_count: i32,
-    pub needs_upload: bool,
-}
+
 
 pub struct ChunkRenderer {
     materials: HashMap<u16, BlockMaterial>,
@@ -201,7 +192,7 @@ impl ChunkRenderer {
 
     fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<()> {
     unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, chunk.vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, chunk.mesh.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
             (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
@@ -209,7 +200,7 @@ impl ChunkRenderer {
             gl::STATIC_DRAW,
         );
 
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.ebo);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.mesh.ebo);
         gl::BufferData(
             gl::ELEMENT_ARRAY_BUFFER,
             (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
@@ -233,7 +224,7 @@ impl ChunkRenderer {
         gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, 18 * 4, (18 * 4) as *const _);
         gl::EnableVertexAttribArray(6);
 
-        chunk.needs_upload = false;
+        chunk.mesh.needs_upload = false;
         Ok(())
     }
 }
@@ -273,7 +264,7 @@ impl ChunkRenderer {
         let (vertices, normals, tangents, bitangents) = match face {
             0 => (/* West face vertices */), // Implementation details
             // ... other faces
-            _ => panic!("Invalid face direction"),
+             _ => panic!("Invalid face direction"),
         };
 
         for i in 0..4 {
@@ -309,9 +300,9 @@ impl ChunkRenderer {
         projection_matrix: &Mat4,
     ) -> Result<()> {
         unsafe {
-            gl::BindVertexArray(chunk.vao);
-            if chunk.needs_upload {
-                self.upload_chunk_data(chunk)?;
+            gl::BindVertexArray(chunk.mesh.vao);
+            if chunk.mesh.needs_upload {
+                 self.upload_chunk_data(&mut chunk, &chunk.mesh)?;
             }
 
             shader.set_uniform_mat4("model", &chunk.transform_matrix());
@@ -325,7 +316,7 @@ impl ChunkRenderer {
 
             gl::DrawElements(
                 gl::TRIANGLES,
-                chunk.index_count as i32,
+                chunk.mesh.index_count as i32,
                 gl::UNSIGNED_INT,
                 std::ptr::null(),
             );

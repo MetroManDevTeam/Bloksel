@@ -137,6 +137,21 @@ impl WorldEngine {
     }
     
     impl QuadTree {
+         pub fn new(render_distance: u32) -> Self {
+        Self {
+            nodes: [None, None, None, None],
+            chunks: Vec::new(),
+            bounds: AABB {
+                min: Vec3::new(-render_distance as f32, 0.0, -render_distance as f32),
+                max: Vec3::new(render_distance as f32, 256.0, render_distance as f32),
+            },
+            depth: 0,
+        }
+    }
+
+    pub fn insert(&mut self, coord: ChunkCoord) {
+        self.chunks.push(coord);
+    }
         fn query(&self, area: WorldArea, mut callback: impl FnMut(ChunkCoord)) {
             if self.bounds.intersects(&area) {
                 for chunk in &self.chunks {

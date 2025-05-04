@@ -19,6 +19,10 @@ thiserror = "1.0"
 log = "0.4"
 simple-logger = "4.0"
 bitflags = "2.0"
+anyhow = "1.0" 
+log = "0.4"    
+winit = "0.29" 
+
 
 # Threading and synchronization
 parking_lot = "0.12"

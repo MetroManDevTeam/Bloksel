@@ -26,6 +26,74 @@ pub enum BiomeType {
     Swamp,
 }
 
+pub struct Chunk {
+    pub blocks: Vec<Vec<Vec<Option<Block>>>>,
+    pub sub_resolution: usize,  // Add this line
+    pub coord: ChunkCoord,
+    pub chunk_size: usize,
+    pub mesh: ChunkMesh,
+}
+
+#[derive(Default)]
+pub struct ChunkMesh {
+    pub vertex_data: Vec<f32>,
+    pub index_data: Vec<u32>,
+    pub vao: u32,
+    pub vbo: u32,
+    pub ebo: u32,
+    pub index_count: i32,
+    pub needs_upload: bool,
+}
+
+impl ChunkMesh {
+    pub fn new() -> Self {
+        Self {
+            vertex_data: Vec::new(),
+            index_data: Vec::new(),
+            vao: 0,
+            vbo: 0,
+            ebo: 0,
+            index_count: 0,
+            needs_upload: true,
+        }
+    }
+}
+
+// In terrain_generator.rs
+impl Chunk {
+        
+    pub fn transform_matrix(&self) -> glam::Mat4 {
+        let chunk_size = self.blocks.len() as f32; // Or use stored chunk size
+        glam::Mat4::from_translation(glam::Vec3::new(
+            self.coord.x as f32 * chunk_size,
+            self.coord.y as f32 * chunk_size,
+            self.coord.z as f32 * chunk_size
+        ))
+    }
+
+      pub fn new(size: usize, sub_resolution: usize, coord: ChunkCoord) -> Self {
+        Chunk {
+            blocks: vec![vec![vec![None; size]; size]],  // 3D array of Option<Block>
+            sub_resolution,  // Store sub-voxel resolution
+            coord,           // Chunk coordinate position
+            chunk_size: size,
+            mesh: ChunkMesh::new(),  // Initialize empty mesh
+        }
+    }
+
+      pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Option<Block>) {
+        // Ensure coordinates are within chunk bounds
+        if x < self.blocks.len() 
+            && y < self.blocks[0].len() 
+            && z < self.blocks[0][0].len() 
+        {
+            self.blocks[x][y][z] = block;
+        } else {
+            log::warn!("Attempted to set block at out-of-bounds position ({}, {}, {})", x, y, z);
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TerrainConfig {
     pub seed: u32,
@@ -65,6 +133,8 @@ impl TerrainGenerator {
         generator
     }
 
+
+
     fn initialize_noise_layers(&self) {
         let mut layers = self.noise_layers.write();
         
@@ -77,17 +147,37 @@ impl TerrainGenerator {
         // Biome noise
         layers.insert("biome".into(), self.create_noise_layer(2, 0.5, 1.0, 1));
         
-        // Cave noise
+        // Cave noise   
         layers.insert("caves".into(), self.create_noise_layer(3, 16.0, 0.7, 4));
     }
 
-    fn create_noise_layer(&self, seed_offset: u32, frequency: f64, persistence: f64, octaves: usize) -> Perlin {
-        let mut perlin = Perlin::new();
-        perlin.set_seed(self.config.seed.wrapping_add(seed_offset));
-        perlin.frequency = frequency;
-        perlin.persistence = persistence;
-        perlin.octaves = octaves;
-        perlin
+    fn create_noise_layer(
+        &self,
+        seed_offset: u32,
+        frequency: f64,
+        persistence: f64,
+        octaves: usize
+    ) -> noise::Perlin {
+         Perlin::new(/* u32 */)       
+            .set_seed(self.config.seed.wrapping_add(seed_offset) as u32)
+            .with_frequency(frequency)
+            .with_persistence(persistence)
+            .with_octaves(octaves)
+            .with_lacunarity(2.0)  // Important for terrain variation
+    }
+
+        fn biome_height_modifier(&self, biome: BiomeType) -> f64 {
+        match biome {
+            BiomeType::Mountains => 15.0,
+            BiomeType::Plains => 2.0,
+            BiomeType::Desert => -3.0,
+            BiomeType::Forest => 4.0,
+            BiomeType::Ocean => -8.0,
+            BiomeType::Tundra => 6.0,
+            BiomeType::Swamp => -2.0,
+            // Add default case for any new biomes
+            _ => 0.0,
+        }
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
@@ -140,7 +230,7 @@ impl TerrainGenerator {
                     }
 
                     if biome == BiomeType::Ocean && world_y <= SEA_LEVEL && block_id == BlockId::AIR {
-                        block_id = self.block_registry.get_id_by_name("water").unwrap_or(BlockId::AIR);
+                        block_id = self.block_registry.get_by_name("water").map(|def| def.id) .unwrap_or(BlockId::from(10));
                     }
 
                     if block_id != BlockId::AIR {
@@ -207,24 +297,24 @@ impl TerrainGenerator {
     fn get_biome_blocks(&self, biome: BiomeType) -> (BlockId, BlockId) {
         match biome {
             BiomeType::Plains | BiomeType::Swamp => (
-                self.block_registry.get_id_by_name("dirt").unwrap_or(BlockId::from(3)),
-                self.block_registry.get_id_by_name("grass").unwrap_or(BlockId::from(2)),
+                self.block_registry.get_by_name("dirt").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Mountains | BiomeType::Tundra => (
-                self.block_registry.get_id_by_name("stone").unwrap_or(BlockId::from(1)),
-                self.block_registry.get_id_by_name("snow").unwrap_or(BlockId::from(5)),
+                self.block_registry.get_by_name("stone").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                self.block_registry.get_by_name("snow").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Desert => (
-                self.block_registry.get_id_by_name("sand").unwrap_or(BlockId::from(4)),
-                self.block_registry.get_id_by_name("sand").unwrap_or(BlockId::from(4)),
+                self.block_registry.get_by_name("sand").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                self.block_registry.get_by_name("sand").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Forest => (
-                self.block_registry.get_id_by_name("dirt").unwrap_or(BlockId::from(3)),
-                self.block_registry.get_id_by_name("grass").unwrap_or(BlockId::from(2)),
+                self.block_registry.get_by_name("dirt").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Ocean => (
-                self.block_registry.get_id_by_name("sand").unwrap_or(BlockId::from(4)),
-                self.block_registry.get_id_by_name("gravel").unwrap_or(BlockId::from(6)),
+                self.block_registry.get_by_name("sand").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                self.block_registry.get_by_name("gravel").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             ),
         }
     }
@@ -232,10 +322,10 @@ impl TerrainGenerator {
     fn get_block_for_depth(&self, y: i32, height: i32, base: BlockId, top: BlockId, biome: BiomeType) -> BlockId {
         match biome {
             BiomeType::Ocean if y <= SEA_LEVEL - 8 => 
-                self.block_registry.get_id_by_name("stone").unwrap_or(BlockId::from(1)),
+                self.block_registry.get_by_name("stone").map(|def| def.id) .unwrap_or(BlockId::from(10)),
             _ if y == height => top,
             _ if y > height - 4 => base,
-            _ => self.block_registry.get_id_by_name("stone").unwrap_or(BlockId::from(1)),
+            _ => self.block_registry.get_by_name("stone").map(|def| def.id) .unwrap_or(BlockId::from(10)),
         }
     }
 
@@ -244,29 +334,33 @@ impl TerrainGenerator {
 
         // Add biome-specific features
         match biome {
-            BiomeType::Forest if id == self.block_registry.get_id_by_name("grass").unwrap_or(BlockId::from(2)) => {
+            BiomeType::Forest if id == self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)) => {
                 if rng.gen_ratio(1, 10) {
-                    block.place_sub_block(
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        SUB_RESOLUTION as u8 - 1,
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        Block::new(
-                            self.block_registry.get_id_by_name("flower").unwrap_or(BlockId::from(7)),
-                            SUB_RESOLUTION as u8
-                        )
-                    );
+                  block.place_sub_block(
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    SubBlock {
+        id: self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+        metadata: 0, // Set appropriate metadata if needed
+        facing: BlockFacing::None, // Set appropriate facing if needed
+        orientation: BlockOrientation::Wall, // Set appropriate orientation if needed
+    }
+);
                 }
             },
-            BiomeType::Swamp if id == self.block_registry.get_id_by_name("water").unwrap_or(BlockId::from(11)) => {
-                block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    0,
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    Block::new(
-                        self.block_registry.get_id_by_name("lily_pad").unwrap_or(BlockId::from(12)),
-                        SUB_RESOLUTION as u8
-                    )
-                );
+            BiomeType::Swamp if id == self.block_registry.get_by_name("water").map(|def| def.id) .unwrap_or(BlockId::from(10)) => {
+               block.place_sub_block(
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.random_range(0..SUB_RESOLUTION as u8),
+    SubBlock {
+        id: self.block_registry.get_by_name("water").map(|def| def.id) .unwrap_or(BlockId::from(10)),
+        metadata: 0, // Set appropriate metadata if needed
+        facing: BlockFacing::None, // Set appropriate facing if needed
+        orientation: BlockOrientation::Wall, // Set appropriate orientation if needed
+    }
+);
             },
             _ => {}
         }
@@ -276,7 +370,7 @@ impl TerrainGenerator {
 
     fn add_strata_details(&self, block: &mut Block, world_y: i32, rng: &mut ChaCha12Rng) {
         if world_y < SEA_LEVEL - 8 && rng.gen_ratio(1, 10) {
-            let ore_type = match rng.gen_range(0..100) {
+            let ore_type = match rng.random_range(0..100) {
                 0..=5 => "coal_ore",
                 6..=8 => "iron_ore",
                 9..=10 => "gold_ore",
@@ -284,13 +378,14 @@ impl TerrainGenerator {
                 _ => "stone",
             };
             
-            for _ in 0..rng.gen_range(1..=3) {
+            for _ in 0..rng.random_range(1..=3) {
                 block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    Block::new(
-                        self.block_registry.get_id_by_name(ore_type).unwrap_or(BlockId::from(1)),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    SubBlock::new(
+                        self.block_registry.get_by_name(ore_type).map(|def| def.id) .unwrap_or(BlockId::from(10)),
+                   
                         SUB_RESOLUTION as u8
                     )
                 );
@@ -312,9 +407,16 @@ impl TerrainGenerator {
 
     pub fn generate_tree(&self, pos: IVec3) -> Vec<Block> {
         let mut blocks = Vec::new();
-        let trunk_id = self.block_registry.get_id_by_name("log").unwrap_or(BlockId::from(9));
-        let leaves_id = self.block_registry.get_id_by_name("leaves").unwrap_or(BlockId::from(10));
-
+        let trunk_id = self
+                    .block_registry
+                    .get_by_name("log")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10));
+         let leaves_id = self
+            .block_registry
+            .get_by_name("leaves")
+            .map(|def| def.id)
+            .unwrap_or(BlockId::from(10));
         // Generate trunk (4-6 blocks tall)
         let height = 4 + (pos.x % 3) as usize;
         for y in 0..height {

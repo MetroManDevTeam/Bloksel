@@ -10,8 +10,7 @@ use bitflags::bitflags;
 // Core Type Definitions
 // ========================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)] // Add Serialize/Deserialize
 pub enum BlockFacing {
     North,
     South,
@@ -20,11 +19,9 @@ pub enum BlockFacing {
     Up,
     Down,
     None,
-    All,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)] // Add Serialize/Deserialize
 pub enum BlockOrientation {
     Wall,
     Floor,
@@ -35,17 +32,17 @@ pub enum BlockOrientation {
 }
 
 bitflags! {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Clone, Copy)] // Add Serialize/Deserialize
     pub struct ConnectedDirections: u8 {
         const NORTH = 0b00000001;
         const SOUTH = 0b00000010;
-        const EAST  = 0b00000100;
-        const WEST  = 0b00001000;
-        const UP    = 0b00010000;
-        const DOWN  = 0b00100000;
-        const ALL   = Self::NORTH.bits | Self::SOUTH.bits | Self::EAST.bits | Self::WEST.bits | Self::UP.bits | Self::DOWN.bits;
+        const EAST = 0b00000100;
+        const WEST = 0b00001000;
+        const UP = 0b00010000;
+        const DOWN = 0b00100000;
     }
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockCategory {
@@ -63,7 +60,7 @@ pub enum BlockCategory {
 // Material System
 // ========================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BlockMaterial {
     pub id: u16,
     pub name: String,
@@ -134,7 +131,7 @@ pub enum TintMaskChannel {
 // Block Identification
 // ========================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockId {
     pub base_id: u32,
     pub variation: u16,
@@ -145,6 +142,13 @@ impl BlockId {
     pub fn new(base_id: u32) -> Self {
         Self { base_id, variation: 0, color_id: 0 }
     }
+
+     pub const AIR: BlockId = BlockId {
+        base_id: 0,
+        variation: 0,
+        color_id: 0
+    };
+
 
     pub fn with_variation(base_id: u32, variation: u16) -> Self {
         Self { base_id, variation, color_id: 0 }
@@ -294,16 +298,18 @@ pub struct SubBlock {
     pub connections: ConnectedDirections,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Block {
     pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
     pub resolution: u8,
     pub current_connections: ConnectedDirections,
+
 }
 
 // ========================
 // Implementation
 // ========================
+
 
 impl BlockFacing {
     pub fn opposite(&self) -> Self {
@@ -320,6 +326,32 @@ impl BlockFacing {
 }
 
 impl BlockMaterial {
+
+    pub fn apply_modifiers(&mut self, modifiers: &MaterialModifiers) {
+        // Apply albedo factor if present
+        if let Some(factor) = modifiers.albedo_factor {
+            self.albedo[0] *= factor[0];
+            self.albedo[1] *= factor[1];
+            self.albedo[2] *= factor[2];
+        }
+
+        // Apply roughness offset
+        if let Some(offset) = modifiers.roughness_offset {
+            self.roughness = (self.roughness + offset).clamp(0.0, 1.0);
+        }
+
+        // Apply metallic offset
+        if let Some(offset) = modifiers.metallic_offset {
+            self.metallic = (self.metallic + offset).clamp(0.0, 1.0);
+        }
+
+        // Apply emissive boost
+        if let Some(boost) = modifiers.emissive_boost {
+            self.emissive[0] += boost[0];
+            self.emissive[1] += boost[1];
+            self.emissive[2] += boost[2];
+        }
+    }
     pub fn apply_tint(&mut self, tint: [f32; 4], settings: &TintSettings) {
         if !settings.enabled || settings.strength <= 0.0 {
             return;
@@ -471,9 +503,27 @@ impl BlockMaterial {
     }
 }
 
+#[derive(Clone)]
 impl Block {
     pub fn get_primary_id(&self) -> BlockId {
         self.sub_blocks.values().next().map(|sb| sb.id).unwrap_or_else(|| BlockId::new(0))
+    }
+
+       pub const AIR: BlockId = BlockId {
+        base_id: 0,
+        variation: 0,
+        color_id: 0
+    };
+
+    pub fn new(id: BlockId, resolution: u8) -> Self {
+        Self {
+            sub_blocks: HashMap::new(),
+            resolution,
+        }
+    }
+
+    pub fn place_sub_block(&mut self, x: u8, y: u8, z: u8, sub: SubBlock) {
+        self.sub_blocks.insert((x, y, z), sub);
     }
 
     pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
@@ -498,6 +548,19 @@ impl Block {
         }
         
         material
+    }
+}
+
+#[derive(Clone)]
+impl SubBlock {
+    pub fn new(id: BlockId) -> Self {
+        Self {
+            id,
+            metadata: 0,
+            facing: BlockFacing::None,
+            orientation: BlockOrientation::Wall,
+             current_connections: ConnectedDirections::empty(),
+        }
     }
 }
 
@@ -548,7 +611,7 @@ impl BlockRegistry {
             .or_default()
             .push(id);
         
-        for variant in def.variations {
+        for variant in &def.variations {
             let variant_id = BlockId {
                 base_id: id.base_id,
                 variation: variant.id,
@@ -560,9 +623,10 @@ impl BlockRegistry {
             variant_def.name = variant.name.clone();
             
             // Apply variant overrides
-            for (face, tex) in variant.texture_overrides {
-                variant_def.texture_faces.insert(face, tex);
-            }
+            for (face, tex) in &variant.texture_overrides.clone() {
+                    variant_def.texture_faces.insert(*face, tex.clone());
+
+             }
             
             // Update material with variant modifiers
             let mut variant_material = def.material.clone();
@@ -637,14 +701,14 @@ impl BlockRegistry {
     }
 
     pub fn get_variant(&self, id: BlockId) -> Option<&BlockVariant> {
-        self.get(id.base_id)?
+        self.get(id)?
             .variations
             .iter()
             .find(|v| v.id == id.variation)
     }
 
     pub fn get_color_variant(&self, id: BlockId) -> Option<&ColorVariant> {
-        self.get(id.base_id)?
+        self.get(id)?
             .color_variations
             .iter()
             .find(|v| v.id == id.color_id)

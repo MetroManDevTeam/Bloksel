@@ -1,3 +1,4 @@
+// main.rs
 use anyhow::Result;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
@@ -8,6 +9,12 @@ use winit::{
 };
 
 mod engine;
+mod player;
+mod chunk;
+mod block;
+mod chunk_renderer;
+mod terrain_generator;
+mod shader;
 
 use engine::{EngineConfig, VoxelEngine};
 
@@ -35,8 +42,8 @@ fn main() -> Result<()> {
     };
 
     // Create window and event loop
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
+    let event_loop = EventLoop::new().unwrap();
+    let _window = WindowBuilder::new()
         .with_title("Voxel Engine")
         .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0))
         .build(&event_loop)?;
@@ -44,27 +51,26 @@ fn main() -> Result<()> {
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    // Main event loop
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    event_loop.run_app(move |event, elwt| {
+        elwt.set_control_flow(ControlFlow::Poll);
 
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                *control_flow = ControlFlow::Exit;
+                elwt.exit();
             }
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            Event::RedrawRequested(_) => {
+            Event::AboutToWait => {
+                // Main game loop would go here
                 if let Err(e) = engine.run() {
                     log::error!("Engine error: {}", e);
-                    *control_flow = ControlFlow::Exit;
+                    elwt.exit();
                 }
             }
-            _ => {}
+            _ => (),
         }
-    });
+    })?;
+
+    Ok(())
 }

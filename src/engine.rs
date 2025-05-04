@@ -9,6 +9,9 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 use glam::{Vec3, Vec4, Mat4, IVec3, Vec3Swizzles};
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, Context};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use glam::Vec2;
 use crate::{
     player::{Player, PlayerInput, PlayerState},
     chunk::{Chunk, ChunkCoord, SerializedChunk, ChunkMesh},
@@ -127,7 +130,7 @@ impl ChunkPool {
             available.push_back(Arc::new(Chunk::from_template(
                 &self.template,
                 ChunkCoord::new(0, 0, 0)
-            ));
+            )));
         }
     }
 
