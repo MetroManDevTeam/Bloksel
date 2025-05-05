@@ -6,9 +6,10 @@ use noise::{NoiseFn, Perlin, Seedable};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Serialize, Deserialize};
+use noise::Fbm;
 
 
-use crate::block::{Block, BlockId, BlockRegistry, BlockPhysics, SubBlock};
+use crate::block::{Block, BlockId, BlockRegistry, BlockPhysics, SubBlock, BlockFacing, BlockOrientation };
 use crate::chunk::{terrain_generator::Chunk,  terrain_generator::ChunkCoord};
 
 const CHUNK_SIZE: usize = 32;
@@ -92,15 +93,16 @@ impl Chunk {
         ))
     }
 
-      pub fn new(size: usize, sub_resolution: usize, coord: ChunkCoord) -> Self {
-        Chunk {
-            blocks: vec![vec![vec![None; size]; size]],
-            sub_resolution,
-            coord,         
-            chunk_size: size,
-            mesh: ChunkMesh::new(),  
-        }
+ pub fn new(size: usize, sub_resolution: usize, coord: ChunkCoord) -> Self {
+    let mut blocks = vec![vec![vec![None; size]; size]; size]; // Fixed 3D initialization
+    Chunk {
+        blocks,
+        sub_resolution,
+        coord,         
+        chunk_size: size,
+        mesh: ChunkMesh::new(),  
     }
+  }
 
       pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: Option<Block>) {
         if x < self.blocks.len() 
@@ -278,38 +280,21 @@ impl TerrainGenerator {
         generator.initialize_noise_layers();
         generator
     }
+    fn initialize_noise_layers(&mut self) {  // Changed to &mut self
+    let mut layers = self.noise_layers.write();
+    
+    // Primary terrain noise
+    layers.insert("terrain".into(), self.create_noise_layer(0, 0.01, 0.5, 6));
+    
+    // Detail noise
+    layers.insert("detail".into(), self.create_noise_layer(1, 0.05, 0.8, 3));
+    
+    // Biome noise
+    layers.insert("biome".into(), self.create_noise_layer(2, 0.001, 1.0, 1));
+    
+    // Cave noise   
+    layers.insert("caves".into(), self.create_noise_layer(3, 0.03, 0.7, 4));
 
-    fn create_noise_layer(
-        &self,
-        seed_offset: u32,
-        frequency: f64,
-        persistence: f64,
-        octaves: usize
-    ) -> Fbm<Perlin> {
-        let fbm = Fbm::<Perlin>::new(self.config.seed + seed_offset)
-            .set_octaves(octaves)
-            .set_frequency(frequency)
-            .set_persistence(persistence);
-        fbm
-    }
-
-
-
-
-    fn initialize_noise_layers(&self) {
-        let mut layers = self.noise_layers.write();
-        
-        // Primary terrain noise
-        layers.insert("terrain".into(), self.create_noise_layer(0, 4.0, 0.5, 6));
-        
-        // Detail noise
-        layers.insert("detail".into(), self.create_noise_layer(1, 32.0, 0.8, 3));
-        
-        // Biome noise
-        layers.insert("biome".into(), self.create_noise_layer(2, 0.5, 1.0, 1));
-        
-        // Cave noise   
-        layers.insert("caves".into(), self.create_noise_layer(3, 16.0, 0.7, 4));
     }
 
     fn create_noise_layer(
@@ -318,17 +303,14 @@ impl TerrainGenerator {
     frequency: f64,
     persistence: f64,
     octaves: usize
-) -> Perlin { 
-    let perlin = Perlin::new()
-        .set_seed(seed_offset) // Assuming `seed_offset` is the correct seed value
+) -> Fbm<Perlin> {
+    Fbm::<Perlin>::new(self.config.seed + seed_offset)
+        .set_octaves(octaves)
         .set_frequency(frequency)
         .set_persistence(persistence)
-        .set_lacunarity(2.0) // Provide a valid lacunarity value
-        .set_octaves(octaves);
-
-    perlin 
+        .set_lacunarity(2.0)
 }
-
+    
         fn biome_height_modifier(&self, biome: BiomeType) -> f64 {
         match biome {
             BiomeType::Mountains => 15.0,
@@ -500,9 +482,9 @@ impl TerrainGenerator {
             BiomeType::Forest if id == self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)) => {
                 if rng.gen_ratio(1, 10) {
                   block.place_sub_block(
-    rng.random_range(0..SUB_RESOLUTION as u8),
-    rng.random_range(0..SUB_RESOLUTION as u8),
-    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
     SubBlock {
         id: self.block_registry.get_by_name("grass").map(|def| def.id) .unwrap_or(BlockId::from(10)),
         metadata: 0, // Set appropriate metadata if needed
@@ -514,9 +496,9 @@ impl TerrainGenerator {
             },
             BiomeType::Swamp if id == self.block_registry.get_by_name("water").map(|def| def.id) .unwrap_or(BlockId::from(10)) => {
                block.place_sub_block(
-    rng.random_range(0..SUB_RESOLUTION as u8),
-    rng.random_range(0..SUB_RESOLUTION as u8),
-    rng.random_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
+    rng.gen_range(0..SUB_RESOLUTION as u8),
     SubBlock {
         id: self.block_registry.get_by_name("water").map(|def| def.id) .unwrap_or(BlockId::from(10)),
         metadata: 0, // Set appropriate metadata if needed
@@ -532,30 +514,32 @@ impl TerrainGenerator {
     }
 
     fn add_strata_details(&self, block: &mut Block, world_y: i32, rng: &mut ChaCha12Rng) {
-        if world_y < SEA_LEVEL - 8 && rng.gen_ratio(1, 10) {
-            let ore_type = match rng.random_range(0..100) {
-                0..=5 => "coal_ore",
-                6..=8 => "iron_ore",
-                9..=10 => "gold_ore",
-                11..=12 => "diamond_ore",
-                _ => "stone",
-            };
-            
-            for _ in 0..rng.random_range(1..=3) {
-                block.place_sub_block(
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    SubBlock::new(
-                        self.block_registry.get_by_name(ore_type).map(|def| def.id) .unwrap_or(BlockId::from(10)),
-                   
-                        SUB_RESOLUTION as u8
-                    )
-                );
-            }
+    if world_y < SEA_LEVEL - 8 && rng.gen_ratio(1, 10) {
+        let ore_type = match rng.gen_range(0..100) {
+            0..=5 => "coal_ore",
+            6..=8 => "iron_ore",
+            9..=10 => "gold_ore",
+            11..=12 => "diamond_ore",
+            _ => "stone",
+        };
+        
+        for _ in 0..rng.gen_range(1..=3) {
+            block.place_sub_block(
+                rng.gen_range(0..SUB_RESOLUTION as u8),
+                rng.gen_range(0..SUB_RESOLUTION as u8),
+                rng.gen_range(0..SUB_RESOLUTION as u8),
+                SubBlock {
+                    id: self.block_registry.get_by_name(ore_type).map(|def| def.id).unwrap_or(BlockId::from(10)),
+                    metadata: 0,
+                    facing: BlockFacing::None,
+                    orientation: BlockOrientation::Wall,
+                    ..SubBlock::default()
+                }
+            );
         }
     }
-
+}
+    
     fn should_add_cave(&self, x: i32, y: i32, z: i32) -> bool {
         let cave_noise = self.sample_noise("caves", x, z);
         let y_factor = 1.0 - (y as f64 / 128.0).abs();
@@ -568,38 +552,33 @@ impl TerrainGenerator {
         noise.get([x as f64 * self.config.world_scale, z as f64 * self.config.world_scale])
     }
 
-    pub fn generate_tree(&self, pos: IVec3) -> Vec<Block> {
-        let mut blocks = Vec::new();
-        let trunk_id = self
-                    .block_registry
-                    .get_by_name("log")
-                    .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10));
-         let leaves_id = self
-            .block_registry
-            .get_by_name("leaves")
-            .map(|def| def.id)
-            .unwrap_or(BlockId::from(10));
-        // Generate trunk (4-6 blocks tall)
-        let height = 4 + (pos.x % 3) as usize;
-        for y in 0..height {
-            blocks.push(Block::new(trunk_id, SUB_RESOLUTION as u8));
-        }
+    pub fn generate_tree(&self, base_pos: IVec3) -> HashMap<IVec3, Block> {
+    let mut blocks = HashMap::new();
+    let trunk_id = self.get_block_id_safe("log");
+    let leaves_id = self.get_block_id_safe("leaves");
+    let height = 4 + (base_pos.x.abs() % 3) as i32;
 
-        // Generate leaves canopy
-        let center = IVec3::new(pos.x, pos.y + height as i32 - 2, pos.z);
-        for dx in -2..=2 {
-            for dz in -2..=2 {
-                for dy in -1..=1 {
-                    if dx*dx + dz*dz + dy*dy <= 4 {
-                        blocks.push(Block::new(leaves_id, SUB_RESOLUTION as u8));
-                    }
+    // Generate trunk
+    for y in 0..height {
+        let pos = IVec3::new(base_pos.x, base_pos.y + y, base_pos.z);
+        blocks.insert(pos, Block::new(trunk_id, SUB_RESOLUTION as u8));
+    }
+
+    // Generate leaves
+    let center = IVec3::new(base_pos.x, base_pos.y + height - 2, base_pos.z);
+    for dx in -2..=2 {
+        for dz in -2..=2 {
+            for dy in -1..=1 {
+                if dx*dx + dz*dz + dy*dy <= 4 {
+                    let pos = center + IVec3::new(dx, dy, dz);
+                    blocks.insert(pos, Block::new(leaves_id, SUB_RESOLUTION as u8));
                 }
             }
         }
-
-        blocks
     }
+
+    blocks
+}
 
     pub fn clear_cache(&self) {
         self.height_cache.write().clear();
@@ -636,12 +615,12 @@ mod tests {
     }
 
     #[test]
-    fn test_chunk_generation() {
-        let registry = Arc::new(BlockRegistry::initialize_default());
-        let generator = TerrainGenerator::new(12345, registry);
-        
-        let chunk = generator.generate_chunk(coord);
-        assert!(chunk.blocks.iter().flatten().flatten().any(|b| b.is_some()));
-    }
-   
+fn test_chunk_generation() {
+    let registry = Arc::new(BlockRegistry::initialize_default());
+    let generator = TerrainGenerator::new(12345, registry);
+    
+    let coord = ChunkCoord::new(0, 0, 0); // Added this line
+    let chunk = generator.generate_chunk(coord);
+    assert!(chunk.blocks.iter().flatten().flatten().any(|b| b.is_some()));
+}
 }
