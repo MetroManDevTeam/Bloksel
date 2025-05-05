@@ -313,17 +313,21 @@ impl TerrainGenerator {
     }
 
     fn create_noise_layer(
-        &self,
-        seed_offset: u32,
-        frequency: f64,
-        persistence: f64,
-        octaves: usize
-    ) -> let perlin = Perlin::new()
-    .set_seed(seed)
-    .set_frequency(frequency)
-    .set_persistence(persistence)
-    .set_lacunarity(lacunarity)
-    .set_octaves(octaves);
+    &self,
+    seed_offset: u32,
+    frequency: f64,
+    persistence: f64,
+    octaves: usize
+) -> Perlin { 
+    let perlin = Perlin::new()
+        .set_seed(seed_offset) // Assuming `seed_offset` is the correct seed value
+        .set_frequency(frequency)
+        .set_persistence(persistence)
+        .set_lacunarity(2.0) // Provide a valid lacunarity value
+        .set_octaves(octaves);
+
+    perlin 
+}
 
         fn biome_height_modifier(&self, biome: BiomeType) -> f64 {
         match biome {
