@@ -11,7 +11,8 @@ bitflag = "0.10.1"
 bitflags = { version = "2.0", features = ["serde"] }
 crossbeam-channel = "0.5.15"
 gl = "0.14.0"
-glam = "0.30.3"
+[dependencies]
+glam = { version = "0.30.3", features = ["serde"] }
 image = "0.25.6"
 log = "0.4.27"
 noise = "0.9.0"
