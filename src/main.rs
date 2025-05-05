@@ -2,9 +2,11 @@
 use anyhow::Result;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
-use winit::window::Window;
-use winit::event::{ElementState, MouseScrollDelta, WindowEvent, Event};
-use winit::event_loop::EventLoop,
+use winit::{
+    window::{Window, WindowBuilder},
+    event::{Event, WindowEvent},
+    event_loop::EventLoop,
+};
        
 use std::ops::ControlFlow;
 
