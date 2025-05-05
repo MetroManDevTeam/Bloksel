@@ -7,7 +7,9 @@ use glam::{Vec3, Vec2, Vec4, Mat4, Vec3Swizzles};
 use image::{DynamicImage, RgbaImage};
 use anyhow::{Result, Context};
 use thiserror::Error;
-use crate::shader::ShaderProgram;
+use crate::shader::{ShaderProgram, ShaderError} ;
+use std::path::Path;
+use gl::types::*;
 
 const ATLAS_START_SIZE: u32 = 512;
 const MAX_ATLAS_SIZE: u32 = 4096;
@@ -159,40 +161,55 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    pub fn upload_textures(&mut self) -> Result<()> {
-        unsafe {
-            let mut texture_id = 0;
-            gl::GenTextures(1, &mut texture_id);
-            gl::BindTexture(gl::TEXTURE_2D, texture_id);
+   pub fn upload_textures(&mut self) -> Result<(), RenderError> {
+    unsafe {
+        let mut texture_id: GLuint = 0;
+        gl::GenTextures(1, &mut texture_id);
+        gl::BindTexture(gl::TEXTURE_2D, texture_id);
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        // Set texture parameters
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
-            if let Some(atlas) = &self.texture_atlas {
-                let (width, height) = atlas.dimensions();
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RGBA as i32,
-                    width as i32,
-                    height as i32,
-                    0,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    atlas.as_ptr() as *const _,
-                );
-                gl::GenerateMipmap(gl::TEXTURE_2D);
-            }
-
-            self.texture_atlas_id = Some(texture_id);
-            Ok(())
+        if let Some(atlas) = &self.texture_atlas {
+            let (width, height) = atlas.dimensions();
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                width as i32,
+                height as i32,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                atlas.as_ptr() as *const _,
+            );
+            gl::GenerateMipmap(gl::TEXTURE_2D);
         }
+
+        self.texture_atlas_id = Some(texture_id);
     }
+    Ok(())
+} 
 
     fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<()> {
     unsafe {
+        // Generate buffers if they don't exist
+        if chunk.mesh.vao == 0 {
+            gl::GenVertexArrays(1, &mut chunk.mesh.vao);
+        }
+        if chunk.mesh.vbo == 0 {
+            gl::GenBuffers(1, &mut chunk.mesh.vbo);
+        }
+        if chunk.mesh.ebo == 0 {
+            gl::GenBuffers(1, &mut chunk.mesh.ebo);
+        }
+
+        gl::BindVertexArray(chunk.mesh.vao);
+
+        // Upload vertex data
         gl::BindBuffer(gl::ARRAY_BUFFER, chunk.mesh.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
@@ -201,6 +218,7 @@ impl ChunkRenderer {
             gl::STATIC_DRAW,
         );
 
+        // Upload index data
         gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.mesh.ebo);
         gl::BufferData(
             gl::ELEMENT_ARRAY_BUFFER,
@@ -209,25 +227,37 @@ impl ChunkRenderer {
             gl::STATIC_DRAW,
         );
 
-        // Set vertex attributes
-        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 18 * 4, std::ptr::null());
+        // Vertex attributes (18 floats per vertex)
+        let stride = (18 * std::mem::size_of::<f32>()) as GLsizei;
+        
+        // Position (location = 0)
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
         gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 18 * 4, (3 * 4) as *const _);
+        
+        // Normal (location = 1)
+        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, (3 * std::mem::size_of::<f32>()) as *const _);
         gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, 18 * 4, (6 * 4) as *const _);
+        
+        // Tangent (location = 2)
+        gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, stride, (6 * std::mem::size_of::<f32>()) as *const _);
         gl::EnableVertexAttribArray(2);
-        gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, 18 * 4, (9 * 4) as *const _);
+        
+        // Bitangent (location = 3)
+        gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, stride, (9 * std::mem::size_of::<f32>()) as *const _);
         gl::EnableVertexAttribArray(3);
-        gl::VertexAttribPointer(4, 2, gl::FLOAT, gl::FALSE, 18 * 4, (12 * 4) as *const _);
+        
+        // Texture coordinates (location = 4)
+        gl::VertexAttribPointer(4, 2, gl::FLOAT, gl::FALSE, stride, (12 * std::mem::size_of::<f32>()) as *const _);
         gl::EnableVertexAttribArray(4);
-        gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, 18 * 4, (14 * 4) as *const _);
+        
+        // Material properties (location = 5)
+        gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, stride, (14 * std::mem::size_of::<f32>()) as *const _);
         gl::EnableVertexAttribArray(5);
-        gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, 18 * 4, (18 * 4) as *const _);
-        gl::EnableVertexAttribArray(6);
 
+        chunk.mesh.index_count = mesh.index_data.len() as i32;
         chunk.mesh.needs_upload = false;
-        Ok(())
     }
+    Ok(())
 }
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
@@ -360,11 +390,52 @@ impl ChunkRenderer {
             ]);
         }
 
-        let base_index = mesh.vertex_data.len() as u32 / 18; // 18 components per vertex
-        mesh.index_data.extend(&[
-            base_index, base_index + 1, base_index + 2,
-            base_index + 2, base_index + 3, base_index,
-        ]);
+        
+
+    let base_index = mesh.vertex_data.len() / 18; // 18 components per vertex
+
+    for i in 0..4 {
+        // Position (offset by chunk position)
+        mesh.vertex_data.push(vertices[i].x + position.x);
+        mesh.vertex_data.push(vertices[i].y + position.y);
+        mesh.vertex_data.push(vertices[i].z + position.z);
+        
+        // Normal
+        mesh.vertex_data.push(normals[i].x);
+        mesh.vertex_data.push(normals[i].y);
+        mesh.vertex_data.push(normals[i].z);
+        
+        // Tangent
+        mesh.vertex_data.push(tangents[i].x);
+        mesh.vertex_data.push(tangents[i].y);
+        mesh.vertex_data.push(tangents[i].z);
+        
+        // Bitangent
+        mesh.vertex_data.push(bitangents[i].x);
+        mesh.vertex_data.push(bitangents[i].y);
+        mesh.vertex_data.push(bitangents[i].z);
+        
+        // Texture coordinates
+        mesh.vertex_data.push(tex_coords[i].x);
+        mesh.vertex_data.push(tex_coords[i].y);
+        
+        // Material properties
+        mesh.vertex_data.push(material.albedo.x);
+        mesh.vertex_data.push(material.albedo.y);
+        mesh.vertex_data.push(material.albedo.z);
+        mesh.vertex_data.push(material.albedo.w);
+        mesh.vertex_data.push(material.roughness);
+        mesh.vertex_data.push(material.metallic);
+    }
+
+    // Add indices (two triangles per face)
+    mesh.index_data.push(base_index as u32);
+    mesh.index_data.push((base_index + 1) as u32);
+    mesh.index_data.push((base_index + 2) as u32);
+    mesh.index_data.push((base_index + 2) as u32);
+    mesh.index_data.push((base_index + 3) as u32);
+    mesh.index_data.push(base_index as u32);
+
     }
 
     pub fn render_chunk(
@@ -407,15 +478,20 @@ impl ChunkRenderer {
 pub struct RenderStats {
     pub triangles_rendered: usize,
     pub draw_calls: usize,
+    pub chunks_rendered: usize,
     pub texture_memory: usize,
 }
 
 impl ChunkRenderer {
     pub fn get_stats(&self) -> RenderStats {
+        let texture_memory = self.texture_atlas.as_ref()
+            .map_or(0, |t| t.len() * std::mem::size_of::<u8>());
+        
         RenderStats {
-            triangles_rendered: 0, // Implement tracking
-            draw_calls: 0,
-            texture_memory: self.texture_atlas.as_ref().map_or(0, |t| t.len()),
+            triangles_rendered: 0, // Track in render_chunk
+            draw_calls: 0, // Track in render_chunk
+            chunks_rendered: 0,
+            texture_memory,
         }
     }
-    }
+}
