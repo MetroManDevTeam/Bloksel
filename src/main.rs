@@ -471,3 +471,18 @@ impl VoxelEngine {
         // ... more debug info ...
     }
 }
+
+impl Drop for VoxelEngine {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::SeqCst);
+        if let Err(e) = self.save_world(Path::new("worlds/current")) {
+            log::error!("Failed to save world on shutdown: {}", e);
+        }
+    }
+    }
+
+     #[derive(Default)]
+    struct ThreadPoolStats {
+    active_threads: usize,
+    queued_tasks: usize,
+}
