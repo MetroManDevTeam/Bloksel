@@ -1,6 +1,6 @@
 use glam::{Vec3, Vec2, Mat4};
 use std::f32::consts::{PI, FRAC_PI_2};
-use winit::event::{ElementState, VirtualKeyCode, MouseScrollDelta};
+use winit::event::{ElementState, KeyCode, MouseScrollDelta};
 use crate::terrain_generator::{ChunkCoord, BlockData, terrain_generator::Chunk, TerrainGenerator};
 use crate::block::BlockPhysics;
 use serde::{Deserialize, Serialize};
@@ -313,7 +313,7 @@ impl Player {
     pub fn handle_key_input(&mut self, key: VirtualKeyCode, state: ElementState) {
         let pressed = state == ElementState::Pressed;
         match key {
-            VirtualKeyCode::Tab if pressed => self.toggle_state(),
+            KeyCode::Tab if pressed => self.toggle_state(),
             _ => {}
         }
     }
