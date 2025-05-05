@@ -304,11 +304,12 @@ impl TerrainGenerator {
     persistence: f64,
     octaves: usize
 ) -> Fbm<Perlin> {
-    Fbm::<Perlin>::new(self.config.seed + seed_offset)
-        .set_octaves(octaves)
+    let mut fbm = Fbm::<Perlin>::new(self.config.seed + seed_offset);
+    fbm.set_octaves(octaves)
         .set_frequency(frequency)
         .set_persistence(persistence)
-        .set_lacunarity(2.0)
+        .set_lacunarity(2.0);
+    fbm
 }
     
         fn biome_height_modifier(&self, biome: BiomeType) -> f64 {
