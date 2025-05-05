@@ -1,9 +1,7 @@
-// worldgen.rs
-use super::config_derive;
+use serde::{Serialize, Deserialize};
 
-config_derive! {
-    pub struct WorldGenConfig {
-        // World Generation
-        pub world_seed: u64,
-    }
+#[derive(Clone, Serialize, Deserialize)]
+pub struct WorldGenConfig {
+    // World Generation
+    pub world_seed: u64,
 }
