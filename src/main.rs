@@ -2,11 +2,10 @@
 use anyhow::Result;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
-use winit::{
-    event_loop::EventLoop,
-    window::{Window, WindowBuilder}, // Correct WindowBuilder path
-    event::{ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent, Event},
-};
+use winit::window::Window;
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent, Event};
+use winit::event_loop::EventLoop,
+       
 use std::ops::ControlFlow;
 
 mod engine;
