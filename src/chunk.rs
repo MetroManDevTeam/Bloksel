@@ -112,18 +112,59 @@ impl ChunkManager {
         self.chunks.get(&coord).unwrap()
     }
 
-    pub fn generate_chunk(&self, coord: ChunkCoord, seed: u32) -> Chunk {
-        let generator = TerrainGenerator::new(seed);
-        let mut chunk = Chunk::new(
-            self.world_config.chunk_size,
-            self.world_config.sub_resolution,
-            coord
-        );
+    pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
+    let mut chunk = Chunk::new(CHUNK_SIZE, SUB_RESOLUTION, coord);
+    let mut rng = ChaCha12Rng::seed_from_u64(
+        self.config.seed as u64 + 
+        coord.x as u64 * 341873128712 + 
+        coord.z as u64 * 132897987541
+    );
 
-        // TODO: Implement actual generation logic
-        chunk
+    for x in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            let world_x = coord.x * CHUNK_SIZE as i32 + x as i32;
+            let world_z = coord.z * CHUNK_SIZE as i32 + z as i32;
+            
+            let biome = self.calculate_biome(world_x, world_z);
+            let height = self.calculate_height(world_x, world_z, biome);
+            let (base_block, top_block) = self.get_biome_blocks(biome);
+
+            for y in 0..CHUNK_SIZE {
+                let world_y = coord.y * CHUNK_SIZE as i32 + y as i32;
+                let mut block_id = BlockId::AIR;
+
+                if world_y <= height {
+                    block_id = self.get_block_for_depth(
+                        world_y, 
+                        height,
+                        base_block,
+                        top_block,
+                        biome
+                    );
+
+                    // Only make caves below surface level
+                    if world_y < height - 5 && self.should_add_cave(world_x, world_y, world_z) {
+                        block_id = BlockId::AIR;
+                    }
+                }
+
+                // Handle water in ocean biomes
+                if biome == BiomeType::Ocean && world_y <= SEA_LEVEL && block_id == BlockId::AIR {
+                    block_id = self.get_block_id_safe("water");
+                }
+
+                if block_id != BlockId::AIR {
+                    let mut block = Block::new(block_id, SUB_RESOLUTION as u8);
+                    self.add_strata_details(&mut block, world_y, &mut rng);
+                    self.add_biome_features(&mut block, biome, &mut rng);
+                    chunk.set_block(x, y, z, Some(block));
+                }
+            }
+        }
     }
 
+    Arc::new(chunk)
+}
     pub fn generate_merged_mesh(&self) -> ChunkMesh {
         let mut merged_mesh = ChunkMesh::new();
         let mut index_offset = 0;
@@ -230,4 +271,29 @@ impl ChunkManager {
 
         block.sub_blocks.get(&(sx, sy, sz)).map(|sub| (sub, chunk_coord))
     }
+
+    fn get_block_id_safe(&self, name: &str) -> BlockId {
+    self.block_registry.get_by_name(name)
+        .map(|def| def.id)
+        .unwrap_or_else(|| {
+            log::warn!("Block {} not found in registry", name);
+            BlockId::AIR
+        })
+}
+
+fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
+    match biome {
+        BiomeType::Forest => {
+            if rng.gen_ratio(1, 10) {
+                self.add_grass_features(block, rng);
+            }
+        },
+        BiomeType::Swamp => {
+            if rng.gen_ratio(1, 8) {
+                self.add_swamp_features(block, rng);
+            }
+        },
+        _ => {}
+    }
+}
                 } 
