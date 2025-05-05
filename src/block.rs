@@ -589,9 +589,22 @@ impl SubBlock {
 // Block Registry
 // ========================
 
-
-
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockPhysics {
+    pub density: f32,
+    pub friction: f32,
+    pub restitution: f32,
+    pub dynamic: bool,
+    pub passable: bool,
+    pub break_resistance: f32,
+    pub flammability: f32,
+    pub thermal_conductivity: f32,
+    pub emissive: bool,
+    pub light_level: u8,
+    pub 
+    physics: HashMap<BlockId, BlockPhysics>,  // Add this
+     
+}
 
 impl Default for BlockPhysics {
     fn default() -> Self {
@@ -649,39 +662,6 @@ impl BlockPhysics {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockPhysics {
-    pub density: f32,
-    pub friction: f32,
-    pub restitution: f32,
-    pub dynamic: bool,
-    pub passable: bool,
-    pub break_resistance: f32,
-    pub flammability: f32,
-    pub thermal_conductivity: f32,
-    pub emissive: bool,
-    pub light_level: u8,
-}
-
-impl Default for BlockPhysics {
-    fn default() -> Self {
-        Self {
-            density: 1000.0, 
-            friction: 0.6,
-            restitution: 0.0,
-            dynamic: false,
-            passable: false,
-            break_resistance: 1.0,
-            flammability: 0.0,
-            thermal_conductivity: 0.5,
-            emissive: false,
-            light_level: 0,
-        }
-    }
-}
-
-
-
 #[derive(Debug, Clone)]
 pub struct BlockRegistry {
     blocks: HashMap<BlockId, BlockDefinition>,
@@ -689,8 +669,10 @@ pub struct BlockRegistry {
     base_id_to_variants: HashMap<u32, Vec<BlockId>>,
     material_cache: HashMap<BlockId, BlockMaterial>,
 }
-
+   
+include!("blocks_data.rs");
 impl BlockRegistry {
+ 
     pub fn new() -> Self {
         Self {
             blocks: HashMap::new(),
@@ -700,7 +682,7 @@ impl BlockRegistry {
         }
     }
 
-    include!("blocks_data.rs");
+    
 
     pub fn initialize_default() -> Self {
         let mut registry = Self::new();
