@@ -13,9 +13,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use glam::Vec2;
 use crate::{
-    player::{Player, PlayerInput, PlayerState},
-    chunk::{terrain_generator::Chunk,  terrain_generator::ChunkCoord, SerializedChunk,  terrain_generator::ChunkMesh},
-    block::{BlockRegistry, BlockId},
+    player::{Player, PlayerInput, PlayerState}, 
+    chunk::{Chunk, ChunkCoord, SerializedChunk, ChunkMesh}, 
     chunk_renderer::{ChunkRenderer, RenderStats},
     terrain_generator::{TerrainGenerator, BiomeType},
     shader::ShaderProgram,
@@ -239,6 +238,82 @@ struct QuadTree {
     chunks: Vec<ChunkCoord>,
     bounds: AABB,
     depth: u8,
+}
+
+// In engine.rs
+impl QuadTree {
+    pub fn new(render_distance: u32) -> Self {
+        let size = render_distance as f32 * 32.0; // Assuming 32 blocks per chunk
+        Self {
+            nodes: [None, None, None, None],
+            chunks: Vec::new(),
+            bounds: AABB {
+                min: Vec3::new(-size, 0.0, -size),
+                max: Vec3::new(size, 256.0, size),
+            },
+            depth: 0,
+        }
+    }
+
+    pub fn insert(&mut self, coord: ChunkCoord) {
+        if !self.bounds.contains(coord) {
+            return;
+        }
+
+        if self.depth < 4 {
+            let quadrant = self.get_quadrant(coord);
+            match &mut self.nodes[quadrant] {
+                Some(node) => node.insert(coord),
+                None => {
+                    let mut new_node = QuadTree {
+                        nodes: [None, None, None, None],
+                        chunks: Vec::new(),
+                        bounds: self.get_quadrant_bounds(quadrant),
+                        depth: self.depth + 1,
+                    };
+                    new_node.insert(coord);
+                    self.nodes[quadrant] = Some(Box::new(new_node));
+                }
+            }
+        } else {
+            self.chunks.push(coord);
+        }
+    }
+
+    fn get_quadrant(&self, coord: ChunkCoord) -> usize {
+        let center = self.bounds.center();
+        ((coord.x as f32 >= center.x) as usize) + 
+        (((coord.z as f32 >= center.z) as usize) * 2)
+    }
+
+    fn get_quadrant_bounds(&self, quadrant: usize) -> AABB {
+        let center = self.bounds.center();
+        match quadrant {
+            0 => AABB { min: self.bounds.min, max: center },
+            1 => AABB { min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z), max: Vec3::new(self.bounds.max.x, center.y, center.z) },
+            2 => AABB { min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z), max: Vec3::new(center.x, center.y, self.bounds.max.z) },
+            3 => AABB { min: center, max: self.bounds.max },
+            _ => panic!("Invalid quadrant"),
+        }
+    }
+
+    pub fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
+        let mut visible_chunks = Vec::new();
+        
+        if !self.bounds.intersects_frustum(frustum) {
+            return visible_chunks;
+        }
+
+        visible_chunks.extend(&self.chunks);
+
+        for node in &self.nodes {
+            if let Some(child) = node {
+                visible_chunks.extend(child.query(frustum));
+            }
+        }
+
+        visible_chunks
+    }
 }
 // ========================
 // Engine Implementation
@@ -607,18 +682,19 @@ struct WorldSave {
 }
 
 impl WorldSave {
-    pub fn save(&self, path: &Path) -> Result<()> {
-        let file = File::create(path)?;
-        let writer = BufWriter::new(file);
-        bincode::serialize_into(writer, self)?;
-        Ok(())
-    }
+    // In chunk.rs (serialization)
+pub fn save(&self, path: &Path) -> Result<()> {
+    let file = File::create(path)?;
+    let writer = BufWriter::new(file);
+    bincode::serialize_into(writer, self)?;
+    Ok(())
+}
 
-    pub fn load(path: &Path) -> Result<Self> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        Ok(bincode::deserialize_from(reader)?)
-    }
+pub fn load(path: &Path) -> Result<Self> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    Ok(bincode::deserialize_from(reader)?)
+}
 }
 
 #[derive(Default)]
