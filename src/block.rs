@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use thiserror::Error;
 use bitflags::bitflags;
- use glam::Vec4
+use glam::Vec4;
 
 // ========================
 // Core Type Definitions
@@ -67,7 +67,7 @@ pub enum BlockCategory {
 pub struct BlockMaterial {
     pub id: u16,
     pub name: String,
-    pub albedo: Vec4,
+    pub albedo: [f32:4],
     pub roughness: f32,
     pub metallic: f32,
     pub emissive: [f32; 3],
