@@ -542,10 +542,17 @@ impl TerrainGenerator {
 }
     
     fn should_add_cave(&self, x: i32, y: i32, z: i32) -> bool {
-        let cave_noise = self.sample_noise("caves", x, z);
-        let y_factor = 1.0 - (y as f64 / 128.0).abs();
-        (cave_noise * y_factor).abs() > self.config.cave_threshold
+    // Only generate caves below surface level
+    if y > SEA_LEVEL + 10 {
+        return false;
     }
+    
+    let cave_noise = self.sample_noise("caves", x, z);
+    let vertical_factor = 1.0 - (y as f64 / 128.0).abs().powi(2);
+    let threshold = self.config.cave_threshold * vertical_factor;
+    
+    cave_noise.abs() > threshold
+}
 
     fn sample_noise(&self, layer: &str, x: i32, z: i32) -> f64 {
         let layers = self.noise_layers.read();
