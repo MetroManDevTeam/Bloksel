@@ -14,7 +14,7 @@ use std::io::{BufReader, BufWriter};
 use glam::Vec2;
 use crate::{
     player::{Player, PlayerInput, PlayerState},
-    chunk::{Chunk, ChunkCoord, SerializedChunk, ChunkMesh},
+    chunk::{terrain_generator::Chunk,  terrain_generator::ChunkCoord, SerializedChunk,  terrain_generator::ChunkMesh},
     block::{BlockRegistry, BlockId},
     chunk_renderer::{ChunkRenderer, RenderStats},
     terrain_generator::{TerrainGenerator, BiomeType},
@@ -253,7 +253,7 @@ impl VoxelEngine {
             block_registry.clone()
         ));
         
-        let chunk_renderer = Arc::new(ChunkRenderer::new(config.texture_atlas_size)?);
+        let chunk_renderer = Arc::new(ChunkRenderer::new()?);
         let player = Arc::new(Mutex::new(Player::default()));
         
         // Setup threading
@@ -606,6 +606,21 @@ struct WorldSave {
     player_state: PlayerState,
 }
 
+impl WorldSave {
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let file = File::create(path)?;
+        let writer = BufWriter::new(file);
+        bincode::serialize_into(writer, self)?;
+        Ok(())
+    }
+
+    pub fn load(path: &Path) -> Result<Self> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Ok(bincode::deserialize_from(reader)?)
+    }
+}
+
 #[derive(Default)]
 struct EngineStats {
     frame_count: u64,
@@ -621,7 +636,7 @@ struct ViewFrustum {
 
 
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 struct Plane {
     normal: Vec3,
     distance: f32,
@@ -763,6 +778,7 @@ impl Drop for VoxelEngine {
     }
     }
 
+     #[derive(Default)]
     struct ThreadPoolStats {
     active_threads: usize,
     queued_tasks: usize,

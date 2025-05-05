@@ -1,10 +1,11 @@
 use glam::{Vec3, Vec2, Mat4};
 use std::f32::consts::{PI, FRAC_PI_2};
 use winit::event::{ElementState, VirtualKeyCode, MouseScrollDelta};
-use crate::terrain_generator::{ChunkCoord, BlockData, Chunk, TerrainGenerator};
+use crate::terrain_generator::{ChunkCoord, BlockData, terrain_generator::Chunk, TerrainGenerator};
 use crate::block::BlockPhysics;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum PlayerState {
     Normal,
     Flying,
@@ -84,7 +85,7 @@ impl Player {
     fn handle_rotation(&mut self, input: &PlayerInput) {
         // Smooth rotation with edge case protection
         let mouse_delta = input.mouse_delta * self.sensitivity * self.zoom_level;
-        self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euler();
+        self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euclid(2.0*PI);
         self.rotation.y = (self.rotation.y + mouse_delta.y)
             .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
@@ -250,7 +251,7 @@ impl Player {
     }
 
     fn clamp_rotation(&mut self) {
-        self.rotation.x = self.rotation.x.rem_euler();
+        self.rotation.x = self.rotation.x.rem_euclid(2.0*PI);
         self.rotation.y = self.rotation.y.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 
@@ -261,14 +262,15 @@ impl Player {
 
         let zoom_speed = 0.1;
         match input.zoom_delta {
-            MouseScrollDelta::LineDelta(_, y) => {
+            Some(MouseScrollDelta::LineDelta(_, y)) => {
                 self.zoom_level = (self.zoom_level - y * zoom_speed)
                     .clamp(self.min_zoom, self.max_zoom);
             }
-            MouseScrollDelta::PixelDelta(pos) => {
+            Some(MouseScrollDelta::PixelDelta(pos)) => {
                 self.zoom_level = (self.zoom_level - pos.y as f32 * 0.01)
                     .clamp(self.min_zoom, self.max_zoom);
             }
+            None => {} // Handle None case
         }
     }
 
@@ -315,6 +317,14 @@ impl Player {
             _ => {}
         }
     }
+
+        pub fn save_state(&self) -> PlayerState {
+        self.state.clone()
+    }
+
+    pub fn load_state(&mut self, state: PlayerState) {
+        self.state = state;
+    }
 }
 
 #[derive(Default)]
@@ -328,11 +338,11 @@ pub struct PlayerInput {
     pub fly_up: bool,
     pub fly_down: bool,
     pub mouse_delta: Vec2,
-    pub zoom_delta: MouseScrollDelta,
+    pub zoom_delta: Option<MouseScrollDelta>,
 }
 
 impl PlayerInput {
-    pub fn handle_mouse_scroll(&mut self, delta: MouseScrollDelta) {
-        self.zoom_delta = delta;
+   pub fn handle_mouse_scroll(&mut self, delta: MouseScrollDelta) {
+        self.zoom_delta = Some(delta);
     }
 }

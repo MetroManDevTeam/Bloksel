@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use thiserror::Error;
 use bitflags::bitflags;
+ use glam::Vec4
 
 // ========================
 // Core Type Definitions
@@ -13,7 +14,6 @@ use bitflags::bitflags;
 // In block.rs add Default implementations
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BlockFacing {
-    #[default]
     None,
     North,
     South,
@@ -25,7 +25,7 @@ pub enum BlockFacing {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum BlockOrientation {
-    #[default]
+    #[default] 
     Wall,
     Floor,
     Ceiling,
@@ -328,6 +328,12 @@ impl BlockFacing {
     }
 }
 
+impl Default for BlockFacing {
+    fn default() -> Self {
+        BlockFacing::None
+    }
+}
+
 impl BlockMaterial {
 
     pub fn apply_modifiers(&mut self, modifiers: &MaterialModifiers) {
@@ -584,19 +590,8 @@ impl SubBlock {
 // ========================
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockPhysics {
-    pub density: f32,
-    pub friction: f32,
-    pub restitution: f32,
-    pub dynamic: bool,
-    pub passable: bool,
-    pub break_resistance: f32,
-    pub flammability: f32,
-    pub thermal_conductivity: f32,
-    pub emissive: bool,
-    pub light_level: u8,
-}
+
+
 
 impl Default for BlockPhysics {
     fn default() -> Self {
@@ -685,44 +680,6 @@ impl Default for BlockPhysics {
     }
 }
 
-impl BlockPhysics {
-    pub fn solid(density: f32) -> Self {
-        Self {
-            density,
-            friction: 0.6,
-            restitution: 0.1,
-            dynamic: false,
-            passable: false,
-            ..Default::default()
-        }
-    }
-
-    pub fn liquid(density: f32) -> Self {
-        Self {
-            density,
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
-        }
-    }
-
-    pub fn gas() -> Self {
-        Self {
-            density: 1.2, // Air density
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
-        }
-    }
-
-    pub fn mass(&self, volume: f32) -> f32 {
-        self.density * volume
-    }
-}
 
 
 #[derive(Debug, Clone)]
@@ -795,7 +752,7 @@ impl BlockRegistry {
         }
         
         // Handle color variations
-        for color_variant in def.color_variations {
+        for color_variant in &def.color_variations {
             let color_id = BlockId {
                 base_id: id.base_id,
                 variation: 0,

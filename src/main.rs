@@ -5,8 +5,9 @@ use simple_logger::SimpleLogger;
 use winit::{
     event_loop::EventLoop,
     window::{Window, WindowBuilder}, // Correct WindowBuilder path
-    event::{ElementState, MouseScrollDelta, VirtualKeyCode} // VirtualKeyCode exists in 0.28
+    event::{ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent, Event},
 };
+use std::ops::ControlFlow;
 
 mod engine;
 mod player;

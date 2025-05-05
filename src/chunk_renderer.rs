@@ -7,6 +7,7 @@ use glam::{Vec3, Vec2, Vec4, Mat4, Vec3Swizzles};
 use image::{DynamicImage, RgbaImage};
 use anyhow::{Result, Context};
 use thiserror::Error;
+use crate::shader::ShaderProgram;
 
 const ATLAS_START_SIZE: u32 = 512;
 const MAX_ATLAS_SIZE: u32 = 4096;
@@ -402,7 +403,7 @@ impl ChunkRenderer {
     
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RenderStats {
     pub triangles_rendered: usize,
     pub draw_calls: usize,

@@ -46,8 +46,12 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 5,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 2,
@@ -58,8 +62,7 @@
               "RelativeToolTip": "src\\chunk_renderer.rs",
               "ViewState": "AgIAACABAAAAAAAAAAAqwDABAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T17:29:19.746Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T17:29:19.746Z"
             },
             {
               "$type": "Document",
@@ -71,8 +74,7 @@
               "RelativeToolTip": "Cargo.toml",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:35:21.779Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:35:21.779Z"
             },
             {
               "$type": "Document",
@@ -84,8 +86,7 @@
               "RelativeToolTip": "src\\block.rs",
               "ViewState": "AgIAAGICAAAAAAAAAAAqwHMCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:19:02.93Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:19:02.93Z"
             },
             {
               "$type": "Document",
@@ -97,8 +98,7 @@
               "RelativeToolTip": "src\\shader.rs",
               "ViewState": "AgIAAF4AAAAAAAAAAAAqwG4AAABNAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:13:20.164Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:13:20.164Z"
             },
             {
               "$type": "Document",
@@ -108,7 +108,7 @@
               "RelativeDocumentMoniker": "src\\terrain_generator.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\terrain_generator.rs",
               "RelativeToolTip": "src\\terrain_generator.rs",
-              "ViewState": "AgIAAEMBAAAAAAAAAAAqwFYBAAAOAAAAAAAAAA==",
+              "ViewState": "AgIAADgBAAAAAAAAAAAiwFYBAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2025-05-04T16:06:28.821Z",
               "EditorCaption": ""
@@ -123,8 +123,7 @@
               "RelativeToolTip": "src\\chunk.rs",
               "ViewState": "AgIAAB4AAAAAAAAAAAASwDkAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:14:16.977Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:14:16.977Z"
             },
             {
               "$type": "Document",
@@ -136,8 +135,7 @@
               "RelativeToolTip": "src\\main.rs",
               "ViewState": "AgIAACUAAAAAAAAAAAAqwDAAAAAdAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:02:06.428Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:02:06.428Z"
             },
             {
               "$type": "Document",
@@ -149,8 +147,7 @@
               "RelativeToolTip": "src\\engine.rs",
               "ViewState": "AgIAAIsAAAAAAAAAAAASwJoAAAAGAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T15:47:14.8Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T15:47:14.8Z"
             },
             {
               "$type": "Document",
@@ -162,8 +159,7 @@
               "RelativeToolTip": "engine.rs",
               "ViewState": "AgIAAIAAAAAAAAAAAAASwJkAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:01:23.31Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-04T16:01:23.31Z"
             }
           ]
         }

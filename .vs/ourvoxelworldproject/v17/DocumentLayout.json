@@ -3,24 +3,36 @@
   "WorkspaceRootPath": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\engine.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:engine.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\chunk.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\terrain_generator.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\terrain_generator.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\Cargo.toml||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Cargo.toml||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk_renderer.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\chunk_renderer.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\block.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\block.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\chunk.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk_renderer.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\chunk_renderer.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\main.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\Cargo.toml||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Cargo.toml||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\shader.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
@@ -31,12 +43,8 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\engine.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\main.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\engine.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:engine.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\player.rs||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\player.rs||{3B902123-F8A7-4915-9F01-361F908088D0}"
     }
   ],
   "DocumentGroupContainers": [
@@ -46,120 +54,150 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 0,
           "Children": [
             {
-              "$type": "Bookmark",
-              "Name": "ST:128:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": ".gitignore",
+              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\.gitignore",
+              "RelativeDocumentMoniker": ".gitignore",
+              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\.gitignore",
+              "RelativeToolTip": ".gitignore",
+              "ViewState": "AgIAABAAAAAAAAAAAAAAACEAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-05-04T23:19:48.792Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 5,
               "Title": "chunk_renderer.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk_renderer.rs",
               "RelativeDocumentMoniker": "src\\chunk_renderer.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk_renderer.rs",
               "RelativeToolTip": "src\\chunk_renderer.rs",
-              "ViewState": "AgIAACABAAAAAAAAAAAqwDABAAAtAAAAAAAAAA==",
+              "ViewState": "AgIAAFABAAAAAAAAAAAqwGUBAAAkAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T17:29:19.746Z"
+              "WhenOpened": "2025-05-04T17:29:19.746Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 7,
               "Title": "Cargo.toml",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\Cargo.toml",
               "RelativeDocumentMoniker": "Cargo.toml",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\Cargo.toml",
               "RelativeToolTip": "Cargo.toml",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:35:21.779Z"
+              "WhenOpened": "2025-05-04T16:35:21.779Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "block.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\block.rs",
               "RelativeDocumentMoniker": "src\\block.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\block.rs",
               "RelativeToolTip": "src\\block.rs",
-              "ViewState": "AgIAAGICAAAAAAAAAAAqwHMCAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAJMAAAAAAAAAAAAAABcAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:19:02.93Z"
+              "WhenOpened": "2025-05-04T16:19:02.93Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 8,
               "Title": "shader.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\shader.rs",
               "RelativeDocumentMoniker": "src\\shader.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\shader.rs",
               "RelativeToolTip": "src\\shader.rs",
-              "ViewState": "AgIAAF4AAAAAAAAAAAAqwG4AAABNAAAAAAAAAA==",
+              "ViewState": "AgIAAI8AAAAAAAAAAAASwKIAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:13:20.164Z"
+              "WhenOpened": "2025-05-04T16:13:20.164Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
               "Title": "terrain_generator.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\terrain_generator.rs",
               "RelativeDocumentMoniker": "src\\terrain_generator.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\terrain_generator.rs",
               "RelativeToolTip": "src\\terrain_generator.rs",
-              "ViewState": "AgIAADgBAAAAAAAAAAAiwFYBAAAOAAAAAAAAAA==",
+              "ViewState": "AgIAAAEBAAAAAAAAAAAiwB4BAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2025-05-04T16:06:28.821Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 2,
               "Title": "chunk.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk.rs",
               "RelativeDocumentMoniker": "src\\chunk.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\chunk.rs",
               "RelativeToolTip": "src\\chunk.rs",
-              "ViewState": "AgIAAB4AAAAAAAAAAAASwDkAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAEoAAAAAAAAAAAAqwFoAAAA2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:14:16.977Z"
+              "WhenOpened": "2025-05-04T16:14:16.977Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "main.rs",
-              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs",
-              "RelativeDocumentMoniker": "src\\main.rs",
-              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs",
-              "RelativeToolTip": "src\\main.rs",
-              "ViewState": "AgIAACUAAAAAAAAAAAAqwDAAAAAdAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:02:06.428Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "engine.rs",
-              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\engine.rs",
-              "RelativeDocumentMoniker": "src\\engine.rs",
-              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\engine.rs",
-              "RelativeToolTip": "src\\engine.rs",
-              "ViewState": "AgIAAIsAAAAAAAAAAAASwJoAAAAGAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T15:47:14.8Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 1,
               "Title": "engine.rs",
               "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\engine.rs",
               "RelativeDocumentMoniker": "engine.rs",
               "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\engine.rs",
               "RelativeToolTip": "engine.rs",
-              "ViewState": "AgIAAIAAAAAAAAAAAAASwJkAAAAFAAAAAAAAAA==",
+              "ViewState": "AgIAADcAAAAAAAAAAAASwHQAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-05-04T16:01:23.31Z"
+              "WhenOpened": "2025-05-04T16:01:23.31Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "player.rs",
+              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\player.rs",
+              "RelativeDocumentMoniker": "src\\player.rs",
+              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\player.rs",
+              "RelativeToolTip": "src\\player.rs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-05-04T21:48:53.215Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "main.rs",
+              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs",
+              "RelativeDocumentMoniker": "src\\main.rs",
+              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\main.rs",
+              "RelativeToolTip": "src\\main.rs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-05-04T16:02:06.428Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "engine.rs",
+              "DocumentMoniker": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\engine.rs",
+              "RelativeDocumentMoniker": "src\\engine.rs",
+              "ToolTip": "C:\\Users\\geris\\source\\repos\\ourvoxelworldproject\\src\\engine.rs",
+              "RelativeToolTip": "src\\engine.rs",
+              "ViewState": "AgIAAPwCAAAAAAAAAABwPQADAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-05-04T15:47:14.8Z",
+              "EditorCaption": ""
             }
           ]
         }

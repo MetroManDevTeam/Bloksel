@@ -7,7 +7,7 @@ use std::ptr;
 use std::str;
 use thiserror::Error;
 use crate::block::{BlockId, BlockFlags, MaterialModifiers};
-use crate::chunk_renderer::BlockMaterial;
+ use block::BlockMaterial;
 
 #[derive(Debug, Error)]
 pub enum ShaderError {

@@ -7,8 +7,9 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Serialize, Deserialize};
 
-use crate::block::{Block, BlockId, BlockRegistry};
-use crate::chunk::{Chunk, ChunkCoord};
+
+use crate::block::{Block, BlockId, BlockRegistry, BlockPhysics, SubBlock};
+use crate::chunk::{terrain_generator::Chunk,  terrain_generator::ChunkCoord};
 
 const CHUNK_SIZE: usize = 32;
 const SUB_RESOLUTION: usize = 4;
@@ -55,6 +56,14 @@ pub struct ChunkCoord {
 impl ChunkCoord {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
         Self { x, y, z }
+    }
+
+    pub fn from_world(pos: Vec3, chunk_size: f32) -> Self {
+        Self {
+            x: (pos.x / chunk_size).floor() as i32,
+            y: (pos.y / chunk_size).floor() as i32,
+            z: (pos.z / chunk_size).floor() as i32,
+        }
     }
 }
 
@@ -270,20 +279,20 @@ impl TerrainGenerator {
         generator
     }
 
-   fn create_noise_layer(
+    fn create_noise_layer(
         &self,
         seed_offset: u32,
         frequency: f64,
         persistence: f64,
         octaves: usize
-    ) -> Perlin {
-        let mut perlin = Perlin::new();
-        perlin.seed = self.config.seed + seed_offset;
-        perlin.frequency = frequency;
-        perlin.persistence = persistence;
-        perlin.octaves = octaves;
-        perlin
+    ) -> Fbm<Perlin> {
+        let fbm = Fbm::<Perlin>::new(self.config.seed + seed_offset)
+            .set_octaves(octaves)
+            .set_frequency(frequency)
+            .set_persistence(persistence);
+        fbm
     }
+
 
 
 
@@ -627,7 +636,8 @@ mod tests {
         let registry = Arc::new(BlockRegistry::initialize_default());
         let generator = TerrainGenerator::new(12345, registry);
         
-        let chunk = generator.generate_chunk(ChunkCoord::new(0, 0, 0));
+        let chunk = generator.generate_chunk(coord);
         assert!(chunk.blocks.iter().flatten().flatten().any(|b| b.is_some()));
     }
-            }
+   
+}

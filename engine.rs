@@ -6,6 +6,7 @@ use std::thread;
 use parking_lot::Mutex;
 use crossbeam_channel::{bounded, Sender, Receiver};
 use glam::{Vec3, IVec3};
+use chunk::{terrain_generator::Chunk, terrain_generator::ChunkCoord, SerializedChunk,  terrain_generator::ChunkMesh},
 
 pub struct WorldEngine {
     // Chunk management

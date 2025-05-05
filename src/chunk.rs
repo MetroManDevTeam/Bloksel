@@ -1,5 +1,5 @@
 // src/world/chunk.rs
-use crate::terrain_generator::{BlockData, Chunk, ChunkCoord, ChunkMesh, Integrity, Orientation, TerrainGenerator};
+use crate::terrain_generator::{BlockData, Chunk, ChunkCoord, ChunkMesh, Orientation, TerrainGenerator};
 use crate::chunk_renderer::ChunkRenderer;
 use glam::{IVec3, Vec3};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use crate::block::{Block, BlockId};  
+use crate::block::{Block, BlockId, BlockOrientation};  
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorldConfig {
@@ -22,6 +22,14 @@ pub struct SerializedChunk {
     blocks: Vec<CompressedBlock>,
 }
 
+impl SerializedChunk {
+    pub fn from_chunk(coord: ChunkCoord, chunk: &Chunk) -> Self {
+        let mut blocks = Vec::new();
+        // Conversion logic here
+        Self { coord, blocks }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct CompressedBlock {
     position: (usize, usize, usize),
@@ -32,9 +40,9 @@ struct CompressedBlock {
 #[derive(Serialize, Deserialize, Debug)]
 struct CompressedSubBlock {
     local_pos: (u8, u8, u8),
-    id: u16,
-    integrity: Integrity,
-    orientation: Orientation,
+    id: BlockId,
+    integrity: f32,
+    orientation: BlockOrientation,
 }
 
 pub struct ChunkManager {
@@ -76,7 +84,9 @@ impl ChunkManager {
                         let mut sub_blocks = Vec::new();
 
                         for ((sx, sy, sz), sub) in &block.sub_blocks  {
-                            if sub.id != 0 {
+                            if sub.id != BlockId::AIR {
+
+
                                 sub_blocks.push(CompressedSubBlock {
                                     local_pos: (*sx, *sy, *sz),
                                     id: sub.id,
