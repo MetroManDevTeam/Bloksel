@@ -1,10 +1,16 @@
 use crate::PlayerInput;
+use crate::utils::math::AABB;
+use crate::utils::math::Mat4;
+use crate::utils::math::Plane;
+use crate::utils::math::Quat;
+use crate::utils::math::Vec3;
+use crate::utils::math::ViewFrustum;
 use crate::world::block::BlockPhysics;
 use crate::world::block_id::BlockData;
 use crate::world::block_tech::BlockPhysics;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::{Chunk, TerrainGenerator};
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4 as GlamMat4, Quat as GlamQuat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::sync::Arc;
@@ -100,59 +106,102 @@ impl Player {
     }
 
     fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
-        let movement = self.calculate_movement_vector(input);
-        let speed = self.calculate_current_speed(input);
-
         match self.state {
-            PlayerState::Spectator => {
-                // Instant velocity response with speed multiplier
-                self.velocity = movement * speed * self.speed_multiplier;
-                if input.fly_up {
-                    self.velocity.y = speed * self.speed_multiplier;
+            PlayerState::Walking => {
+                let speed = self.physics.walk_speed;
+                let mut velocity = Vec3::ZERO;
+
+                if input.forward {
+                    velocity.z -= speed;
                 }
-                if input.fly_down {
-                    self.velocity.y = -speed * self.speed_multiplier;
+                if input.backward {
+                    velocity.z += speed;
                 }
+                if input.left {
+                    velocity.x -= speed;
+                }
+                if input.right {
+                    velocity.x += speed;
+                }
+
+                self.velocity = velocity;
+            }
+            PlayerState::Crouching => {
+                let speed = self.physics.crouch_speed;
+                let mut velocity = Vec3::ZERO;
+
+                if input.forward {
+                    velocity.z -= speed;
+                }
+                if input.backward {
+                    velocity.z += speed;
+                }
+                if input.left {
+                    velocity.x -= speed;
+                }
+                if input.right {
+                    velocity.x += speed;
+                }
+
+                self.velocity = velocity;
             }
             PlayerState::Flying => {
-                // Smoother flight controls
-                self.velocity = self.velocity.lerp(movement * speed, dt * 10.0);
-                if input.fly_up {
-                    self.velocity.y = speed;
+                let speed = self.physics.fly_speed;
+                let mut velocity = Vec3::ZERO;
+
+                if input.forward {
+                    velocity.z -= speed;
                 }
-                if input.fly_down {
-                    self.velocity.y = -speed;
+                if input.backward {
+                    velocity.z += speed;
                 }
+                if input.left {
+                    velocity.x -= speed;
+                }
+                if input.right {
+                    velocity.x += speed;
+                }
+                if input.jump {
+                    velocity.y += speed;
+                }
+                if input.crouch {
+                    velocity.y -= speed;
+                }
+
+                self.velocity = velocity;
+            }
+            PlayerState::Sprinting => {
+                let speed = self.physics.sprint_speed;
+                let mut velocity = Vec3::ZERO;
+
+                if input.forward {
+                    velocity.z -= speed;
+                }
+                if input.backward {
+                    velocity.z += speed;
+                }
+                if input.left {
+                    velocity.x -= speed;
+                }
+                if input.right {
+                    velocity.x += speed;
+                }
+
+                self.velocity = velocity;
             }
             PlayerState::Normal => {
                 // Ground-based movement with air control
                 let acceleration = if self.on_ground { 15.0 } else { 3.0 };
-                self.velocity.x += movement.x * acceleration * dt;
-                self.velocity.z += movement.z * acceleration * dt;
+                self.velocity.x += self.velocity.x * acceleration * dt;
+                self.velocity.z += self.velocity.z * acceleration * dt;
 
                 let friction = if self.on_ground { 0.7 } else { 0.98 };
                 self.velocity.x *= friction;
                 self.velocity.z *= friction;
             }
-            PlayerState::Walking => {
-                // Ground-based movement with air control
-                let acceleration = if self.on_ground { 15.0 } else { 3.0 };
-                self.velocity.x += movement.x * acceleration * dt;
-                self.velocity.z += movement.z * acceleration * dt;
-
-                let friction = if self.on_ground { 0.7 } else { 0.98 };
-                self.velocity.x *= friction;
-                self.velocity.z *= friction;
-            }
-            PlayerState::Crouching => {
-                // Ground-based movement with air control
-                let acceleration = if self.on_ground { 15.0 } else { 3.0 };
-                self.velocity.x += movement.x * acceleration * dt;
-                self.velocity.z += movement.z * acceleration * dt;
-
-                let friction = if self.on_ground { 0.7 } else { 0.98 };
-                self.velocity.x *= friction;
-                self.velocity.z *= friction;
+            PlayerState::Spectator => {
+                // Instant velocity response with speed multiplier
+                self.velocity = self.velocity.lerp(self.velocity, dt * 10.0);
             }
         }
     }
@@ -220,6 +269,10 @@ impl Player {
                 self.velocity.y -= self.gravity * dt;
                 self.velocity.y = self.velocity.y.clamp(-self.gravity, self.gravity);
             }
+            PlayerState::Sprinting => {
+                self.velocity.y -= self.gravity * dt;
+                self.velocity.y = self.velocity.y.clamp(-self.gravity, self.gravity);
+            }
         }
 
         // Prevent extreme velocities
@@ -270,9 +323,9 @@ impl Player {
     }
 
     fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
-        let chunk_coord = ChunkCoord::from_world(position);
+        let chunk_coord = ChunkCoord::from_world_pos(position);
         if let Some(chunk) = terrain.get_chunk(chunk_coord) {
-            let local_pos = position - chunk_coord.to_world();
+            let local_pos = position - chunk_coord.to_world_pos(self.chunk_size);
             // Perform the actual collision check using the chunk data
             return chunk.read().is_solid_at(local_pos);
         }
@@ -309,13 +362,13 @@ impl Player {
         }
     }
 
-    pub fn get_view_matrix(&self) -> Mat4 {
-        let rotation_x = Mat4::from_rotation_x(-self.rotation.y);
-        let rotation_y = Mat4::from_rotation_y(-self.rotation.x);
-        let translation = Mat4::from_translation(-self.position);
+    pub fn get_view_matrix(&self) -> GlamMat4 {
+        let rotation_x = GlamMat4::from_rotation_x(-self.rotation.y);
+        let rotation_y = GlamMat4::from_rotation_y(-self.rotation.x);
+        let translation = GlamMat4::from_translation(-self.position);
 
         // Apply zoom for spectator mode
-        let zoom = Mat4::from_scale(Vec3::splat(self.zoom_level));
+        let zoom = GlamMat4::from_scale(Vec3::splat(self.zoom_level));
 
         rotation_x * rotation_y * translation * zoom
     }
@@ -360,25 +413,28 @@ impl Player {
         }
     }
 
-    pub fn handle_key_input(&mut self, key: KeyCode, state: ElementState) {
-        let pressed = state == ElementState::Pressed;
+    pub fn handle_key(&mut self, key: KeyCode, pressed: bool) {
         match key {
-            KeyCode::Space => self.jump(),
-            KeyCode::LShift => {
+            KeyCode::Space => {
                 if pressed {
-                    self.crouch()
-                } else {
-                    self.stand()
+                    self.jump();
                 }
             }
-            KeyCode::LControl => {
+            KeyCode::ShiftLeft => {
                 if pressed {
-                    self.sprint()
+                    self.crouch();
                 } else {
-                    self.walk()
+                    self.stand();
                 }
             }
-            _ => (),
+            KeyCode::ControlLeft => {
+                if pressed {
+                    self.sprint();
+                } else {
+                    self.walk();
+                }
+            }
+            _ => {}
         }
     }
 
