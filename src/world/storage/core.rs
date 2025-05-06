@@ -1,11 +1,12 @@
-use crate::world::BlockFacing;
-use crate::world::BlockOrientation;
-use crate::world::ChunkCoord;
-use crate::world::block::Block;
-use crate::world::chunk::{Chunk, SerializedChunk};
-use crate::world::block_id::BlockId;
 use crate::config::core::EngineConfig;
 use crate::player::physics::PlayerState;
+use crate::world::block::Block;
+use crate::world::block_facing::BlockFacing;
+use crate::world::block_id::BlockId;
+use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_visual::ConnectedDirections;
+use crate::world::chunk::Chunk;
+use crate::world::chunk_coord::ChunkCoord;
 use anyhow::Result;
 use log;
 use serde::{Deserialize, Serialize};
@@ -51,7 +52,7 @@ impl ChunkStorage for MemoryStorage {
 #[derive(Serialize, Deserialize)]
 pub struct WorldSave {
     pub config: EngineConfig,
-    pub chunks: Vec<SerializedChunk>,
+    pub chunks: Vec<Chunk>,
     pub player_state: PlayerState,
 }
 
@@ -80,14 +81,15 @@ impl WorldSave {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompressedSubBlock {
     pub local_pos: (u8, u8, u8),
-    pub id: BlockId,
-    pub metadata: u8,
+    pub id: u16,
+    pub facing: BlockFacing,
     pub orientation: BlockOrientation,
+    pub connections: ConnectedDirections,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompressedBlock {
     pub position: (usize, usize, usize),
-    pub id: u16,
+    pub id: BlockId,
     pub sub_blocks: Vec<CompressedSubBlock>,
 }
