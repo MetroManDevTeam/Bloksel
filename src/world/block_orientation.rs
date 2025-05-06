@@ -9,6 +9,7 @@ pub enum BlockOrientation {
     West,
     Up,
     Down,
+    Wall,
     None,
 }
 
@@ -21,7 +22,7 @@ impl BlockOrientation {
             BlockFacing::NegX => Self::West,
             BlockFacing::PosY => Self::Up,
             BlockFacing::NegY => Self::Down,
-            BlockFacing::Wall => Self::None,
+            BlockFacing::Wall => Self::Wall,
             BlockFacing::Floor => Self::None,
             BlockFacing::Ceiling => Self::None,
             BlockFacing::Corner => Self::None,
@@ -39,6 +40,7 @@ impl BlockOrientation {
             Self::West => BlockFacing::NegX,
             Self::Up => BlockFacing::PosY,
             Self::Down => BlockFacing::NegY,
+            Self::Wall => BlockFacing::Wall,
             Self::None => BlockFacing::None,
         }
     }
@@ -59,7 +61,7 @@ impl From<BlockFacing> for BlockOrientation {
             BlockFacing::NegX => Self::West,
             BlockFacing::PosY => Self::Up,
             BlockFacing::NegY => Self::Down,
-            BlockFacing::Wall => Self::None,
+            BlockFacing::Wall => Self::Wall,
             BlockFacing::Floor => Self::None,
             BlockFacing::Ceiling => Self::None,
             BlockFacing::Corner => Self::None,
