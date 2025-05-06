@@ -7,7 +7,7 @@ use crate::world::block_mat::BlockMaterial;
 use crate::world::block_visual::{BlockFacing, ConnectedDirections};
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
-use crate::world::{Block, BlockRegistry, WorldConfig};
+use crate::world::{BlockRegistry, WorldConfig};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
 use glam::Vec3;
@@ -72,6 +72,22 @@ impl Chunk {
             + (y as usize) * CHUNK_SIZE as usize
             + (z as usize) * (CHUNK_SIZE as usize).pow(2);
         self.blocks[index] = block;
+    }
+
+    pub fn empty(size: u8) -> Self {
+        Self {
+            coord: ChunkCoord::new(0, 0, 0),
+            blocks: vec![None; (size as usize).pow(3)],
+            mesh: ChunkMesh::new(),
+        }
+    }
+
+    pub fn from_template(template: &Self, coord: ChunkCoord) -> Self {
+        Self {
+            coord,
+            blocks: template.blocks.clone(),
+            mesh: ChunkMesh::new(),
+        }
     }
 }
 
