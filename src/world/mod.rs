@@ -11,6 +11,7 @@ pub mod blocks_data;
 pub mod chunk;
 pub mod chunk_coord;
 pub mod generator;
+pub mod pool;
 pub mod spatial;
 pub mod storage;
 
@@ -28,6 +29,7 @@ pub use blocks_data::BLOCKS;
 pub use chunk::{Chunk, SerializedChunk};
 pub use chunk_coord::ChunkCoord;
 pub use generator::TerrainGenerator;
+pub use pool::ChunkPool;
 pub use spatial::SpatialIndex;
 pub use storage::ChunkStorage;
 
