@@ -6,8 +6,8 @@ use super::{
     block_tech::BlockFlags,
     block_visual::{BlockFacing, BlockOrientation},
 };
+use crate::world::{BlockDefinition, BlockId};
 use std::collections::{HashMap, HashSet};
-
 
 // Initialize a default block material
 fn default_material() -> BlockMaterial {
@@ -52,30 +52,23 @@ pub const BLOCKS: &[BlockDefinition] = &[
             break_resistance: 1.5,
             ..Default::default()
         },
-        variations: vec![
-            BlockVariant {
-                id: 1,
-                name: "cracked".into(),
-                texture_overrides: HashMap::from([
-                    (BlockFacing::All, "stone_cracked.png".into())
-                ]),
-                material_modifiers: MaterialModifiers {
-                    roughness_offset: Some(0.1),
-                    ..Default::default()
-                },
-            }
-        ],
-        color_variations: vec![
-            ColorVariant {
-                id: 1,
-                name: "mossy".into(),
-                color: [0.4, 0.5, 0.3, 1.0],
-                material_modifiers: Default::default(),
-            }
-        ],
+        variations: vec![BlockVariant {
+            id: 1,
+            name: "cracked".into(),
+            texture_overrides: HashMap::from([(BlockFacing::All, "stone_cracked.png".into())]),
+            material_modifiers: MaterialModifiers {
+                roughness_offset: Some(0.1),
+                ..Default::default()
+            },
+        }],
+        color_variations: vec![ColorVariant {
+            id: 1,
+            name: "mossy".into(),
+            color: [0.4, 0.5, 0.3, 1.0],
+            material_modifiers: Default::default(),
+        }],
         tint_settings: Default::default(),
     },
-    
     // 2: Grass Block
     BlockDefinition {
         id: BlockId::new(2),
@@ -107,7 +100,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 3: Dirt
     BlockDefinition {
         id: BlockId::new(3),
@@ -116,9 +108,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "dirt.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "dirt.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.6, 0.4, 0.2, 1.0];
@@ -134,7 +124,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 4: Cobblestone
     BlockDefinition {
         id: BlockId::new(4),
@@ -143,9 +132,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "cobblestone.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "cobblestone.png".into())]),
         material: {
             let mut mat = default_material();
             mat.roughness = 0.9;
@@ -161,7 +148,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 5: Oak Log
     BlockDefinition {
         id: BlockId::new(5),
@@ -194,7 +180,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 6: Oak Planks
     BlockDefinition {
         id: BlockId::new(6),
@@ -203,9 +188,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "planks_oak.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "planks_oak.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.8, 0.6, 0.4, 1.0];
@@ -219,14 +202,12 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
         variations: Vec::new(),
-        color_variations: vec![
-            ColorVariant {
-                id: 1,
-                name: "dark".into(),
-                color: [0.4, 0.3, 0.2, 1.0],
-                material_modifiers: Default::default(),
-            }
-        ],
+        color_variations: vec![ColorVariant {
+            id: 1,
+            name: "dark".into(),
+            color: [0.4, 0.3, 0.2, 1.0],
+            material_modifiers: Default::default(),
+        }],
         tint_settings: TintSettings {
             enabled: true,
             strength: 0.5,
@@ -235,7 +216,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
     },
-
     // 7: Water
     BlockDefinition {
         id: BlockId::new(7),
@@ -244,9 +224,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::from([BlockCategory::Liquid]),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "water.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "water.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.2, 0.4, 0.8, 0.7];
@@ -264,7 +242,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 8: Lava
     BlockDefinition {
         id: BlockId::new(8),
@@ -273,9 +250,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::from([BlockCategory::Liquid]),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "lava.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "lava.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [1.0, 0.5, 0.1, 0.9];
@@ -294,7 +269,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 9: Sand
     BlockDefinition {
         id: BlockId::new(9),
@@ -303,9 +277,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "sand.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "sand.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.9, 0.8, 0.5, 1.0];
@@ -321,7 +293,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 10: Glass
     BlockDefinition {
         id: BlockId::new(10),
@@ -330,9 +301,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "glass.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "glass.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.9, 0.9, 0.95, 0.2];
@@ -345,14 +314,12 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
         variations: Vec::new(),
-        color_variations: vec![
-            ColorVariant {
-                id: 1,
-                name: "tinted".into(),
-                color: [0.1, 0.1, 0.1, 0.8],
-                material_modifiers: Default::default(),
-            }
-        ],
+        color_variations: vec![ColorVariant {
+            id: 1,
+            name: "tinted".into(),
+            color: [0.1, 0.1, 0.1, 0.8],
+            material_modifiers: Default::default(),
+        }],
         tint_settings: TintSettings {
             enabled: true,
             strength: 0.8,
@@ -362,7 +329,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
     },
-
     // 11: Brick
     BlockDefinition {
         id: BlockId::new(11),
@@ -371,9 +337,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "brick.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "brick.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.8, 0.4, 0.3, 1.0];
@@ -390,7 +354,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 12: Stone Slab
     BlockDefinition {
         id: BlockId::new(12),
@@ -417,7 +380,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 13: Wooden Slab
     BlockDefinition {
         id: BlockId::new(13),
@@ -450,7 +412,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 14: Stone Brick
     BlockDefinition {
         id: BlockId::new(14),
@@ -459,9 +420,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "stonebrick.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "stonebrick.png".into())]),
         material: default_material(),
         flags: BlockFlags {
             solid: true,
@@ -473,9 +432,10 @@ pub const BLOCKS: &[BlockDefinition] = &[
             BlockVariant {
                 id: 1,
                 name: "cracked".into(),
-                texture_overrides: HashMap::from([
-                    (BlockFacing::All, "stonebrick_cracked.png".into())
-                ]),
+                texture_overrides: HashMap::from([(
+                    BlockFacing::All,
+                    "stonebrick_cracked.png".into(),
+                )]),
                 material_modifiers: MaterialModifiers {
                     roughness_offset: Some(0.15),
                     ..Default::default()
@@ -484,19 +444,19 @@ pub const BLOCKS: &[BlockDefinition] = &[
             BlockVariant {
                 id: 2,
                 name: "mossy".into(),
-                texture_overrides: HashMap::from([
-                    (BlockFacing::All, "stonebrick_mossy.png".into())
-                ]),
+                texture_overrides: HashMap::from([(
+                    BlockFacing::All,
+                    "stonebrick_mossy.png".into(),
+                )]),
                 material_modifiers: MaterialModifiers {
                     albedo_factor: Some([0.8, 0.9, 0.7]),
                     ..Default::default()
                 },
-            }
+            },
         ],
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 15: Bedrock
     BlockDefinition {
         id: BlockId::new(15),
@@ -505,9 +465,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "bedrock.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "bedrock.png".into())]),
         material: default_material(),
         flags: BlockFlags {
             solid: true,
@@ -519,7 +477,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 16: Snow
     BlockDefinition {
         id: BlockId::new(16),
@@ -528,9 +485,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "snow.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "snow.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.95, 0.95, 0.98, 1.0];
@@ -545,7 +500,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 17: Cactus
     BlockDefinition {
         id: BlockId::new(17),
@@ -577,7 +531,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 18: Tall Grass
     BlockDefinition {
         id: BlockId::new(18),
@@ -586,9 +539,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "tallgrass.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "tallgrass.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.3, 0.6, 0.2, 0.9];
@@ -601,23 +552,18 @@ pub const BLOCKS: &[BlockDefinition] = &[
             flammable: true,
             ..Default::default()
         },
-        variations: vec![
-            BlockVariant {
-                id: 1,
-                name: "fern".into(),
-                texture_overrides: HashMap::from([
-                    (BlockFacing::All, "fern.png".into())
-                ]),
-                material_modifiers: MaterialModifiers {
-                    albedo_factor: Some([0.8, 1.0, 0.8]),
-                    ..Default::default()
-                },
-            }
-        ],
+        variations: vec![BlockVariant {
+            id: 1,
+            name: "fern".into(),
+            texture_overrides: HashMap::from([(BlockFacing::All, "fern.png".into())]),
+            material_modifiers: MaterialModifiers {
+                albedo_factor: Some([0.8, 1.0, 0.8]),
+                ..Default::default()
+            },
+        }],
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-
     // 19: Poppy
     BlockDefinition {
         id: BlockId::new(19),
@@ -626,9 +572,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::All, "flower_poppy.png".into())
-        ]),
+        texture_faces: HashMap::from([(BlockFacing::All, "flower_poppy.png".into())]),
         material: {
             let mut mat = default_material();
             mat.albedo = [0.9, 0.2, 0.2, 0.9];
@@ -642,14 +586,12 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
         variations: Vec::new(),
-        color_variations: vec![
-            ColorVariant {
-                id: 1,
-                name: "blue".into(),
-                color: [0.2, 0.2, 0.9, 1.0],
-                material_modifiers: Default::default(),
-            }
-        ],
+        color_variations: vec![ColorVariant {
+            id: 1,
+            name: "blue".into(),
+            color: [0.2, 0.2, 0.9, 1.0],
+            material_modifiers: Default::default(),
+        }],
         tint_settings: TintSettings {
             enabled: true,
             strength: 0.7,
@@ -658,7 +600,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
     },
-
     // 20: Glass Pane
     BlockDefinition {
         id: BlockId::new(20),
@@ -687,14 +628,12 @@ pub const BLOCKS: &[BlockDefinition] = &[
             ..Default::default()
         },
         variations: Vec::new(),
-        color_variations: vec![
-            ColorVariant {
-                id: 1,
-                name: "stained".into(),
-                color: [0.8, 0.5, 0.8, 0.5],
-                material_modifiers: Default::default(),
-            }
-        ],
+        color_variations: vec![ColorVariant {
+            id: 1,
+            name: "stained".into(),
+            color: [0.8, 0.5, 0.8, 0.5],
+            material_modifiers: Default::default(),
+        }],
         tint_settings: TintSettings {
             enabled: true,
             strength: 0.9,
@@ -703,5 +642,37 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mask_channel: TintMaskChannel::Alpha,
             ..Default::default()
         },
-    }
+    },
 ];
+
+#[derive(Debug, Clone)]
+pub struct BlockRegistry {
+    blocks: HashMap<BlockId, BlockDefinition>,
+    name_to_id: HashMap<String, BlockId>,
+}
+
+impl BlockRegistry {
+    pub fn new() -> Self {
+        Self {
+            blocks: HashMap::new(),
+            name_to_id: HashMap::new(),
+        }
+    }
+
+    pub fn register(&mut self, block: BlockDefinition) {
+        self.blocks.insert(block.id, block.clone());
+        self.name_to_id.insert(block.name.clone(), block.id);
+    }
+
+    pub fn get(&self, id: BlockId) -> Option<&BlockDefinition> {
+        self.blocks.get(&id)
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
+        self.name_to_id.get(name).and_then(|id| self.blocks.get(id))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &BlockDefinition> {
+        self.blocks.values()
+    }
+}
