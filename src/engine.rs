@@ -7,15 +7,20 @@ use crate::{
         input::PlayerInput,
         physics::{Player, PlayerState},
     },
-    render::{pipeline::RenderPipeline, shaders::ShaderProgram},
+    render::{
+        pipeline::{ChunkRenderer, RenderPipeline},
+        shaders::ShaderProgram,
+    },
     utils::{
         error::BlockError,
-        math::{Plane, Ray, ViewFrustum},
+        math::{Plane, ViewFrustum},
     },
     world::{
         block_id::BlockRegistry,
-        chunk::{Chunk, ChunkCoord, SerializedChunk},
+        chunk::{Chunk, SerializedChunk},
+        chunk_coord::ChunkCoord,
         generator::terrain::TerrainGenerator,
+        pool::ChunkPool,
         spatial::SpatialPartition,
     },
 };
@@ -131,6 +136,28 @@ impl VoxelEngine {
         };
 
         Ok(engine)
+    }
+
+    pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
+        EngineConfig {
+            world_name: name,
+            world_seed: seed,
+            render_distance: 8,
+            lod_levels: [4, 8, 16],
+            chunk_size: 32,
+            texture_atlas_size: 1024,
+            max_chunk_pool_size: 1000,
+            vsync: true,
+            async_loading: true,
+            fov: 70.0,
+            view_distance: 1000.0,
+            save_interval: 300.0,
+            terrain: self.config.terrain.clone(),
+            gameplay: self.config.gameplay.clone(),
+            rendering: self.config.rendering.clone(),
+            chunksys: self.config.chunksys.clone(),
+            worldgen: self.config.worldgen.clone(),
+        }
     }
 
     pub fn run(&mut self) -> Result<()> {
