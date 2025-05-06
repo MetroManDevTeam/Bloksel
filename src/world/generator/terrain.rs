@@ -7,7 +7,7 @@ use crate::world::blocks_data::BlockRegistry;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
 use glam::IVec3;
-use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
+use noise::{NoiseFn, Perlin};
 use parking_lot::RwLock;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
@@ -98,6 +98,7 @@ pub struct TerrainGenerator {
     config: WorldGenConfig,
     block_registry: Arc<BlockRegistry>,
     rng: ChaCha12Rng,
+    noise: Perlin,
 }
 
 impl TerrainGenerator {
@@ -106,6 +107,7 @@ impl TerrainGenerator {
             config,
             block_registry,
             rng: ChaCha12Rng::seed_from_u64(config.world_seed),
+            noise: Perlin::new(config.world_seed as u32),
         }
     }
 
@@ -150,7 +152,7 @@ impl TerrainGenerator {
             let sample_x = x / self.config.noise_scale * frequency;
             let sample_z = z / self.config.noise_scale * frequency;
 
-            let noise_value = (noise::simplex2(sample_x, sample_z) + 1.0) * 0.5;
+            let noise_value = (self.noise.get([sample_x, sample_z]) + 1.0) * 0.5;
             height += noise_value * amplitude;
             max_amplitude += amplitude;
 
@@ -532,10 +534,10 @@ impl TerrainGenerator {
     }
 
     fn sample_noise(&self, layer: &str, x: i32, z: i32) -> f64 {
-        let noise = noise::simplex2(
+        let noise = self.noise.get([
             x as f64 / self.config.noise_scale,
             z as f64 / self.config.noise_scale,
-        );
+        ]);
         noise
     }
 
