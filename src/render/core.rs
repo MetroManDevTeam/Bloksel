@@ -1,8 +1,11 @@
-pub mod camera;
-pub mod mesh;
-pub mod pipeline;
-pub mod shaders;
+use crate::render::{
+    camera::Camera,
+    mesh::{Mesh, MeshData},
+    pipeline::RenderPipeline,
+    shaders::Shader,
+};
 
-pub use mesh::Mesh;
+pub use camera::Camera;
+pub use mesh::{Mesh, MeshData};
 pub use pipeline::RenderPipeline;
-pub use shaders::{ShaderError, ShaderProgram, voxel_shaders};
+pub use shaders::Shader;
