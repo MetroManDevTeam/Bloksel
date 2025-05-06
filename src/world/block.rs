@@ -8,6 +8,7 @@ pub struct Block {
     pub id: u16,
     pub orientation: BlockOrientation,
     pub facing: BlockFacing,
+    pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +26,7 @@ impl Block {
             id,
             orientation: BlockOrientation::None,
             facing: BlockFacing::None,
+            sub_blocks: HashMap::new(),
         }
     }
 
