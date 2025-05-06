@@ -167,41 +167,41 @@ impl TerrainGenerator {
 
     fn generate_normal_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64 + coord.x as u64 * 341873128712 + coord.z as u64 * 132897987541,
+            self.config.seed as u64
+                + coord.x() as u64 * 341873128712
+                + coord.z() as u64 * 132897987541,
         );
 
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                let world_x = coord.x * CHUNK_SIZE as i32 + x as i32;
-                let world_z = coord.z * CHUNK_SIZE as i32 + z as i32;
+                let world_x = coord.x() * CHUNK_SIZE as i32 + x as i32;
+                let world_z = coord.z() * CHUNK_SIZE as i32 + z as i32;
 
                 let biome = self.calculate_biome(world_x, world_z);
                 let height = self.calculate_height(world_x, world_z, biome);
                 let (base_block, top_block) = self.get_biome_blocks(biome);
 
                 for y in 0..CHUNK_SIZE {
-                    let world_y = coord.y * CHUNK_SIZE as i32 + y as i32;
-                    let mut block_id = BlockId::AIR;
+                    let world_y = coord.y() * CHUNK_SIZE as i32 + y as i32;
+                    let mut block_id = BlockId::new(0);
 
                     if world_y <= height {
                         block_id =
                             self.get_block_for_depth(world_y, height, base_block, top_block, biome);
 
                         if self.should_add_cave(world_x, world_y, world_z) {
-                            block_id = BlockId::AIR;
+                            block_id = BlockId::new(0);
                         }
                     }
 
-                    if biome == BiomeType::Ocean && world_y <= SEA_LEVEL && block_id == BlockId::AIR
+                    if biome == BiomeType::Ocean
+                        && world_y <= SEA_LEVEL
+                        && block_id == BlockId::new(0)
                     {
-                        block_id = self
-                            .block_registry
-                            .get_by_name("water")
-                            .map(|def| def.id)
-                            .unwrap_or(BlockId::from(10));
+                        block_id = BlockId::new(10);
                     }
 
-                    if block_id != BlockId::AIR {
+                    if block_id != BlockId::new(0) {
                         let mut block = self.create_block(block_id, biome, &mut rng);
                         self.add_strata_details(&mut block, world_y, &mut rng);
                         chunk.set_block(x, y, z, Some(block));
@@ -213,7 +213,9 @@ impl TerrainGenerator {
 
     fn generate_flat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64 + coord.x as u64 * 341873128712 + coord.z as u64 * 132897987541,
+            self.config.seed as u64
+                + coord.x() as u64 * 341873128712
+                + coord.z() as u64 * 132897987541,
         );
 
         let mut current_height = FLAT_WORLD_HEIGHT;
@@ -223,7 +225,7 @@ impl TerrainGenerator {
             for _ in 0..*thickness {
                 for x in 0..CHUNK_SIZE {
                     for z in 0..CHUNK_SIZE {
-                        let chunk_y = current_height - coord.y * CHUNK_SIZE as i32;
+                        let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
                         if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
                             let block = self.create_block(*block_id, BiomeType::Plains, &mut rng);
                             chunk.set_block(x, chunk_y as usize, z, Some(block));
@@ -243,7 +245,7 @@ impl TerrainGenerator {
                 .unwrap_or(BlockId::from(10));
             for x in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    let chunk_y = current_height - coord.y * CHUNK_SIZE as i32;
+                    let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
                     if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
                         let block = self.create_block(bedrock_id, BiomeType::Plains, &mut rng);
                         chunk.set_block(x, chunk_y as usize, z, Some(block));
@@ -428,11 +430,11 @@ impl TerrainGenerator {
                         .map(|def| def.id)
                         .unwrap_or(BlockId::from(10)) =>
             {
-                if rng.gen_ratio(1, 10) {
+                if rng.random_ratio(1, 10) {
                     block.place_sub_block(
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.random_range(0..SUB_RESOLUTION as u8),
+                        rng.random_range(0..SUB_RESOLUTION as u8),
+                        rng.random_range(0..SUB_RESOLUTION as u8),
                         SubBlock {
                             id: self
                                 .block_registry
@@ -456,9 +458,9 @@ impl TerrainGenerator {
                         .unwrap_or(BlockId::from(10)) =>
             {
                 block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
                         id: self
                             .block_registry
@@ -479,8 +481,8 @@ impl TerrainGenerator {
     }
 
     fn add_strata_details(&self, block: &mut Block, world_y: i32, rng: &mut ChaCha12Rng) {
-        if world_y < SEA_LEVEL - 8 && rng.gen_ratio(1, 10) {
-            let ore_type = match rng.gen_range(0..100) {
+        if world_y < SEA_LEVEL - 8 && rng.random_ratio(1, 10) {
+            let ore_type = match rng.random_range(0..100) {
                 0..=5 => "coal_ore",
                 6..=8 => "iron_ore",
                 9..=10 => "gold_ore",
@@ -488,11 +490,11 @@ impl TerrainGenerator {
                 _ => "stone",
             };
 
-            for _ in 0..rng.gen_range(1..=3) {
+            for _ in 0..rng.random_range(1..=3) {
                 block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.random_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
                         id: self
                             .block_registry

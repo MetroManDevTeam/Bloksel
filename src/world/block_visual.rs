@@ -52,12 +52,12 @@ impl ConnectedDirections {
 impl BlockFacing {
     pub fn opposite(&self) -> Self {
         match self {
-            BlockFacing::North => BlockFacing::South,
-            BlockFacing::South => BlockFacing::North,
-            BlockFacing::East => BlockFacing::West,
-            BlockFacing::West => BlockFacing::East,
-            BlockFacing::Up => BlockFacing::Down,
-            BlockFacing::Down => BlockFacing::Up,
+            BlockFacing::PosZ => BlockFacing::NegZ,
+            BlockFacing::NegZ => BlockFacing::PosZ,
+            BlockFacing::PosX => BlockFacing::NegX,
+            BlockFacing::NegX => BlockFacing::PosX,
+            BlockFacing::PosY => BlockFacing::NegY,
+            BlockFacing::NegY => BlockFacing::PosY,
             _ => BlockFacing::None,
         }
     }

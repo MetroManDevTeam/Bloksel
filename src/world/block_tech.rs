@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BlockFlags {
     pub transparent: bool,
@@ -11,76 +13,91 @@ pub struct BlockFlags {
     pub solid: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BlockPhysics {
+    pub solid: bool,
+    pub liquid: bool,
+    pub gas: bool,
+    pub physics: PhysicsProperties,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PhysicsProperties {
     pub density: f32,
     pub friction: f32,
     pub restitution: f32,
-    pub dynamic: bool,
-    pub passable: bool,
-    pub break_resistance: f32,
-    pub flammability: f32,
-    pub thermal_conductivity: f32,
-    pub emissive: bool,
-    pub light_level: u8,
-    pub 
-    physics: HashMap<BlockId, BlockPhysics>,  // Add this
-     
+    pub viscosity: f32,
 }
 
 impl Default for BlockPhysics {
     fn default() -> Self {
         Self {
-            density: 1000.0, // Water density as default
-            friction: 0.6,
-            restitution: 0.0,
-            dynamic: false,
-            passable: false,
-            break_resistance: 1.0,
-            flammability: 0.0,
-            thermal_conductivity: 0.5,
-            emissive: false,
-            light_level: 0,
+            solid: false,
+            liquid: false,
+            gas: false,
+            physics: PhysicsProperties {
+                density: 1000.0, // Water density as default
+                friction: 0.6,
+                restitution: 0.0,
+                viscosity: 0.0,
+            },
         }
     }
 }
 
 impl BlockPhysics {
-    pub fn solid(density: f32) -> Self {
+    pub fn new(solid: bool, liquid: bool, gas: bool, physics: PhysicsProperties) -> Self {
         Self {
-            density,
-            friction: 0.6,
-            restitution: 0.1,
-            dynamic: false,
-            passable: false,
-            ..Default::default()
+            solid,
+            liquid,
+            gas,
+            physics,
         }
     }
 
-    pub fn liquid(density: f32) -> Self {
+    pub fn solid() -> Self {
         Self {
-            density,
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
+            solid: true,
+            liquid: false,
+            gas: false,
+            physics: PhysicsProperties {
+                density: 1.0,
+                friction: 0.5,
+                restitution: 0.2,
+                viscosity: 0.0,
+            },
+        }
+    }
+
+    pub fn liquid() -> Self {
+        Self {
+            solid: false,
+            liquid: true,
+            gas: false,
+            physics: PhysicsProperties {
+                density: 0.8,
+                friction: 0.1,
+                restitution: 0.0,
+                viscosity: 0.5,
+            },
         }
     }
 
     pub fn gas() -> Self {
         Self {
-            density: 1.2, // Air density
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
+            solid: false,
+            liquid: false,
+            gas: true,
+            physics: PhysicsProperties {
+                density: 0.1,
+                friction: 0.0,
+                restitution: 0.0,
+                viscosity: 0.0,
+            },
         }
     }
 
     pub fn mass(&self, volume: f32) -> f32 {
-        self.density * volume
+        self.physics.density * volume
     }
 }
-

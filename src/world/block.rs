@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Block {
-    pub id: u16,
+    pub id: BlockId,
     pub orientation: BlockOrientation,
     pub facing: BlockFacing,
     pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
@@ -21,7 +21,7 @@ pub struct SubBlock {
 }
 
 impl Block {
-    pub fn new(id: u16) -> Self {
+    pub fn new(id: BlockId) -> Self {
         Self {
             id,
             orientation: BlockOrientation::None,
@@ -50,5 +50,9 @@ impl Block {
 
     pub fn remove_sub_block(&mut self, x: u8, y: u8, z: u8) {
         self.sub_blocks.remove(&(x, y, z));
+    }
+
+    pub fn get_primary_id(&self) -> u16 {
+        self.id.base_id as u16
     }
 }

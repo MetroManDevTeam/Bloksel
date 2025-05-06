@@ -11,8 +11,13 @@ use crate::world::generator::terrain::{BiomeType, ChaCha12Rng};
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
+<<<<<<< Updated upstream
 use glam::{IVec3, Vec3};
 use rand_chacha::ChaCha12Rng;
+=======
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
+>>>>>>> Stashed changes
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -22,47 +27,52 @@ use std::sync::Arc;
 pub const CHUNK_SIZE: u8 = 16;
 pub const CHUNK_VOLUME: usize = (CHUNK_SIZE as usize).pow(3);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkMesh {
-    pub vao: GLuint,
-    pub vbo: GLuint,
-    pub ebo: GLuint,
-    pub index_count: i32,
-    pub needs_upload: bool,
-    pub vertex_data: Vec<f32>,
-    pub index_data: Vec<u32>,
+    pub vertices: Vec<f32>,
+    pub indices: Vec<u32>,
+    pub normals: Vec<f32>,
+    pub uvs: Vec<f32>,
 }
 
 impl ChunkMesh {
     pub fn new() -> Self {
         Self {
-            vao: 0,
-            vbo: 0,
-            ebo: 0,
-            index_count: 0,
-            needs_upload: false,
-            vertex_data: Vec::new(),
-            index_data: Vec::new(),
+            vertices: Vec::new(),
+            indices: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
         }
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     pub coord: ChunkCoord,
     pub blocks: Vec<Option<Block>>,
+<<<<<<< Updated upstream
     pub mesh: ChunkMesh,
+=======
+    pub mesh: Option<ChunkMesh>,
+>>>>>>> Stashed changes
 }
 
 impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
+<<<<<<< Updated upstream
             blocks: vec![None; CHUNK_VOLUME],
             mesh: ChunkMesh::new(),
+=======
+            blocks: vec![None; 16 * 16 * 16], // Assuming 16x16x16 chunks
+            mesh: None,
+>>>>>>> Stashed changes
         }
     }
 
     pub fn get_block(&self, x: u8, y: u8, z: u8) -> Option<&Block> {
+<<<<<<< Updated upstream
         let index = (x as usize)
             + (y as usize) * CHUNK_SIZE as usize
             + (z as usize) * (CHUNK_SIZE as usize).pow(2);
@@ -74,6 +84,31 @@ impl Chunk {
             + (y as usize) * CHUNK_SIZE as usize
             + (z as usize) * (CHUNK_SIZE as usize).pow(2);
         self.blocks[index] = block;
+=======
+        let index = (x as usize + y as usize * 16 + z as usize * 16 * 16) as usize;
+        self.blocks.get(index).and_then(|b| b.as_ref())
+    }
+
+    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Block) {
+        let index = (x as usize + y as usize * 16 + z as usize * 16 * 16) as usize;
+        if let Some(block_ref) = self.blocks.get_mut(index) {
+            *block_ref = Some(block);
+        }
+    }
+
+    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
+        let mut chunk = Self::new(coord);
+        chunk.blocks = template.blocks.clone();
+        chunk
+    }
+
+    pub fn empty(size: u8) -> Self {
+        Self {
+            coord: ChunkCoord::new(0, 0, 0),
+            blocks: vec![None; (size * size * size) as usize],
+            mesh: None,
+        }
+>>>>>>> Stashed changes
     }
 
     pub fn empty(size: u8) -> Self {
@@ -186,13 +221,13 @@ impl ChunkManager {
         for (_coord, chunk) in &self.chunks {
             let mesh = self.renderer.generate_mesh(chunk);
 
-            merged_mesh.vertex_data.extend(mesh.vertex_data.iter());
+            merged_mesh.vertices.extend(mesh.vertices.iter());
 
-            for idx in mesh.index_data {
-                merged_mesh.index_data.push(idx + index_offset);
+            for idx in mesh.indices {
+                merged_mesh.indices.push(idx + index_offset);
             }
 
-            index_offset += mesh.vertex_data.len() as u32 / 14;
+            index_offset += mesh.vertices.len() as u32 / 14;
         }
 
         merged_mesh
