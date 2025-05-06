@@ -63,7 +63,10 @@ impl Block {
     }
 
     pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
-        registry.get_block_material(self.id).unwrap_or_default()
+        registry
+            .get_block_material(self.id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
