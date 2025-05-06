@@ -73,9 +73,12 @@ impl ChunkRenderer {
             1,
             BlockMaterial {
                 name: "Stone".into(),
-                albedo: Vec4::new(0.5, 0.5, 0.5, 1.0),
+                albedo: Vec4::new(0.5, 0.5, 0.5, 1.0).into(),
                 roughness: 0.8,
-                metallic: 0.2,
+                metallic: 0.0,
+                ao: 1.0,
+                emission: [0.0, 0.0, 0.0, 0.0],
+                normal: [0.0, 1.0, 0.0, 0.0],
                 texture_path: Some("textures/stone.png".into()),
                 ..Default::default()
             },
@@ -85,9 +88,12 @@ impl ChunkRenderer {
             2,
             BlockMaterial {
                 name: "Grass".into(),
-                albedo: Vec4::new(0.2, 0.8, 0.3, 1.0),
-                roughness: 0.4,
+                albedo: Vec4::new(0.2, 0.8, 0.3, 1.0).into(),
+                roughness: 0.9,
                 metallic: 0.0,
+                ao: 1.0,
+                emission: [0.0, 0.0, 0.0, 0.0],
+                normal: [0.0, 1.0, 0.0, 0.0],
                 texture_path: Some("textures/grass.png".into()),
                 ..Default::default()
             },
