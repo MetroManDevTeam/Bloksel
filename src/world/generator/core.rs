@@ -2,11 +2,13 @@ pub mod terrain;
 
 pub use terrain::{BiomeType, Generator, Terrain, WorldType};
 
-use crate::world::BlockFacing;
-use crate::world::BlockOrientation;
 use crate::world::block::Block;
+use crate::world::block_id::BlockId;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
+use crate::world::generator::terrain::TerrainGenerator;
+use glam::Vec3;
+use rand::Rng;
 use std::sync::Arc;
 
 pub trait WorldGenerator: Send + Sync {
@@ -14,33 +16,26 @@ pub trait WorldGenerator: Send + Sync {
     fn get_block(&self, x: i32, y: i32, z: i32) -> Block;
 }
 
-pub struct SimpleGenerator;
+pub struct ChunkGenerator {
+    terrain_generator: TerrainGenerator,
+}
 
-impl WorldGenerator for SimpleGenerator {
-    fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
-        let mut chunk = Chunk::new(coord);
-        for x in 0..16 {
-            for y in 0..16 {
-                for z in 0..16 {
-                    let block = self.get_block(
-                        coord.x() * 16 + x as i32,
-                        coord.y() * 16 + y as i32,
-                        coord.z() * 16 + z as i32,
-                    );
-                    chunk.set_block(x, y, z, block);
-                }
-            }
-        }
-        chunk
+impl ChunkGenerator {
+    pub fn new(terrain_generator: TerrainGenerator) -> Self {
+        Self { terrain_generator }
+    }
+
+    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
+        self.terrain_generator.generate_chunk(coord)
     }
 
     fn get_block(&self, x: i32, y: i32, z: i32) -> Block {
         if y < 0 {
-            Block::new(1) // Stone
+            Block::new(BlockId::new(1, 0, 0)) // Stone
         } else if y == 0 {
-            Block::new(2) // Grass
+            Block::new(BlockId::new(2, 0, 0)) // Grass
         } else {
-            Block::new(0) // Air
+            Block::new(BlockId::new(0, 0, 0)) // Air
         }
     }
 }
