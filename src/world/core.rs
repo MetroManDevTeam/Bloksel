@@ -75,8 +75,8 @@ impl World {
     }
 
     pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
-        if let Some(chunk) = self.storage.get_chunk(coord) {
-            Arc::get_mut(&mut chunk).map(|chunk_mut| chunk_mut)
+        if let Some(mut chunk) = self.storage.get_chunk(coord) {
+            Arc::get_mut(&mut chunk)
         } else {
             None
         }
