@@ -1,7 +1,14 @@
 // In render/pipeline.rs
 use crate::render::{Camera, Mesh, Shader};
+use crate::world::BlockMaterial;
 use crate::world::{BlockRegistry, Chunk};
+use glam::{Vec2, Vec4};
+use image::RgbaImage;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+const ATLAS_START_SIZE: u32 = 1024;
+const TEXTURE_PADDING: u32 = 2;
 
 pub struct ChunkRenderer {
     materials: HashMap<u16, BlockMaterial>,
