@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BiomeType {
@@ -63,17 +63,17 @@ impl TerrainGenerator {
 
     fn initialize_noise_layers(&mut self) {
         let mut layers = self.noise_layers.write();
-        
+
         // Primary terrain noise
         layers.insert("terrain".into(), self.create_noise_layer(0, 0.01, 0.5, 6));
-        
+
         // Detail noise
         layers.insert("detail".into(), self.create_noise_layer(1, 0.05, 0.8, 3));
-        
+
         // Biome noise
         layers.insert("biome".into(), self.create_noise_layer(2, 0.001, 1.0, 1));
-        
-        // Cave noise   
+
+        // Cave noise
         layers.insert("caves".into(), self.create_noise_layer(3, 0.03, 0.7, 4));
     }
 
@@ -82,7 +82,7 @@ impl TerrainGenerator {
         seed_offset: u32,
         frequency: f64,
         persistence: f64,
-        octaves: usize
+        octaves: usize,
     ) -> Fbm<Perlin> {
         Fbm::<Perlin>::new(self.config.seed + seed_offset)
             .set_octaves(octaves)
@@ -90,7 +90,7 @@ impl TerrainGenerator {
             .set_persistence(persistence)
             .set_lacunarity(2.0)
     }
-    
+
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
         {
             let cache = self.chunk_cache.read();
@@ -107,29 +107,27 @@ impl TerrainGenerator {
 
     pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
         let mut chunk = Chunk::new(CHUNK_SIZE, SUB_RESOLUTION, coord);
-        
+
         match self.config.world_type {
             WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
             WorldType::Flat => self.generate_flat_chunk(&mut chunk, coord),
             WorldType::Amplified => self.generate_amplified_chunk(&mut chunk, coord),
             WorldType::LargeBiomes => self.generate_large_biomes_chunk(&mut chunk, coord),
         }
-        
+
         Arc::new(chunk)
     }
 
     fn generate_normal_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64 + 
-            coord.x as u64 * 341873128712 + 
-            coord.z as u64 * 132897987541
+            self.config.seed as u64 + coord.x as u64 * 341873128712 + coord.z as u64 * 132897987541,
         );
 
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 let world_x = coord.x * CHUNK_SIZE as i32 + x as i32;
                 let world_z = coord.z * CHUNK_SIZE as i32 + z as i32;
-                
+
                 let biome = self.calculate_biome(world_x, world_z);
                 let height = self.calculate_height(world_x, world_z, biome);
                 let (base_block, top_block) = self.get_biome_blocks(biome);
@@ -139,21 +137,21 @@ impl TerrainGenerator {
                     let mut block_id = BlockId::AIR;
 
                     if world_y <= height {
-                        block_id = self.get_block_for_depth(
-                            world_y, 
-                            height,
-                            base_block,
-                            top_block,
-                            biome
-                        );
+                        block_id =
+                            self.get_block_for_depth(world_y, height, base_block, top_block, biome);
 
                         if self.should_add_cave(world_x, world_y, world_z) {
                             block_id = BlockId::AIR;
                         }
                     }
 
-                    if biome == BiomeType::Ocean && world_y <= SEA_LEVEL && block_id == BlockId::AIR {
-                        block_id = self.block_registry.get_by_name("water").map(|def| def.id).unwrap_or(BlockId::from(10));
+                    if biome == BiomeType::Ocean && world_y <= SEA_LEVEL && block_id == BlockId::AIR
+                    {
+                        block_id = self
+                            .block_registry
+                            .get_by_name("water")
+                            .map(|def| def.id)
+                            .unwrap_or(BlockId::from(10));
                     }
 
                     if block_id != BlockId::AIR {
@@ -168,13 +166,11 @@ impl TerrainGenerator {
 
     fn generate_flat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64 + 
-            coord.x as u64 * 341873128712 + 
-            coord.z as u64 * 132897987541
+            self.config.seed as u64 + coord.x as u64 * 341873128712 + coord.z as u64 * 132897987541,
         );
 
         let mut current_height = FLAT_WORLD_HEIGHT;
-        
+
         // Generate layers from top to bottom
         for (block_id, thickness) in &self.config.flat_world_layers {
             for _ in 0..*thickness {
@@ -193,7 +189,11 @@ impl TerrainGenerator {
 
         // Fill with bedrock at the bottom
         if current_height > 0 {
-            let bedrock_id = self.block_registry.get_by_name("bedrock").map(|def| def.id).unwrap_or(BlockId::from(10));
+            let bedrock_id = self
+                .block_registry
+                .get_by_name("bedrock")
+                .map(|def| def.id)
+                .unwrap_or(BlockId::from(10));
             for x in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
                     let chunk_y = current_height - coord.y * CHUNK_SIZE as i32;
@@ -231,13 +231,13 @@ impl TerrainGenerator {
 
         let height = match self.config.world_type {
             WorldType::Amplified => {
-                BASE_TERRAIN_HEIGHT 
+                BASE_TERRAIN_HEIGHT
                     + (base_noise * self.config.terrain_amplitude * 2.0).abs()
                     + (detail_noise * 12.0)
                     + biome_mod * 1.5
             }
             _ => {
-                BASE_TERRAIN_HEIGHT 
+                BASE_TERRAIN_HEIGHT
                     + (base_noise * self.config.terrain_amplitude).abs()
                     + (detail_noise * 6.0)
                     + biome_mod
@@ -245,7 +245,9 @@ impl TerrainGenerator {
         };
 
         let final_height = height.clamp(SEA_LEVEL as f64 - 8.0, 256.0) as i32;
-        self.height_cache.write().insert(cache_key, final_height as f64);
+        self.height_cache
+            .write()
+            .insert(cache_key, final_height as f64);
         final_height
     }
 
@@ -290,35 +292,79 @@ impl TerrainGenerator {
     fn get_biome_blocks(&self, biome: BiomeType) -> (BlockId, BlockId) {
         match biome {
             BiomeType::Plains | BiomeType::Swamp => (
-                self.block_registry.get_by_name("dirt").map(|def| def.id).unwrap_or(BlockId::from(10)),
-                self.block_registry.get_by_name("grass").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("dirt")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("grass")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Mountains | BiomeType::Tundra => (
-                self.block_registry.get_by_name("stone").map(|def| def.id).unwrap_or(BlockId::from(10)),
-                self.block_registry.get_by_name("snow").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("stone")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("snow")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Desert => (
-                self.block_registry.get_by_name("sand").map(|def| def.id).unwrap_or(BlockId::from(10)),
-                self.block_registry.get_by_name("sand").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("sand")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("sand")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Forest => (
-                self.block_registry.get_by_name("dirt").map(|def| def.id).unwrap_or(BlockId::from(10)),
-                self.block_registry.get_by_name("grass").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("dirt")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("grass")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
             ),
             BiomeType::Ocean => (
-                self.block_registry.get_by_name("sand").map(|def| def.id).unwrap_or(BlockId::from(10)),
-                self.block_registry.get_by_name("gravel").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("sand")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
+                self.block_registry
+                    .get_by_name("gravel")
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::from(10)),
             ),
         }
     }
 
-    fn get_block_for_depth(&self, y: i32, height: i32, base: BlockId, top: BlockId, biome: BiomeType) -> BlockId {
+    fn get_block_for_depth(
+        &self,
+        y: i32,
+        height: i32,
+        base: BlockId,
+        top: BlockId,
+        biome: BiomeType,
+    ) -> BlockId {
         match biome {
-            BiomeType::Ocean if y <= SEA_LEVEL - 8 => 
-                self.block_registry.get_by_name("stone").map(|def| def.id).unwrap_or(BlockId::from(10)),
+            BiomeType::Ocean if y <= SEA_LEVEL - 8 => self
+                .block_registry
+                .get_by_name("stone")
+                .map(|def| def.id)
+                .unwrap_or(BlockId::from(10)),
             _ if y == height => top,
             _ if y > height - 4 => base,
-            _ => self.block_registry.get_by_name("stone").map(|def| def.id).unwrap_or(BlockId::from(10)),
+            _ => self
+                .block_registry
+                .get_by_name("stone")
+                .map(|def| def.id)
+                .unwrap_or(BlockId::from(10)),
         }
     }
 
@@ -327,34 +373,56 @@ impl TerrainGenerator {
 
         // Add biome-specific features
         match biome {
-            BiomeType::Forest if id == self.block_registry.get_by_name("grass").map(|def| def.id).unwrap_or(BlockId::from(10)) => {
+            BiomeType::Forest
+                if id
+                    == self
+                        .block_registry
+                        .get_by_name("grass")
+                        .map(|def| def.id)
+                        .unwrap_or(BlockId::from(10)) =>
+            {
                 if rng.gen_ratio(1, 10) {
                     block.place_sub_block(
                         rng.gen_range(0..SUB_RESOLUTION as u8),
                         rng.gen_range(0..SUB_RESOLUTION as u8),
                         rng.gen_range(0..SUB_RESOLUTION as u8),
                         SubBlock {
-                            id: self.block_registry.get_by_name("grass").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                            id: self
+                                .block_registry
+                                .get_by_name("grass")
+                                .map(|def| def.id)
+                                .unwrap_or(BlockId::from(10)),
                             metadata: 0,
                             facing: BlockFacing::None,
                             orientation: BlockOrientation::Wall,
-                        }
+                        },
                     );
                 }
-            },
-            BiomeType::Swamp if id == self.block_registry.get_by_name("water").map(|def| def.id).unwrap_or(BlockId::from(10)) => {
+            }
+            BiomeType::Swamp
+                if id
+                    == self
+                        .block_registry
+                        .get_by_name("water")
+                        .map(|def| def.id)
+                        .unwrap_or(BlockId::from(10)) =>
+            {
                 block.place_sub_block(
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
-                        id: self.block_registry.get_by_name("water").map(|def| def.id).unwrap_or(BlockId::from(10)),
+                        id: self
+                            .block_registry
+                            .get_by_name("water")
+                            .map(|def| def.id)
+                            .unwrap_or(BlockId::from(10)),
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
-                    }
+                    },
                 );
-            },
+            }
             _ => {}
         }
 
@@ -370,28 +438,32 @@ impl TerrainGenerator {
                 11..=12 => "diamond_ore",
                 _ => "stone",
             };
-            
+
             for _ in 0..rng.gen_range(1..=3) {
                 block.place_sub_block(
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     rng.gen_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
-                        id: self.block_registry.get_by_name(ore_type).map(|def| def.id).unwrap_or(BlockId::from(10)),
+                        id: self
+                            .block_registry
+                            .get_by_name(ore_type)
+                            .map(|def| def.id)
+                            .unwrap_or(BlockId::from(10)),
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
-                    }
+                    },
                 );
             }
         }
     }
-    
+
     fn should_add_cave(&self, x: i32, y: i32, z: i32) -> bool {
         if self.config.world_type == WorldType::Flat {
             return false;
         }
-        
+
         let cave_noise = self.sample_noise("caves", x, z);
         let y_factor = 1.0 - (y as f64 / 128.0).abs();
         (cave_noise * y_factor).abs() > self.config.cave_threshold
@@ -400,13 +472,24 @@ impl TerrainGenerator {
     fn sample_noise(&self, layer: &str, x: i32, z: i32) -> f64 {
         let layers = self.noise_layers.read();
         let noise = layers.get(layer).unwrap();
-        noise.get([x as f64 * self.config.world_scale, z as f64 * self.config.world_scale])
+        noise.get([
+            x as f64 * self.config.world_scale,
+            z as f64 * self.config.world_scale,
+        ])
     }
 
     pub fn generate_tree(&self, base_pos: IVec3) -> HashMap<IVec3, Block> {
         let mut blocks = HashMap::new();
-        let trunk_id = self.block_registry.get_by_name("log").map(|def| def.id).unwrap_or(BlockId::from(10));
-        let leaves_id = self.block_registry.get_by_name("leaves").map(|def| def.id).unwrap_or(BlockId::from(10));
+        let trunk_id = self
+            .block_registry
+            .get_by_name("log")
+            .map(|def| def.id)
+            .unwrap_or(BlockId::from(10));
+        let leaves_id = self
+            .block_registry
+            .get_by_name("leaves")
+            .map(|def| def.id)
+            .unwrap_or(BlockId::from(10));
         let height = 4 + (base_pos.x.abs() % 3) as i32;
 
         // Generate trunk
@@ -420,7 +503,7 @@ impl TerrainGenerator {
         for dx in -2..=2 {
             for dz in -2..=2 {
                 for dy in -1..=1 {
-                    if dx*dx + dz*dz + dy*dy <= 4 {
+                    if dx * dx + dz * dz + dy * dy <= 4 {
                         let pos = center + IVec3::new(dx, dy, dz);
                         blocks.insert(pos, Block::new(leaves_id, SUB_RESOLUTION as u8));
                     }
