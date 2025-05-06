@@ -148,7 +148,16 @@ impl ChunkManager {
             for z in 0..CHUNK_SIZE {
                 let height = 64; // Simple flat terrain
                 for y in 0..height {
-                    chunk.set_block(x, y, z, BlockId(1)); // Stone block
+                    chunk.set_block(
+                        x,
+                        y,
+                        z,
+                        BlockId {
+                            base_id: 1,
+                            variation: 0,
+                            color_id: 0,
+                        },
+                    ); // Stone block
                 }
             }
         }
