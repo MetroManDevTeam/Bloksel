@@ -48,12 +48,18 @@ impl AABB {
 
     pub fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
         for plane in &frustum.planes {
-            let min_point = Vec3::new(
-                if plane.normal.x > 0.0 { self.min.x } else { self.max.x },
-                if plane.normal.y > 0.0 { self.min.y } else { self.max.y },
-                if plane.normal.z > 0.0 { self.min.z } else { self.max.z },
-            );
-            if plane.distance(min_point) < 0.0 {
+            let mut min_point = self.min;
+            if plane.normal.x >= 0.0 {
+                min_point.x = self.max.x;
+            }
+            if plane.normal.y >= 0.0 {
+                min_point.y = self.max.y;
+            }
+            if plane.normal.z >= 0.0 {
+                min_point.z = self.max.z;
+            }
+
+            if plane.normal.dot(min_point) + plane.distance < 0.0 {
                 return false;
             }
         }
@@ -92,51 +98,82 @@ pub struct ViewFrustum {
 }
 
 impl ViewFrustum {
-    pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
-        let vp = proj * view;
-        let mut planes = [Plane::new(Vec3::ZERO, 0.0); 6];
+    pub fn new() -> Self {
+        Self {
+            planes: [
+                Plane::new(Vec3::ZERO, 0.0),
+                Plane::new(Vec3::ZERO, 0.0),
+                Plane::new(Vec3::ZERO, 0.0),
+                Plane::new(Vec3::ZERO, 0.0),
+                Plane::new(Vec3::ZERO, 0.0),
+                Plane::new(Vec3::ZERO, 0.0),
+            ],
+        }
+    }
 
-        // Left plane
-        planes[0] = Plane::new(
-            Vec3::new(vp.x_axis.w + vp.x_axis.x, vp.y_axis.w + vp.y_axis.x, vp.z_axis.w + vp.z_axis.x),
-            vp.w_axis.w + vp.w_axis.x,
-        );
+    pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
+        let vp = *proj * *view;
+
+        let mut planes = [
+            Plane::new(Vec3::ZERO, 0.0),
+            Plane::new(Vec3::ZERO, 0.0),
+            Plane::new(Vec3::ZERO, 0.0),
+            Plane::new(Vec3::ZERO, 0.0),
+            Plane::new(Vec3::ZERO, 0.0),
+            Plane::new(Vec3::ZERO, 0.0),
+        ];
 
         // Right plane
-        planes[1] = Plane::new(
-            Vec3::new(vp.x_axis.w - vp.x_axis.x, vp.y_axis.w - vp.y_axis.x, vp.z_axis.w - vp.z_axis.x),
-            vp.w_axis.w - vp.w_axis.x,
+        planes[0].normal = Vec3::new(
+            vp.w_axis[0] - vp.x_axis[0],
+            vp.w_axis[1] - vp.x_axis[1],
+            vp.w_axis[2] - vp.x_axis[2],
         );
+        planes[0].distance = vp.w_axis[3] - vp.x_axis[3];
 
-        // Bottom plane
-        planes[2] = Plane::new(
-            Vec3::new(vp.x_axis.w + vp.x_axis.y, vp.y_axis.w + vp.y_axis.y, vp.z_axis.w + vp.z_axis.y),
-            vp.w_axis.w + vp.w_axis.y,
+        // Left plane
+        planes[1].normal = Vec3::new(
+            vp.w_axis[0] + vp.x_axis[0],
+            vp.w_axis[1] + vp.x_axis[1],
+            vp.w_axis[2] + vp.x_axis[2],
         );
+        planes[1].distance = vp.w_axis[3] + vp.x_axis[3];
 
         // Top plane
-        planes[3] = Plane::new(
-            Vec3::new(vp.x_axis.w - vp.x_axis.y, vp.y_axis.w - vp.y_axis.y, vp.z_axis.w - vp.z_axis.y),
-            vp.w_axis.w - vp.w_axis.y,
+        planes[2].normal = Vec3::new(
+            vp.w_axis[0] - vp.y_axis[0],
+            vp.w_axis[1] - vp.y_axis[1],
+            vp.w_axis[2] - vp.y_axis[2],
         );
+        planes[2].distance = vp.w_axis[3] - vp.y_axis[3];
 
-        // Near plane
-        planes[4] = Plane::new(
-            Vec3::new(vp.x_axis.w + vp.x_axis.z, vp.y_axis.w + vp.y_axis.z, vp.z_axis.w + vp.z_axis.z),
-            vp.w_axis.w + vp.w_axis.z,
+        // Bottom plane
+        planes[3].normal = Vec3::new(
+            vp.w_axis[0] + vp.y_axis[0],
+            vp.w_axis[1] + vp.y_axis[1],
+            vp.w_axis[2] + vp.y_axis[2],
         );
+        planes[3].distance = vp.w_axis[3] + vp.y_axis[3];
 
         // Far plane
-        planes[5] = Plane::new(
-            Vec3::new(vp.x_axis.w - vp.x_axis.z, vp.y_axis.w - vp.y_axis.z, vp.z_axis.w - vp.z_axis.z),
-            vp.w_axis.w - vp.w_axis.z,
+        planes[4].normal = Vec3::new(
+            vp.w_axis[0] - vp.z_axis[0],
+            vp.w_axis[1] - vp.z_axis[1],
+            vp.w_axis[2] - vp.z_axis[2],
         );
+        planes[4].distance = vp.w_axis[3] - vp.z_axis[3];
+
+        // Near plane
+        planes[5].normal = Vec3::new(
+            vp.w_axis[0] + vp.z_axis[0],
+            vp.w_axis[1] + vp.z_axis[1],
+            vp.w_axis[2] + vp.z_axis[2],
+        );
+        planes[5].distance = vp.w_axis[3] + vp.z_axis[3];
 
         // Normalize all planes
         for plane in &mut planes {
-            let length = plane.normal.length();
-            plane.normal /= length;
-            plane.d /= length;
+            plane.normalize();
         }
 
         Self { planes }
@@ -177,38 +214,31 @@ impl ViewFrustum {
 }
 
 /// Geometric plane
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Plane {
     pub normal: Vec3,
-    pub d: f32,
+    pub distance: f32,
 }
 
 impl Plane {
-    pub fn new(normal: Vec3, d: f32) -> Self {
-        Self { normal, d }
-    }
-
-    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> Self {
-        let normal = (b - a).cross(c - a).normalize();
-        let distance = -normal.dot(a);
-        Self {
-            normal,
-            d: distance,
-        }
+    pub fn new(normal: Vec3, distance: f32) -> Self {
+        Self { normal, distance }
     }
 
     pub fn normalize(&mut self) {
         let length = self.normal.length();
-        self.normal /= length;
-        self.d /= length;
+        if length > 0.0 {
+            self.normal /= length;
+            self.distance /= length;
+        }
     }
 
     pub fn signed_distance(&self, point: Vec3) -> f32 {
-        self.normal.dot(point) + self.d
+        self.normal.dot(point) + self.distance
     }
 
     pub fn distance(&self, point: Vec3) -> f32 {
-        self.normal.dot(point) + self.d
+        self.normal.dot(point) + self.distance
     }
 }
 
@@ -263,7 +293,7 @@ pub mod raycast {
         pub fn intersect_plane(&self, plane: &super::Plane) -> Option<f32> {
             let denom = plane.normal.dot(self.direction);
             if denom.abs() > f32::EPSILON {
-                let t = (-plane.d - plane.normal.dot(self.origin)) / denom;
+                let t = (-plane.distance - plane.normal.dot(self.origin)) / denom;
                 if t >= 0.0 {
                     return Some(t);
                 }
