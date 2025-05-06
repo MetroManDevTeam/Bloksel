@@ -556,6 +556,34 @@ impl ChunkManager {
                     );
                 }
             }
+            BiomeType::Tundra => {
+                // Add snow and ice features
+                if rng.gen_bool(0.1) {
+                    block.place_sub_block(
+                        (0, 1, 0),
+                        SubBlock {
+                            id: self.get_block_id_safe("snow").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
+                }
+            }
+            BiomeType::Swamp => {
+                // Add lily pads and reeds
+                if rng.gen_bool(0.08) {
+                    block.place_sub_block(
+                        (0, 1, 0),
+                        SubBlock {
+                            id: self.get_block_id_safe("lily_pad").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
+                }
+            }
         }
     }
 }
