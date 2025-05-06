@@ -124,6 +124,12 @@ impl From<u32> for BlockId {
     }
 }
 
+impl From<BlockId> for u16 {
+    fn from(id: BlockId) -> Self {
+        id.base_id as u16
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: BlockId,
