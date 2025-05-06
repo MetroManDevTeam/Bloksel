@@ -4,7 +4,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
-use crate::world::block_tech::BlockPhysics;
+use crate::world::block_tech::{BlockFlags, BlockPhysics};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -15,17 +15,6 @@ pub enum BlockCategory {
     Transparent,
     Flora,
     Decorative,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockFlags {
-    pub is_solid: bool,
-    pub is_transparent: bool,
-    pub is_liquid: bool,
-    pub is_flora: bool,
-    pub is_decorative: bool,
-    pub light_level: u8,
-    pub break_resistance: u8,
 }
 
 impl BlockFlags {
@@ -93,6 +82,48 @@ fn default_material() -> BlockMaterial {
         grayscale_base: false,
         tint_mask_path: None,
         vertex_colored: false,
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BlockRegistry {
+    blocks: HashMap<BlockId, BlockDefinition>,
+    name_to_id: HashMap<String, BlockId>,
+}
+
+impl BlockRegistry {
+    pub fn new() -> Self {
+        Self {
+            blocks: HashMap::new(),
+            name_to_id: HashMap::new(),
+        }
+    }
+
+    pub fn register(&mut self, block: BlockDefinition) {
+        self.blocks.insert(block.id, block.clone());
+        self.name_to_id.insert(block.name.clone(), block.id);
+    }
+
+    pub fn get(&self, id: BlockId) -> Option<&BlockDefinition> {
+        self.blocks.get(&id)
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
+        self.name_to_id.get(name).and_then(|id| self.blocks.get(id))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &BlockDefinition> {
+        self.blocks.values()
+    }
+
+    pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
+        self.get(id).map(|def| def.material.clone())
+    }
+
+    pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
+        self.get(id)
+            .map(|def| BlockPhysics::from(def.flags))
+            .unwrap_or_default()
     }
 }
 
@@ -778,45 +809,3 @@ pub const BLOCKS: &[BlockDefinition] = &[
         },
     },
 ];
-
-#[derive(Debug, Clone, Default)]
-pub struct BlockRegistry {
-    blocks: HashMap<BlockId, BlockDefinition>,
-    name_to_id: HashMap<String, BlockId>,
-}
-
-impl BlockRegistry {
-    pub fn new() -> Self {
-        Self {
-            blocks: HashMap::new(),
-            name_to_id: HashMap::new(),
-        }
-    }
-
-    pub fn register(&mut self, block: BlockDefinition) {
-        self.blocks.insert(block.id, block.clone());
-        self.name_to_id.insert(block.name.clone(), block.id);
-    }
-
-    pub fn get(&self, id: BlockId) -> Option<&BlockDefinition> {
-        self.blocks.get(&id)
-    }
-
-    pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
-        self.name_to_id.get(name).and_then(|id| self.blocks.get(id))
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &BlockDefinition> {
-        self.blocks.values()
-    }
-
-    pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
-        self.get(id).map(|def| def.material.clone())
-    }
-
-    pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
-        self.get(id)
-            .map(|def| BlockPhysics::from(def.flags))
-            .unwrap_or_default()
-    }
-}
