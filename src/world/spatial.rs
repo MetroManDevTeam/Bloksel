@@ -4,12 +4,13 @@ use crate::{
     world::chunk::ChunkCoord,
 };
 use glam::{Mat4, Vec3};
-use std::collections::HashMap;
+use parking_lot::RwLock;
+use std::collections::{BTreeMap, HashMap};
 
-struct SpatialPartition {
+pub struct SpatialPartition {
     quadtree: QuadTree,
     lod_state: HashMap<ChunkCoord, u32>,
-    spatial_index: BTreeMap<u64, ChunkCoord>,
+    spatial_index: BTreeMap<ChunkCoord, u32>,
     last_player_pos: Vec3,
 }
 
@@ -76,7 +77,7 @@ impl SpatialPartition {
                     z: center_chunk.z + z,
                 };
                 let key = self.spatial_key(coord);
-                self.spatial_index.insert(key, coord);
+                self.spatial_index.insert(coord, key);
                 self.quadtree.add_chunk(coord);
             }
         }
@@ -105,16 +106,16 @@ impl SpatialPartition {
         }
     }
 
-    fn spatial_key(&self, coord: ChunkCoord) -> u64 {
-        ((coord.x as u64) << 32) | (coord.z as u64)
+    fn spatial_key(&self, coord: ChunkCoord) -> u32 {
+        ((coord.x as u32) << 16) | (coord.z as u32)
     }
 
     fn get_visible_chunks(&self) -> Vec<ChunkCoord> {
-        self.spatial_index.values().cloned().collect()
+        self.spatial_index.keys().cloned().collect()
     }
 
     fn get_loading_priority(&self, player_pos: Vec3, chunk_size: u32) -> Vec<ChunkCoord> {
-        let mut chunks: Vec<_> = self.spatial_index.values().cloned().collect();
+        let mut chunks: Vec<_> = self.spatial_index.keys().cloned().collect();
         chunks.sort_by_key(|c| {
             let center = c.to_world_center(chunk_size);
             (player_pos.distance(center) * 1000.0) as u32
