@@ -10,7 +10,7 @@ use crate::world::chunk_coord::ChunkCoord;
 use glam::IVec3;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 use parking_lot::RwLock;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
