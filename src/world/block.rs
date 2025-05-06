@@ -100,6 +100,11 @@ impl Block {
     pub fn get_primary_id(&self) -> BlockId {
         self.id
     }
+
+    pub fn is_solid(&self) -> bool {
+        self.get_physics(&Arc::new(BlockRegistry::default()))
+            .is_solid()
+    }
 }
 
 impl SubBlock {
