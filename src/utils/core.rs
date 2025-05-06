@@ -43,7 +43,7 @@ impl Profiler {
             start_time: Instant::now(),
             last_frame: Instant::now(),
             frame_count: 0,
-            frustum: math::ViewFrustum::new(Mat4::IDENTITY),
+            frustum: math::ViewFrustum::from_matrices(&Mat4::IDENTITY, &Mat4::IDENTITY),
         }
     }
 
@@ -74,7 +74,7 @@ impl Profiler {
 
     pub fn update_frustum(&mut self) {
         let view_proj = self.projection_matrix() * self.view_matrix();
-        self.frustum = math::ViewFrustum::new(view_proj);
+        self.frustum = math::ViewFrustum::from_matrices(&view_proj, &Mat4::IDENTITY);
     }
 }
 
