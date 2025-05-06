@@ -90,3 +90,9 @@ impl BlockFacing {
         }
     }
 }
+
+impl Default for BlockFacing {
+    fn default() -> Self {
+        BlockFacing::None
+    }
+}
