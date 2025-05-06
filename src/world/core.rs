@@ -72,13 +72,12 @@ impl World {
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<&Chunk> {
-        self.storage.get_chunk(coord).as_deref()
+        self.storage.get_chunk(coord).map(|arc| arc.as_ref())
     }
 
     pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
         if let Some(chunk) = self.storage.get_chunk(coord) {
-            let chunk = Arc::get_mut(chunk)?;
-            Some(chunk)
+            Arc::get_mut(chunk)
         } else {
             None
         }
