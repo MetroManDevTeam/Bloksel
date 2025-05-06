@@ -8,7 +8,14 @@ use super::block_orientation::BlockOrientation;
 use crate::world::block_tech::{BlockFlags as TechBlockFlags, BlockPhysics};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use thread_local::ThreadLocal;
+
+thread_local! {
+    static BLOCK_REGISTRY: RefCell<BlockRegistry> = RefCell::new(BlockRegistry::new());
+}
 
 #[derive(Debug, Clone)]
 pub struct BlockRegistry {
@@ -25,10 +32,9 @@ impl BlockRegistry {
     }
 
     pub fn register(&mut self, definition: BlockDefinition) {
-        let name = definition.name.clone();
-        let id = definition.id;
-        self.blocks.insert(name.clone(), definition);
-        self.id_to_name.insert(id, name);
+        self.blocks
+            .insert(definition.name.clone(), definition.clone());
+        self.id_to_name.insert(definition.id, definition.name);
     }
 
     pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
@@ -50,7 +56,9 @@ impl BlockRegistry {
     }
 
     pub fn get_block_physics(&self, id: BlockId) -> BlockPhysics {
-        self.get_by_id(id).map(|def| BlockPhysics::from(def.flags))
+        self.get_by_id(id)
+            .map(|def| BlockPhysics::from(def.flags))
+            .unwrap_or_default()
     }
 }
 
@@ -398,4 +406,8 @@ pub fn create_glass_block() -> (TechBlockFlags, BlockMaterial) {
     let flags = TechBlockFlags::SOLID;
     let material = BlockMaterial::new([0.9, 0.9, 0.9, 0.3], 0.1, 0.0, 0.0);
     (flags, material)
+}
+
+pub fn get_block_registry() -> &'static RefCell<BlockRegistry> {
+    BLOCK_REGISTRY.with(|registry| registry)
 }
