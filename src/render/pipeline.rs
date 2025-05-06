@@ -1,6 +1,7 @@
 // In render/pipeline.rs
 use crate::render::mesh::Mesh;
-use crate::render::{Camera, Shader, ShaderProgram};
+use crate::render::shaders::ShaderProgram;
+use crate::render::{Camera, Shader};
 use crate::world::block_material::BlockMaterial;
 use crate::world::chunk::ChunkMesh;
 use crate::world::{BlockRegistry, Chunk};
