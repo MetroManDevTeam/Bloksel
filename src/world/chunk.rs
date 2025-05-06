@@ -1,5 +1,4 @@
 use crate::config::WorldGenConfig;
-use crate::engine::ChunkCoord;
 use crate::render::pipeline::ChunkRenderer;
 use crate::world::BlockOrientation;
 use crate::world::BlockRegistry;
@@ -7,6 +6,7 @@ use crate::world::block::{Block, SubBlock};
 use crate::world::block_id::BlockId;
 use crate::world::block_mat::BlockMaterial;
 use crate::world::block_visual::{BlockFacing, ConnectedDirections};
+use crate::world::chunk::ChunkCoord;
 use crate::world::generator::terrain::{BiomeType, ChaCha12Rng};
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
@@ -119,10 +119,10 @@ impl ChunkManager {
     pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
         let mut compressed = Vec::new();
 
-        for x in 0..self.world_config.chunk_size {
-            for y in 0..self.world_config.chunk_size {
-                for z in 0..self.world_config.chunk_size {
-                    if let Some(block) = chunk.blocks[x][y][z].as_ref() {
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    if let Some(block) = chunk.get_block(x, y, z) {
                         let mut sub_blocks = Vec::new();
 
                         for ((sx, sy, sz), sub) in &block.sub_blocks {
@@ -130,7 +130,7 @@ impl ChunkManager {
                                 sub_blocks.push(CompressedSubBlock {
                                     local_pos: (*sx, *sy, *sz),
                                     id: sub.id,
-                                    metadata: sub.metadata, // Added missing field
+                                    metadata: sub.metadata,
                                     orientation: sub.orientation,
                                 });
                             }
@@ -138,7 +138,7 @@ impl ChunkManager {
 
                         compressed.push(CompressedBlock {
                             position: (x, y, z),
-                            id: block.get_primary_id().base_id as u16, // Convert BlockId to u16
+                            id: block.id,
                             sub_blocks,
                         });
                     }
@@ -170,12 +170,8 @@ impl ChunkManager {
                         x,
                         y,
                         z,
-                        BlockId {
-                            base_id: 1,
-                            variation: 0,
-                            color_id: 0,
-                        },
-                    ); // Stone block
+                        Some(Block::new(1)), // Stone block
+                    );
                 }
             }
         }
