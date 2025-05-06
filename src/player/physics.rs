@@ -1,11 +1,13 @@
 use crate::PlayerInput;
 use crate::world::block::BlockPhysics;
 use crate::world::block_id::BlockData;
+use crate::world::block_tech::BlockPhysics;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::{Chunk, TerrainGenerator};
 use glam::{Mat4, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI};
+use std::sync::Arc;
 use winit::event::{ElementState, MouseScrollDelta, VirtualKeyCode};
 use winit::keyboard::KeyCode;
 
@@ -14,6 +16,9 @@ pub enum PlayerState {
     Normal,
     Flying,
     Spectator,
+    Walking,
+    Sprinting,
+    Crouching,
 }
 
 #[derive(Debug)]
@@ -44,6 +49,9 @@ pub struct Player {
     pub chunk_size: i32,
     pub collision_enabled: bool,
     pub last_safe_position: Vec3,
+
+    pub physics: BlockPhysics,
+    pub input: PlayerInput,
 }
 
 impl Default for Player {
@@ -53,7 +61,7 @@ impl Default for Player {
             velocity: Vec3::ZERO,
             rotation: Vec2::new(0.0, 0.0),
             size: Vec3::new(0.6, 1.8, 0.6),
-            state: PlayerState::Normal,
+            state: PlayerState::Walking,
             on_ground: false,
             base_speed: 5.0,
             speed_multiplier: 1.0,
@@ -66,6 +74,8 @@ impl Default for Player {
             chunk_size: 30,
             collision_enabled: true,
             last_safe_position: Vec3::new(0.0, 70.0, 0.0),
+            physics: BlockPhysics::default(),
+            input: PlayerInput::default(),
         }
     }
 }
@@ -124,6 +134,26 @@ impl Player {
                 self.velocity.x *= friction;
                 self.velocity.z *= friction;
             }
+            PlayerState::Walking => {
+                // Ground-based movement with air control
+                let acceleration = if self.on_ground { 15.0 } else { 3.0 };
+                self.velocity.x += movement.x * acceleration * dt;
+                self.velocity.z += movement.z * acceleration * dt;
+
+                let friction = if self.on_ground { 0.7 } else { 0.98 };
+                self.velocity.x *= friction;
+                self.velocity.z *= friction;
+            }
+            PlayerState::Crouching => {
+                // Ground-based movement with air control
+                let acceleration = if self.on_ground { 15.0 } else { 3.0 };
+                self.velocity.x += movement.x * acceleration * dt;
+                self.velocity.z += movement.z * acceleration * dt;
+
+                let friction = if self.on_ground { 0.7 } else { 0.98 };
+                self.velocity.x *= friction;
+                self.velocity.z *= friction;
+            }
         }
     }
 
@@ -161,6 +191,9 @@ impl Player {
     fn calculate_current_speed(&self, input: &PlayerInput) -> f32 {
         let base = match self.state {
             PlayerState::Spectator => self.base_speed * 3.0,
+            PlayerState::Walking => self.base_speed,
+            PlayerState::Sprinting => self.base_speed * 2.0,
+            PlayerState::Crouching => self.base_speed,
             _ => self.base_speed,
         };
 
@@ -178,6 +211,14 @@ impl Player {
             }
             PlayerState::Spectator => {
                 self.velocity *= 0.85;
+            }
+            PlayerState::Walking => {
+                self.velocity.y -= self.gravity * dt;
+                self.velocity.y = self.velocity.y.clamp(-self.gravity, self.gravity);
+            }
+            PlayerState::Crouching => {
+                self.velocity.y -= self.gravity * dt;
+                self.velocity.y = self.velocity.y.clamp(-self.gravity, self.gravity);
             }
         }
 
@@ -284,6 +325,9 @@ impl Player {
             PlayerState::Normal => PlayerState::Flying,
             PlayerState::Flying => PlayerState::Spectator,
             PlayerState::Spectator => PlayerState::Normal,
+            PlayerState::Walking => PlayerState::Walking,
+            PlayerState::Sprinting => PlayerState::Walking,
+            PlayerState::Crouching => PlayerState::Walking,
         };
 
         // State transition logic
@@ -301,22 +345,40 @@ impl Player {
                 self.collision_enabled = true;
                 self.position = self.last_safe_position;
             }
+            PlayerState::Walking => {
+                self.collision_enabled = true;
+                self.position = self.last_safe_position;
+            }
+            PlayerState::Sprinting => {
+                self.collision_enabled = true;
+                self.position = self.last_safe_position;
+            }
+            PlayerState::Crouching => {
+                self.collision_enabled = true;
+                self.position = self.last_safe_position;
+            }
         }
     }
 
     pub fn handle_key_input(&mut self, key: KeyCode, state: ElementState) {
-        match state {
-            ElementState::Pressed => match key {
-                KeyCode::Space => self.jump(),
-                KeyCode::LShift => self.crouch(),
-                KeyCode::LControl => self.sprint(),
-                _ => {}
-            },
-            ElementState::Released => match key {
-                KeyCode::LShift => self.stand(),
-                KeyCode::LControl => self.walk(),
-                _ => {}
-            },
+        let pressed = state == ElementState::Pressed;
+        match key {
+            KeyCode::Space => self.jump(),
+            KeyCode::LShift => {
+                if pressed {
+                    self.crouch()
+                } else {
+                    self.stand()
+                }
+            }
+            KeyCode::LControl => {
+                if pressed {
+                    self.sprint()
+                } else {
+                    self.walk()
+                }
+            }
+            _ => (),
         }
     }
 
@@ -326,5 +388,35 @@ impl Player {
 
     pub fn load_state(&mut self, state: PlayerState) {
         self.state = state;
+    }
+
+    pub fn jump(&mut self) {
+        if self.state == PlayerState::Walking {
+            self.velocity.y = 5.0;
+        }
+    }
+
+    pub fn crouch(&mut self) {
+        if self.state == PlayerState::Walking {
+            self.state = PlayerState::Crouching;
+        }
+    }
+
+    pub fn sprint(&mut self) {
+        if self.state == PlayerState::Walking {
+            self.state = PlayerState::Sprinting;
+        }
+    }
+
+    pub fn stand(&mut self) {
+        if self.state == PlayerState::Crouching {
+            self.state = PlayerState::Walking;
+        }
+    }
+
+    pub fn walk(&mut self) {
+        if self.state == PlayerState::Sprinting {
+            self.state = PlayerState::Walking;
+        }
     }
 }
