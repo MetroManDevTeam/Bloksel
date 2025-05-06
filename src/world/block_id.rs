@@ -271,8 +271,8 @@ impl BlockRegistry {
         self.block_flags.get(&id).copied()
     }
 
-    pub fn get_block_material(&self, id: BlockId) -> Option<BlockMaterial> {
-        self.block_materials.get(&id).copied()
+    pub fn get_block_material(&self, id: BlockId) -> Option<&BlockMaterial> {
+        self.block_materials.get(&id)
     }
 
     pub fn get_block_variations(&self, id: BlockId) -> Option<&HashSet<BlockId>> {
