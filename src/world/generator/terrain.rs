@@ -241,7 +241,7 @@ impl TerrainGenerator {
                             x as u32,
                             y as u32,
                             z as u32,
-                            Some(Block::new(BlockId::new(0))),
+                            Some(Block::new(BlockId::new(0, 0, 0))),
                         ); // Air
                     }
                 }
@@ -329,51 +329,51 @@ impl TerrainGenerator {
                 self.block_registry
                     .get_by_name("dirt")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
                 self.block_registry
                     .get_by_name("grass")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
             ),
             BiomeType::Mountains | BiomeType::Tundra => (
                 self.block_registry
                     .get_by_name("stone")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
                 self.block_registry
                     .get_by_name("snow")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
             ),
             BiomeType::Desert => (
                 self.block_registry
                     .get_by_name("sand")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
                 self.block_registry
                     .get_by_name("sand")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
             ),
             BiomeType::Forest => (
                 self.block_registry
                     .get_by_name("dirt")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
                 self.block_registry
                     .get_by_name("grass")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
             ),
             BiomeType::Ocean => (
                 self.block_registry
                     .get_by_name("sand")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
                 self.block_registry
                     .get_by_name("gravel")
                     .map(|def| def.id)
-                    .unwrap_or(BlockId::from(10)),
+                    .unwrap_or(BlockId::new(10, 0, 0)),
             ),
         }
     }
@@ -391,14 +391,14 @@ impl TerrainGenerator {
                 .block_registry
                 .get_by_name("stone")
                 .map(|def| def.id)
-                .unwrap_or(BlockId::from(10)),
+                .unwrap_or(BlockId::new(10, 0, 0)),
             _ if y == height => top,
             _ if y > height - 4 => base,
             _ => self
                 .block_registry
                 .get_by_name("stone")
                 .map(|def| def.id)
-                .unwrap_or(BlockId::from(10)),
+                .unwrap_or(BlockId::new(10, 0, 0)),
         }
     }
 
@@ -413,7 +413,7 @@ impl TerrainGenerator {
                         .block_registry
                         .get_by_name("grass")
                         .map(|def| def.id)
-                        .unwrap_or(BlockId::from(10)) =>
+                        .unwrap_or(BlockId::new(10, 0, 0)) =>
             {
                 if rng.gen_ratio(1, 10) {
                     block.place_sub_block(
@@ -425,7 +425,7 @@ impl TerrainGenerator {
                                 .block_registry
                                 .get_by_name("grass")
                                 .map(|def| def.id)
-                                .unwrap_or(BlockId::from(10)),
+                                .unwrap_or(BlockId::new(10, 0, 0)),
                             metadata: 0,
                             facing: BlockFacing::None,
                             orientation: BlockOrientation::None,
@@ -440,7 +440,7 @@ impl TerrainGenerator {
                         .block_registry
                         .get_by_name("water")
                         .map(|def| def.id)
-                        .unwrap_or(BlockId::from(10)) =>
+                        .unwrap_or(BlockId::new(10, 0, 0)) =>
             {
                 block.place_sub_block(
                     rng.gen_range(0..SUB_RESOLUTION as u8),
@@ -451,7 +451,7 @@ impl TerrainGenerator {
                             .block_registry
                             .get_by_name("water")
                             .map(|def| def.id)
-                            .unwrap_or(BlockId::from(10)),
+                            .unwrap_or(BlockId::new(10, 0, 0)),
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::None,
@@ -485,7 +485,7 @@ impl TerrainGenerator {
                             .block_registry
                             .get_by_name(ore_type)
                             .map(|def| def.id)
-                            .unwrap_or(BlockId::from(10)),
+                            .unwrap_or(BlockId::new(10, 0, 0)),
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::None,
@@ -520,12 +520,12 @@ impl TerrainGenerator {
             .block_registry
             .get_by_name("log")
             .map(|def| def.id)
-            .unwrap_or(BlockId::from(10));
+            .unwrap_or(BlockId::new(10, 0, 0));
         let leaves_id = self
             .block_registry
             .get_by_name("leaves")
             .map(|def| def.id)
-            .unwrap_or(BlockId::from(10));
+            .unwrap_or(BlockId::new(10, 0, 0));
         let height = 4 + (base_pos.x.abs() % 3) as i32;
 
         // Generate trunk
