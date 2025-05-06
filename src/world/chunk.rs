@@ -12,7 +12,7 @@ use crate::world::generator::terrain::BiomeType;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
-use glam::{IVec3, Vec3};
+use glam::{IVec3, Mat4, Vec3};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,12 @@ pub struct ChunkMesh {
     pub indices: Vec<u32>,
     pub normals: Vec<f32>,
     pub uvs: Vec<f32>,
+    #[serde(skip)]
+    pub vao: GLuint,
+    #[serde(skip)]
+    pub vbo: GLuint,
+    #[serde(skip)]
+    pub ebo: GLuint,
 }
 
 impl ChunkMesh {
@@ -40,6 +46,9 @@ impl ChunkMesh {
             indices: Vec::new(),
             normals: Vec::new(),
             uvs: Vec::new(),
+            vao: 0,
+            vbo: 0,
+            ebo: 0,
         }
     }
 }
@@ -183,6 +192,15 @@ impl Chunk {
                 }
             }
         }
+    }
+
+    pub fn transform(&self) -> Mat4 {
+        let pos = Vec3::new(
+            self.coord.x() as f32 * CHUNK_SIZE as f32,
+            self.coord.y() as f32 * CHUNK_SIZE as f32,
+            self.coord.z() as f32 * CHUNK_SIZE as f32,
+        );
+        Mat4::from_translation(pos)
     }
 }
 
