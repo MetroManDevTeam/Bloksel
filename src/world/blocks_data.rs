@@ -1,11 +1,10 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
-use crate::world::block_facing::BlockFacing;
-use crate::world::block_flags::BlockFlags;
-use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
-use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
-use crate::world::block_orientation::BlockOrientation;
-use crate::world::block_tech::BlockPhysics;
+use super::block_facing::BlockFacing;
+use super::block_flags::BlockFlags;
+use super::block_id::{BlockCategory, BlockDefinition, BlockId};
+use super::block_material::BlockMaterial;
+use super::block_orientation::BlockOrientation;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
