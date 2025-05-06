@@ -185,6 +185,8 @@ pub struct BlockDefinition {
     #[serde(default)]
     pub flags: BlockFlags,
     #[serde(default)]
+    pub physics: BlockPhysics,
+    #[serde(default)]
     pub variations: Vec<BlockVariant>,
     #[serde(default)]
     pub color_variations: Vec<ColorVariant>,
