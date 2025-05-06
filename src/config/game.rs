@@ -1,8 +1,11 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainConfig {
-    pub world_seed: u64,
-    pub terrain_height: u32,
-    pub water_level: u32,
-    pub biome_scale: f32,
-    pub noise_scale: f32,
-    pub cave_density: f32,
+    pub block_size: f32,
+    pub gravity: f32,
+    pub player_height: f32,
+    pub player_width: f32,
+    pub player_speed: f32,
+    pub jump_force: f32,
 }
