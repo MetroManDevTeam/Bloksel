@@ -13,18 +13,12 @@ pub enum BlockFacing {
 
 impl BlockFacing {
     pub fn from_normal(normal: glam::Vec3) -> Self {
-        if normal.x > 0.0 {
-            Self::PosX
-        } else if normal.x < 0.0 {
-            Self::NegX
-        } else if normal.y > 0.0 {
-            Self::PosY
+        if normal.y > 0.0 {
+            Self::Ceiling
         } else if normal.y < 0.0 {
-            Self::NegY
-        } else if normal.z > 0.0 {
-            Self::PosZ
-        } else if normal.z < 0.0 {
-            Self::NegZ
+            Self::Floor
+        } else if normal.x != 0.0 || normal.z != 0.0 {
+            Self::Wall
         } else {
             Self::None
         }
@@ -32,12 +26,12 @@ impl BlockFacing {
 
     pub fn to_normal(self) -> glam::Vec3 {
         match self {
-            Self::PosX => glam::Vec3::X,
-            Self::NegX => -glam::Vec3::X,
-            Self::PosY => glam::Vec3::Y,
-            Self::NegY => -glam::Vec3::Y,
-            Self::PosZ => glam::Vec3::Z,
-            Self::NegZ => -glam::Vec3::Z,
+            Self::Wall => glam::Vec3::new(1.0, 0.0, 0.0),
+            Self::Floor => glam::Vec3::new(0.0, -1.0, 0.0),
+            Self::Ceiling => glam::Vec3::new(0.0, 1.0, 0.0),
+            Self::Corner => glam::Vec3::new(1.0, 1.0, 1.0).normalize(),
+            Self::Edge => glam::Vec3::new(1.0, 0.0, 1.0).normalize(),
+            Self::Custom(_) => glam::Vec3::ZERO,
             Self::None => glam::Vec3::ZERO,
         }
     }
