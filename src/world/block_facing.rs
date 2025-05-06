@@ -2,36 +2,43 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockFacing {
+    PosX,
+    NegX,
+    PosY,
+    NegY,
+    PosZ,
+    NegZ,
     None,
-    Wall,
-    Floor,
-    Ceiling,
-    Corner,
-    Edge,
-    Custom(u8),
 }
 
 impl BlockFacing {
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            0 => Self::Wall,
-            1 => Self::Floor,
-            2 => Self::Ceiling,
-            3 => Self::Corner,
-            4 => Self::Edge,
-            n => Self::Custom(n),
+    pub fn from_normal(normal: glam::Vec3) -> Self {
+        if normal.x > 0.0 {
+            Self::PosX
+        } else if normal.x < 0.0 {
+            Self::NegX
+        } else if normal.y > 0.0 {
+            Self::PosY
+        } else if normal.y < 0.0 {
+            Self::NegY
+        } else if normal.z > 0.0 {
+            Self::PosZ
+        } else if normal.z < 0.0 {
+            Self::NegZ
+        } else {
+            Self::None
         }
     }
 
-    pub fn opposite(&self) -> Self {
+    pub fn to_normal(self) -> glam::Vec3 {
         match self {
-            BlockFacing::Wall => BlockFacing::Wall,
-            BlockFacing::Floor => BlockFacing::Ceiling,
-            BlockFacing::Ceiling => BlockFacing::Floor,
-            BlockFacing::Corner => BlockFacing::Corner,
-            BlockFacing::Edge => BlockFacing::Edge,
-            BlockFacing::None => BlockFacing::None,
-            BlockFacing::Custom(n) => BlockFacing::Custom(*n),
+            Self::PosX => glam::Vec3::X,
+            Self::NegX => -glam::Vec3::X,
+            Self::PosY => glam::Vec3::Y,
+            Self::NegY => -glam::Vec3::Y,
+            Self::PosZ => glam::Vec3::Z,
+            Self::NegZ => -glam::Vec3::Z,
+            Self::None => glam::Vec3::ZERO,
         }
     }
 }
