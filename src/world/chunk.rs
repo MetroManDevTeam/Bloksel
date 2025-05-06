@@ -130,8 +130,8 @@ impl ChunkManager {
                         }
 
                         compressed.push(CompressedBlock {
-                            position: (x, y, z),
-                            id: block.id,
+                            position: (x as usize, y as usize, z as usize),
+                            id: block.id.base_id,
                             sub_blocks,
                         });
                     }
@@ -143,7 +143,7 @@ impl ChunkManager {
         self.chunks.insert(coord, Arc::new(chunk));
     }
 
-    pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, seed: u32) -> &Chunk {
+    pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, _seed: u32) -> &Chunk {
         if !self.chunks.contains_key(&coord) {
             let chunk = self.generate_chunk(coord);
             self.add_chunk(coord, chunk);
