@@ -91,6 +91,78 @@ impl ViewFrustum {
         }
     }
 
+    pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
+        let view_proj = *proj * *view;
+        let mut frustum = Self::new();
+
+        // Left plane
+        frustum.planes[0] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w + view_proj.x_axis.x,
+                view_proj.y_axis.w + view_proj.y_axis.x,
+                view_proj.z_axis.w + view_proj.z_axis.x,
+            ),
+            distance: view_proj.w_axis.w + view_proj.w_axis.x,
+        };
+
+        // Right plane
+        frustum.planes[1] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w - view_proj.x_axis.x,
+                view_proj.y_axis.w - view_proj.y_axis.x,
+                view_proj.z_axis.w - view_proj.z_axis.x,
+            ),
+            distance: view_proj.w_axis.w - view_proj.w_axis.x,
+        };
+
+        // Bottom plane
+        frustum.planes[2] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w + view_proj.x_axis.y,
+                view_proj.y_axis.w + view_proj.y_axis.y,
+                view_proj.z_axis.w + view_proj.z_axis.y,
+            ),
+            distance: view_proj.w_axis.w + view_proj.w_axis.y,
+        };
+
+        // Top plane
+        frustum.planes[3] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w - view_proj.x_axis.y,
+                view_proj.y_axis.w - view_proj.y_axis.y,
+                view_proj.z_axis.w - view_proj.z_axis.y,
+            ),
+            distance: view_proj.w_axis.w - view_proj.w_axis.y,
+        };
+
+        // Near plane
+        frustum.planes[4] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w + view_proj.x_axis.z,
+                view_proj.y_axis.w + view_proj.y_axis.z,
+                view_proj.z_axis.w + view_proj.z_axis.z,
+            ),
+            distance: view_proj.w_axis.w + view_proj.w_axis.z,
+        };
+
+        // Far plane
+        frustum.planes[5] = Plane {
+            normal: Vec3::new(
+                view_proj.x_axis.w - view_proj.x_axis.z,
+                view_proj.y_axis.w - view_proj.y_axis.z,
+                view_proj.z_axis.w - view_proj.z_axis.z,
+            ),
+            distance: view_proj.w_axis.w - view_proj.w_axis.z,
+        };
+
+        // Normalize all planes
+        for plane in &mut frustum.planes {
+            plane.normalize();
+        }
+
+        frustum
+    }
+
     pub fn contains_point(&self, point: Vec3) -> bool {
         self.planes
             .iter()
@@ -139,10 +211,8 @@ impl Plane {
 
     pub fn normalize(&mut self) {
         let length = self.normal.length();
-        if length > 0.0 {
-            self.normal /= length;
-            self.distance /= length;
-        }
+        self.normal /= length;
+        self.distance /= length;
     }
 
     pub fn signed_distance(&self, point: Vec3) -> f32 {
