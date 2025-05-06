@@ -1,5 +1,7 @@
 // In render/pipeline.rs
-use crate::world::{Chunk, BlockRegistry};
+use crate::render::{Camera, Mesh, Shader};
+use crate::world::{BlockRegistry, Chunk};
+use std::sync::Arc;
 
 pub struct ChunkRenderer {
     materials: HashMap<u16, BlockMaterial>,
@@ -32,23 +34,29 @@ impl ChunkRenderer {
     }
 
     fn init_default_materials(&mut self) -> Result<()> {
-        self.load_material(1, BlockMaterial {
-            name: "Stone".into(),
-            albedo: Vec4::new(0.5, 0.5, 0.5, 1.0),
-            roughness: 0.8,
-            metallic: 0.2,
-            texture_path: Some("textures/stone.png".into()),
-            ..Default::default()
-        })?;
+        self.load_material(
+            1,
+            BlockMaterial {
+                name: "Stone".into(),
+                albedo: Vec4::new(0.5, 0.5, 0.5, 1.0),
+                roughness: 0.8,
+                metallic: 0.2,
+                texture_path: Some("textures/stone.png".into()),
+                ..Default::default()
+            },
+        )?;
 
-        self.load_material(2, BlockMaterial {
-            name: "Grass".into(),
-            albedo: Vec4::new(0.2, 0.8, 0.3, 1.0),
-            roughness: 0.4,
-            metallic: 0.0,
-            texture_path: Some("textures/grass.png".into()),
-            ..Default::default()
-        })?;
+        self.load_material(
+            2,
+            BlockMaterial {
+                name: "Grass".into(),
+                albedo: Vec4::new(0.2, 0.8, 0.3, 1.0),
+                roughness: 0.4,
+                metallic: 0.0,
+                texture_path: Some("textures/grass.png".into()),
+                ..Default::default()
+            },
+        )?;
 
         Ok(())
     }
@@ -81,8 +89,8 @@ impl ChunkRenderer {
                 let (width, height) = img.dimensions();
 
                 // Check if we need to expand atlas
-                if current_pos.0 + width + TEXTURE_PADDING > new_atlas.width() ||
-                   current_pos.1 + height + TEXTURE_PADDING > new_atlas.height() 
+                if current_pos.0 + width + TEXTURE_PADDING > new_atlas.width()
+                    || current_pos.1 + height + TEXTURE_PADDING > new_atlas.height()
                 {
                     let new_size = (new_atlas.width() * 2).min(MAX_ATLAS_SIZE);
                     if new_size > new_atlas.width() {
@@ -98,11 +106,7 @@ impl ChunkRenderer {
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = img.get_pixel(x, y);
-                        new_atlas.put_pixel(
-                            current_pos.0 + x,
-                            current_pos.1 + y,
-                            *pixel,
-                        );
+                        new_atlas.put_pixel(current_pos.0 + x, current_pos.1 + y, *pixel);
                     }
                 }
 
@@ -112,16 +116,19 @@ impl ChunkRenderer {
                 let u_max = (current_pos.0 + width) as f32 / new_atlas.width() as f32;
                 let v_max = (current_pos.1 + height) as f32 / new_atlas.height() as f32;
 
-                self.texture_coordinates.insert(block_id, [
-                    Vec2::new(u_min, v_min),
-                    Vec2::new(u_max, v_min),
-                    Vec2::new(u_max, v_max),
-                    Vec2::new(u_min, v_max),
-                ]);
+                self.texture_coordinates.insert(
+                    block_id,
+                    [
+                        Vec2::new(u_min, v_min),
+                        Vec2::new(u_max, v_min),
+                        Vec2::new(u_max, v_max),
+                        Vec2::new(u_min, v_max),
+                    ],
+                );
 
                 current_pos.0 += width + TEXTURE_PADDING;
                 max_row_height = max_row_height.max(height);
-                
+
                 if current_pos.0 + TEXTURE_PADDING > new_atlas.width() {
                     current_pos.0 = TEXTURE_PADDING;
                     current_pos.1 += max_row_height + TEXTURE_PADDING;
@@ -135,104 +142,143 @@ impl ChunkRenderer {
         Ok(())
     }
 
-   pub fn upload_textures(&mut self) -> Result<(), RenderError> {
-    unsafe {
-        let mut texture_id: GLuint = 0;
-        gl::GenTextures(1, &mut texture_id);
-        gl::BindTexture(gl::TEXTURE_2D, texture_id);
+    pub fn upload_textures(&mut self) -> Result<(), RenderError> {
+        unsafe {
+            let mut texture_id: GLuint = 0;
+            gl::GenTextures(1, &mut texture_id);
+            gl::BindTexture(gl::TEXTURE_2D, texture_id);
 
-        // Set texture parameters
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-        if let Some(atlas) = &self.texture_atlas {
-            let (width, height) = atlas.dimensions();
-            gl::TexImage2D(
+            // Set texture parameters
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            gl::TexParameteri(
                 gl::TEXTURE_2D,
-                0,
-                gl::RGBA as i32,
-                width as i32,
-                height as i32,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                atlas.as_ptr() as *const _,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as i32,
             );
-            gl::GenerateMipmap(gl::TEXTURE_2D);
-        }
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
-        self.texture_atlas_id = Some(texture_id);
+            if let Some(atlas) = &self.texture_atlas {
+                let (width, height) = atlas.dimensions();
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA as i32,
+                    width as i32,
+                    height as i32,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    atlas.as_ptr() as *const _,
+                );
+                gl::GenerateMipmap(gl::TEXTURE_2D);
+            }
+
+            self.texture_atlas_id = Some(texture_id);
+        }
+        Ok(())
     }
-    Ok(())
-} 
 
     fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<()> {
-    unsafe {
-        // Generate buffers if they don't exist
-        if chunk.mesh.vao == 0 {
-            gl::GenVertexArrays(1, &mut chunk.mesh.vao);
+        unsafe {
+            // Generate buffers if they don't exist
+            if chunk.mesh.vao == 0 {
+                gl::GenVertexArrays(1, &mut chunk.mesh.vao);
+            }
+            if chunk.mesh.vbo == 0 {
+                gl::GenBuffers(1, &mut chunk.mesh.vbo);
+            }
+            if chunk.mesh.ebo == 0 {
+                gl::GenBuffers(1, &mut chunk.mesh.ebo);
+            }
+
+            gl::BindVertexArray(chunk.mesh.vao);
+
+            // Upload vertex data
+            gl::BindBuffer(gl::ARRAY_BUFFER, chunk.mesh.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
+                mesh.vertex_data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+
+            // Upload index data
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.mesh.ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
+                mesh.index_data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+
+            // Vertex attributes (18 floats per vertex)
+            let stride = (18 * std::mem::size_of::<f32>()) as GLsizei;
+
+            // Position (location = 0)
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
+            gl::EnableVertexAttribArray(0);
+
+            // Normal (location = 1)
+            gl::VertexAttribPointer(
+                1,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (3 * std::mem::size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(1);
+
+            // Tangent (location = 2)
+            gl::VertexAttribPointer(
+                2,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (6 * std::mem::size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(2);
+
+            // Bitangent (location = 3)
+            gl::VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (9 * std::mem::size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(3);
+
+            // Texture coordinates (location = 4)
+            gl::VertexAttribPointer(
+                4,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (12 * std::mem::size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(4);
+
+            // Material properties (location = 5)
+            gl::VertexAttribPointer(
+                5,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (14 * std::mem::size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(5);
+
+            chunk.mesh.index_count = mesh.index_data.len() as i32;
+            chunk.mesh.needs_upload = false;
         }
-        if chunk.mesh.vbo == 0 {
-            gl::GenBuffers(1, &mut chunk.mesh.vbo);
-        }
-        if chunk.mesh.ebo == 0 {
-            gl::GenBuffers(1, &mut chunk.mesh.ebo);
-        }
-
-        gl::BindVertexArray(chunk.mesh.vao);
-
-        // Upload vertex data
-        gl::BindBuffer(gl::ARRAY_BUFFER, chunk.mesh.vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
-            mesh.vertex_data.as_ptr() as *const _,
-            gl::STATIC_DRAW,
-        );
-
-        // Upload index data
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.mesh.ebo);
-        gl::BufferData(
-            gl::ELEMENT_ARRAY_BUFFER,
-            (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
-            mesh.index_data.as_ptr() as *const _,
-            gl::STATIC_DRAW,
-        );
-
-        // Vertex attributes (18 floats per vertex)
-        let stride = (18 * std::mem::size_of::<f32>()) as GLsizei;
-        
-        // Position (location = 0)
-        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
-        gl::EnableVertexAttribArray(0);
-        
-        // Normal (location = 1)
-        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, (3 * std::mem::size_of::<f32>()) as *const _);
-        gl::EnableVertexAttribArray(1);
-        
-        // Tangent (location = 2)
-        gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, stride, (6 * std::mem::size_of::<f32>()) as *const _);
-        gl::EnableVertexAttribArray(2);
-        
-        // Bitangent (location = 3)
-        gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, stride, (9 * std::mem::size_of::<f32>()) as *const _);
-        gl::EnableVertexAttribArray(3);
-        
-        // Texture coordinates (location = 4)
-        gl::VertexAttribPointer(4, 2, gl::FLOAT, gl::FALSE, stride, (12 * std::mem::size_of::<f32>()) as *const _);
-        gl::EnableVertexAttribArray(4);
-        
-        // Material properties (location = 5)
-        gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, stride, (14 * std::mem::size_of::<f32>()) as *const _);
-        gl::EnableVertexAttribArray(5);
-
-        chunk.mesh.index_count = mesh.index_data.len() as i32;
-        chunk.mesh.needs_upload = false;
+        Ok(())
     }
-    Ok(())
-}
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
         match self.lod_level {
@@ -262,154 +308,168 @@ impl ChunkRenderer {
         mesh
     }
 
-    fn add_face(&self, position: Vec3, face: usize, material: &BlockMaterial, mesh: &mut ChunkMesh) {
-        let tex_coords = self.texture_coordinates.get(&material.id)
+    fn add_face(
+        &self,
+        position: Vec3,
+        face: usize,
+        material: &BlockMaterial,
+        mesh: &mut ChunkMesh,
+    ) {
+        let tex_coords = self
+            .texture_coordinates
+            .get(&material.id)
             .unwrap_or(&[Vec2::ZERO; 4]);
 
         let (vertices, normals, tangents, bitangents) = match face {
-    // West face
-    0 => (
-        [
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-            Vec3::new(0.0, 1.0, 1.0),
-            Vec3::new(0.0, 0.0, 1.0)
-        ],
-        [Vec3::NEG_X; 4],
-        [Vec3::NEG_Z; 4],
-        [Vec3::NEG_Y; 4]
-    ),
-    // East face
-    1 => (
-        [
-            Vec3::new(1.0, 0.0, 1.0),
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(1.0, 1.0, 0.0),
-            Vec3::new(1.0, 0.0, 0.0)
-        ],
-        [Vec3::X; 4],
-        [Vec3::Z; 4],
-        [Vec3::Y; 4]
-    ),
-    // Bottom face
-    2 => (
-        [
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(1.0, 0.0, 0.0),
-            Vec3::new(1.0, 0.0, 1.0),
-            Vec3::new(0.0, 0.0, 1.0)
-        ],
-        [Vec3::NEG_Y; 4],
-        [Vec3::X; 4],
-        [Vec3::Z; 4]
-    ),
-    // Top face
-    3 => (
-        [
-            Vec3::new(0.0, 1.0, 1.0),
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(1.0, 1.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0)
-        ],
-        [Vec3::Y; 4],
-        [Vec3::X; 4],
-        [Vec3::NEG_Z; 4]
-    ),
-    // North face
-    4 => (
-        [
-            Vec3::new(1.0, 0.0, 0.0),
-            Vec3::new(1.0, 1.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-            Vec3::new(0.0, 0.0, 0.0)
-        ],
-        [Vec3::NEG_Z; 4],
-        [Vec3::X; 4],
-        [Vec3::Y; 4]
-    ),
-    // South face
-    5 => (
-        [
-            Vec3::new(0.0, 0.0, 1.0),
-            Vec3::new(0.0, 1.0, 1.0),
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(1.0, 0.0, 1.0)
-        ],
-        [Vec3::Z; 4],
-        [Vec3::X; 4],
-        [Vec3::Y; 4]
-    ),
-    _ => panic!("Invalid face direction")
-};
+            // West face
+            0 => (
+                [
+                    Vec3::new(0.0, 0.0, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                    Vec3::new(0.0, 1.0, 1.0),
+                    Vec3::new(0.0, 0.0, 1.0),
+                ],
+                [Vec3::NEG_X; 4],
+                [Vec3::NEG_Z; 4],
+                [Vec3::NEG_Y; 4],
+            ),
+            // East face
+            1 => (
+                [
+                    Vec3::new(1.0, 0.0, 1.0),
+                    Vec3::new(1.0, 1.0, 1.0),
+                    Vec3::new(1.0, 1.0, 0.0),
+                    Vec3::new(1.0, 0.0, 0.0),
+                ],
+                [Vec3::X; 4],
+                [Vec3::Z; 4],
+                [Vec3::Y; 4],
+            ),
+            // Bottom face
+            2 => (
+                [
+                    Vec3::new(0.0, 0.0, 0.0),
+                    Vec3::new(1.0, 0.0, 0.0),
+                    Vec3::new(1.0, 0.0, 1.0),
+                    Vec3::new(0.0, 0.0, 1.0),
+                ],
+                [Vec3::NEG_Y; 4],
+                [Vec3::X; 4],
+                [Vec3::Z; 4],
+            ),
+            // Top face
+            3 => (
+                [
+                    Vec3::new(0.0, 1.0, 1.0),
+                    Vec3::new(1.0, 1.0, 1.0),
+                    Vec3::new(1.0, 1.0, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                ],
+                [Vec3::Y; 4],
+                [Vec3::X; 4],
+                [Vec3::NEG_Z; 4],
+            ),
+            // North face
+            4 => (
+                [
+                    Vec3::new(1.0, 0.0, 0.0),
+                    Vec3::new(1.0, 1.0, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                    Vec3::new(0.0, 0.0, 0.0),
+                ],
+                [Vec3::NEG_Z; 4],
+                [Vec3::X; 4],
+                [Vec3::Y; 4],
+            ),
+            // South face
+            5 => (
+                [
+                    Vec3::new(0.0, 0.0, 1.0),
+                    Vec3::new(0.0, 1.0, 1.0),
+                    Vec3::new(1.0, 1.0, 1.0),
+                    Vec3::new(1.0, 0.0, 1.0),
+                ],
+                [Vec3::Z; 4],
+                [Vec3::X; 4],
+                [Vec3::Y; 4],
+            ),
+            _ => panic!("Invalid face direction"),
+        };
 
         for i in 0..4 {
             mesh.vertex_data.extend_from_slice(&[
                 // Position
-                vertices[i].x, vertices[i].y, vertices[i].z,
+                vertices[i].x,
+                vertices[i].y,
+                vertices[i].z,
                 // Normal
-                normals[i].x, normals[i].y, normals[i].z,
+                normals[i].x,
+                normals[i].y,
+                normals[i].z,
                 // Tangent
-                tangents[i].x, tangents[i].y, tangents[i].z,
+                tangents[i].x,
+                tangents[i].y,
+                tangents[i].z,
                 // Bitangent
-                bitangents[i].x, bitangents[i].y, bitangents[i].z,
+                bitangents[i].x,
+                bitangents[i].y,
+                bitangents[i].z,
                 // Texture coordinates
-                tex_coords[i].x, tex_coords[i].y,
+                tex_coords[i].x,
+                tex_coords[i].y,
                 // Material properties
                 material.albedo[0], // Red component
                 material.albedo[1], // Green component
                 material.albedo[2], // Blue component
                 material.albedo[3], // Alpha component
                 material.roughness,
-                material.metallic,  
+                material.metallic,
             ]);
         }
 
-        
+        let base_index = mesh.vertex_data.len() / 18; // 18 components per vertex
 
-    let base_index = mesh.vertex_data.len() / 18; // 18 components per vertex
+        for i in 0..4 {
+            // Position (offset by chunk position)
+            mesh.vertex_data.push(vertices[i].x + position.x);
+            mesh.vertex_data.push(vertices[i].y + position.y);
+            mesh.vertex_data.push(vertices[i].z + position.z);
 
-    for i in 0..4 {
-        // Position (offset by chunk position)
-        mesh.vertex_data.push(vertices[i].x + position.x);
-        mesh.vertex_data.push(vertices[i].y + position.y);
-        mesh.vertex_data.push(vertices[i].z + position.z);
-        
-        // Normal
-        mesh.vertex_data.push(normals[i].x);
-        mesh.vertex_data.push(normals[i].y);
-        mesh.vertex_data.push(normals[i].z);
-        
-        // Tangent
-        mesh.vertex_data.push(tangents[i].x);
-        mesh.vertex_data.push(tangents[i].y);
-        mesh.vertex_data.push(tangents[i].z);
-        
-        // Bitangent
-        mesh.vertex_data.push(bitangents[i].x);
-        mesh.vertex_data.push(bitangents[i].y);
-        mesh.vertex_data.push(bitangents[i].z);
-        
-        // Texture coordinates
-        mesh.vertex_data.push(tex_coords[i].x);
-        mesh.vertex_data.push(tex_coords[i].y);
-        
-        // Material properties
-        mesh.vertex_data.push(material.albedo.x);
-        mesh.vertex_data.push(material.albedo.y);
-        mesh.vertex_data.push(material.albedo.z);
-        mesh.vertex_data.push(material.albedo.w);
-        mesh.vertex_data.push(material.roughness);
-        mesh.vertex_data.push(material.metallic);
-    }
+            // Normal
+            mesh.vertex_data.push(normals[i].x);
+            mesh.vertex_data.push(normals[i].y);
+            mesh.vertex_data.push(normals[i].z);
 
-    // Add indices (two triangles per face)
-    mesh.index_data.push(base_index as u32);
-    mesh.index_data.push((base_index + 1) as u32);
-    mesh.index_data.push((base_index + 2) as u32);
-    mesh.index_data.push((base_index + 2) as u32);
-    mesh.index_data.push((base_index + 3) as u32);
-    mesh.index_data.push(base_index as u32);
+            // Tangent
+            mesh.vertex_data.push(tangents[i].x);
+            mesh.vertex_data.push(tangents[i].y);
+            mesh.vertex_data.push(tangents[i].z);
 
+            // Bitangent
+            mesh.vertex_data.push(bitangents[i].x);
+            mesh.vertex_data.push(bitangents[i].y);
+            mesh.vertex_data.push(bitangents[i].z);
+
+            // Texture coordinates
+            mesh.vertex_data.push(tex_coords[i].x);
+            mesh.vertex_data.push(tex_coords[i].y);
+
+            // Material properties
+            mesh.vertex_data.push(material.albedo.x);
+            mesh.vertex_data.push(material.albedo.y);
+            mesh.vertex_data.push(material.albedo.z);
+            mesh.vertex_data.push(material.albedo.w);
+            mesh.vertex_data.push(material.roughness);
+            mesh.vertex_data.push(material.metallic);
+        }
+
+        // Add indices (two triangles per face)
+        mesh.index_data.push(base_index as u32);
+        mesh.index_data.push((base_index + 1) as u32);
+        mesh.index_data.push((base_index + 2) as u32);
+        mesh.index_data.push((base_index + 2) as u32);
+        mesh.index_data.push((base_index + 3) as u32);
+        mesh.index_data.push(base_index as u32);
     }
 
     pub fn render_chunk(
@@ -422,7 +482,7 @@ impl ChunkRenderer {
         unsafe {
             gl::BindVertexArray(chunk.mesh.vao);
             if chunk.mesh.needs_upload {
-                 self.upload_chunk_data(&mut chunk, &chunk.mesh)?;
+                self.upload_chunk_data(&mut chunk, &chunk.mesh)?;
             }
 
             shader.set_uniform_mat4("model", &chunk.transform_matrix());
@@ -444,6 +504,24 @@ impl ChunkRenderer {
             Ok(())
         }
     }
+}
 
-    
+pub struct RenderPipeline {
+    pub camera: Camera,
+    pub shader: Arc<Shader>,
+    pub meshes: Vec<Arc<Mesh>>,
+}
+
+impl RenderPipeline {
+    pub fn new(camera: Camera, shader: Arc<Shader>) -> Self {
+        Self {
+            camera,
+            shader,
+            meshes: Vec::new(),
+        }
+    }
+
+    pub fn add_mesh(&mut self, mesh: Arc<Mesh>) {
+        self.meshes.push(mesh);
+    }
 }
