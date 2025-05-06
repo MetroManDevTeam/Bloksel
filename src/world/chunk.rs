@@ -6,27 +6,44 @@ use std::sync::Arc;
 pub const CHUNK_SIZE: usize = 16;
 pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
+#[derive(Debug)]
+pub struct ChunkMesh {
+    pub vao: u32,
+    pub vbo: u32,
+    pub ebo: u32,
+    pub index_count: i32,
+    pub needs_upload: bool,
+}
+
+impl ChunkMesh {
+    pub fn new() -> Self {
+        Self {
+            vao: 0,
+            vbo: 0,
+            ebo: 0,
+            index_count: 0,
+            needs_upload: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Chunk {
     pub blocks: [BlockId; CHUNK_VOLUME],
     pub materials: [BlockMaterial; CHUNK_VOLUME],
     pub coord: ChunkCoord,
     pub is_empty: bool,
+    pub mesh: ChunkMesh,
 }
 
 impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             blocks: [BlockId(0); CHUNK_VOLUME],
-            materials: [BlockMaterial {
-                albedo: [1.0, 1.0, 1.0, 1.0],
-                roughness: 1.0,
-                metallic: 0.0,
-                emission: [0.0, 0.0, 0.0],
-                texture_index: 0,
-            }; CHUNK_VOLUME],
+            materials: [BlockMaterial::default(); CHUNK_VOLUME],
             coord,
             is_empty: true,
+            mesh: ChunkMesh::new(),
         }
     }
 
@@ -47,6 +64,14 @@ impl Chunk {
     pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: BlockId) {
         self.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] = block;
         self.is_empty = false;
+    }
+
+    pub fn transform(&self) -> glam::Mat4 {
+        glam::Mat4::from_translation(glam::Vec3::new(
+            self.coord.x as f32 * CHUNK_SIZE as f32,
+            self.coord.y as f32 * CHUNK_SIZE as f32,
+            self.coord.z as f32 * CHUNK_SIZE as f32,
+        ))
     }
 }
 
