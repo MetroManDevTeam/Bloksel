@@ -30,7 +30,7 @@ pub enum BlockCategory {
     Mechanical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockId(pub u16);
 
 impl BlockId {
