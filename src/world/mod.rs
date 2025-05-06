@@ -24,17 +24,44 @@ pub use block_flags::BlockFlags;
 pub use block_id::BlockId;
 pub use block_material::{BlockMaterial, MaterialModifiers};
 pub use block_orientation::BlockOrientation;
-pub use block_tech::BlockPhysics;
+pub use block_tech::*;
 pub use block_visual::ConnectedDirections;
 pub use blocks_data::BlockRegistry;
-pub use chunk::{CHUNK_SIZE, CHUNK_VOLUME, ChunkManager};
+pub use chunk::*;
 pub use chunk::{Chunk, ChunkMesh};
 pub use chunk_coord::ChunkCoord;
 pub use core::World;
-pub use generator::core::WorldGenerator;
-pub use generator::terrain::TerrainGenerator;
+pub use generator::*;
 pub use pool::{ChunkPool, PoolStats};
-pub use spatial::{QuadTree, SpatialPartition};
-pub use storage::core::ChunkStorage;
+pub use spatial::*;
+pub use storage::*;
 pub use storage::core::MemoryStorage;
 pub use storage::file::FileChunkStorage;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WorldType {
+    Normal,
+    Flat,
+    Superflat,
+    Void,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorldMeta {
+    pub name: String,
+    pub world_type: WorldType,
+    pub seed: i64,
+    pub difficulty: Difficulty,
+    pub spawn_point: [f32; 3],
+    pub last_played: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Difficulty {
+    Peaceful,
+    Easy,
+    Normal,
+    Hard,
+}
