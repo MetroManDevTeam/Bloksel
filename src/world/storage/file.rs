@@ -24,6 +24,10 @@ impl ChunkStorage for FileChunkStorage {
         self.chunks.get(&coord).cloned()
     }
 
+    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.chunks.get_mut(&coord).map(|chunk| chunk.clone())
+    }
+
     fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>) {
         self.chunks.insert(coord, chunk);
     }
