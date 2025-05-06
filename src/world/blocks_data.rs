@@ -9,6 +9,29 @@ use super::{
 use crate::world::{BlockDefinition, BlockId};
 use std::collections::{HashMap, HashSet};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BlockCategory {
+    Solid,
+    Liquid,
+    Transparent,
+    Flora,
+    Decorative,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BlockFlags {
+    pub transparent: bool,
+    pub emissive: bool,
+    pub flammable: bool,
+    pub conductive: bool,
+    pub magnetic: bool,
+    pub climbable: bool,
+    pub liquid: bool,
+    pub passable: bool,
+    pub light_level: u8,
+    pub break_resistance: f32,
+}
+
 // Initialize a default block material
 fn default_material() -> BlockMaterial {
     BlockMaterial {
