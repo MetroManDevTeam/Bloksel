@@ -21,8 +21,8 @@ use std::io::{self, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
 
-pub const CHUNK_SIZE: u8 = 16;
-pub const CHUNK_VOLUME: usize = (CHUNK_SIZE as usize).pow(3);
+pub const CHUNK_SIZE: u32 = 16;
+pub const CHUNK_VOLUME: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkMesh {
@@ -46,7 +46,7 @@ impl ChunkMesh {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     pub coord: ChunkCoord,
-    pub blocks: Vec<Option<Block>>,
+    pub blocks: Vec<Block>,
     pub mesh: Option<ChunkMesh>,
 }
 
@@ -54,39 +54,53 @@ impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
-            blocks: vec![None; CHUNK_VOLUME],
+            blocks: vec![Block::new(BlockId::from(0)); CHUNK_VOLUME],
             mesh: None,
         }
-    }
-
-    pub fn get_block(&self, x: u8, y: u8, z: u8) -> Option<&Block> {
-        let index = (x as usize
-            + y as usize * CHUNK_SIZE as usize
-            + z as usize * CHUNK_SIZE as usize * CHUNK_SIZE as usize) as usize;
-        self.blocks.get(index).and_then(|b| b.as_ref())
-    }
-
-    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Block) {
-        let index = (x as usize
-            + y as usize * CHUNK_SIZE as usize
-            + z as usize * CHUNK_SIZE as usize * CHUNK_SIZE as usize) as usize;
-        if let Some(block_ref) = self.blocks.get_mut(index) {
-            *block_ref = Some(block);
-        }
-    }
-
-    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
-        let mut chunk = Self::new(coord);
-        chunk.blocks = template.blocks.clone();
-        chunk
     }
 
     pub fn empty() -> Self {
+        Self::new(ChunkCoord::new(0, 0, 0))
+    }
+
+    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
         Self {
-            coord: ChunkCoord::new(0, 0, 0),
-            blocks: vec![None; CHUNK_VOLUME],
+            coord,
+            blocks: template.blocks.clone(),
             mesh: None,
         }
+    }
+
+    pub fn get_block(&self, x: u32, y: u32, z: u32) -> Option<&Block> {
+        let index = (y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x) as usize;
+        self.blocks.get(index)
+    }
+
+    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block: Block) {
+        let index = (y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x) as usize;
+        if let Some(slot) = self.blocks.get_mut(index) {
+            *slot = block;
+        }
+    }
+
+    pub fn get_block_at(&self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
+        let local_x = (world_x.rem_euclid(CHUNK_SIZE as i32)) as u32;
+        let local_y = (world_y.rem_euclid(CHUNK_SIZE as i32)) as u32;
+        let local_z = (world_z.rem_euclid(CHUNK_SIZE as i32)) as u32;
+        self.get_block(local_x, local_y, local_z)
+    }
+
+    pub fn get_subblock_at(
+        &self,
+        world_x: i32,
+        world_y: i32,
+        world_z: i32,
+        sub_x: u8,
+        sub_y: u8,
+        sub_z: u8,
+    ) -> Option<&SubBlock> {
+        self.get_block_at(world_x, world_y, world_z)
+            .and_then(|block| block.get_sub_block((sub_x, sub_y, sub_z)))
     }
 
     pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
@@ -113,36 +127,6 @@ impl Chunk {
         Self::load(file)
     }
 
-    pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
-        let local_pos = IVec3::new(
-            (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
-            (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
-            (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
-        );
-
-        self.get_block(local_pos.x as u8, local_pos.y as u8, local_pos.z as u8)
-            .map(|block| (block, local_pos))
-    }
-
-    pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
-        let local_pos = IVec3::new(
-            (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
-            (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
-            (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
-        );
-
-        self.get_block(local_pos.x as u8, local_pos.y as u8, local_pos.z as u8)
-            .and_then(|block| {
-                block
-                    .get_sub_block(
-                        (local_pos.x as u8).rem_euclid(CHUNK_SIZE),
-                        (local_pos.y as u8).rem_euclid(CHUNK_SIZE),
-                        (local_pos.z as u8).rem_euclid(CHUNK_SIZE),
-                    )
-                    .map(|sub_block| (sub_block, local_pos))
-            })
-    }
-
     pub fn save(&self, writer: &mut impl io::Write) -> io::Result<()> {
         serialize_into(writer, self).map_err(|e| match e {
             bincode::Error::Io(e) => e,
@@ -155,6 +139,29 @@ impl Chunk {
             bincode::Error::Io(e) => e,
             _ => io::Error::new(io::ErrorKind::Other, "Deserialization failed"),
         })
+    }
+
+    pub fn add_biome_features(&mut self, rng: &mut ChaCha12Rng, block_registry: &BlockRegistry) {
+        for y in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    if let Some(block) = self.get_block(x, y, z) {
+                        if block.id.base_id == 2 {
+                            // Grass block
+                            if rng.gen_bool(0.1) {
+                                let sub_block = SubBlock {
+                                    id: BlockId::from(3), // Tall grass
+                                    facing: BlockFacing::PosY,
+                                    orientation: BlockOrientation::None,
+                                    connections: ConnectedDirections::empty(),
+                                };
+                                block.place_sub_block((x as u8, y as u8, z as u8), sub_block);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -298,13 +305,42 @@ impl ChunkManager {
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
         let chunk = self.chunks.get(&chunk_coord)?;
-        chunk.get_block_at(world_pos)
+        chunk
+            .get_block_at(world_pos.x as i32, world_pos.y as i32, world_pos.z as i32)
+            .map(|block| {
+                (
+                    block,
+                    IVec3::new(
+                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+                    ),
+                )
+            })
     }
 
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
         let chunk = self.chunks.get(&chunk_coord)?;
-        chunk.get_subblock_at(world_pos)
+        chunk
+            .get_subblock_at(
+                world_pos.x as i32,
+                world_pos.y as i32,
+                world_pos.z as i32,
+                (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+                (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+                (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+            )
+            .map(|sub_block| {
+                (
+                    sub_block,
+                    IVec3::new(
+                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+                    ),
+                )
+            })
     }
 
     fn get_block_id_safe(&self, name: &str) -> BlockId {
