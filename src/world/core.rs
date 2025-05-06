@@ -15,6 +15,7 @@ use crate::world::pool::PoolStats;
 use crate::world::spatial::QuadTree;
 use crate::world::spatial::SpatialPartition;
 use crate::world::storage::core::{ChunkStorage, MemoryStorage};
+use crate::world::storage::file::FileChunkStorage;
 use crate::world::storage::file::FileStorage;
 use crate::{config::core::EngineConfig, render::pipeline::ChunkRenderer};
 use glam::Vec3;
@@ -70,25 +71,25 @@ impl World {
         (local_x, local_y, local_z)
     }
 
-    pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<&Chunk> {
-        self.storage.get_chunk(*coord).as_deref()
+    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<&Chunk> {
+        self.storage.get_chunk(coord).as_deref()
     }
 
-    pub fn get_chunk_mut(&mut self, coord: &ChunkCoord) -> Option<&mut Chunk> {
-        if let Some(chunk) = self.storage.get_chunk(*coord) {
-            // Since we can't get a mutable reference to an Arc, we need to clone it
-            // and create a new Arc with the modified chunk
-            let mut chunk = (*chunk).clone();
-            let modified = Arc::new(chunk);
-            self.storage.set_chunk(*coord, modified);
-            None // We can't return a mutable reference to the Arc's contents
+    pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
+        if let Some(chunk) = self.storage.get_chunk(coord) {
+            let chunk = Arc::get_mut(chunk)?;
+            Some(chunk)
         } else {
             None
         }
     }
 
-    pub fn has_chunk(&self, coord: &ChunkCoord) -> bool {
-        self.storage.get_chunk(*coord).is_some()
+    pub fn has_chunk(&self, coord: ChunkCoord) -> bool {
+        self.storage.get_chunk(coord).is_some()
+    }
+
+    pub fn set_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
+        self.storage.set_chunk(coord, Arc::new(chunk));
     }
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) {
