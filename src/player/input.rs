@@ -38,7 +38,14 @@ impl Default for PlayerInput {
 
 impl PlayerInput {
     pub fn handle_mouse_scroll(&mut self, delta: MouseScrollDelta) {
-        self.mouse_scroll = delta.line_delta;
+        match delta {
+            MouseScrollDelta::LineDelta(_, y) => {
+                self.mouse_scroll = y;
+            }
+            MouseScrollDelta::PixelDelta(pos) => {
+                self.mouse_scroll = pos.y as f32 * 0.01;
+            }
+        }
     }
 
     pub fn handle_mouse_movement(&mut self, delta: Vec2) {
