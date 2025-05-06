@@ -489,9 +489,7 @@ impl ChunkManager {
                 // Add grass and flowers
                 if rng.gen_bool(0.1) {
                     block.place_sub_block(
-                        0,
-                        1,
-                        0,
+                        (0, 1, 0),
                         SubBlock {
                             id: self.get_block_id_safe("grass").into(),
                             facing: BlockFacing::PosZ,
@@ -505,9 +503,7 @@ impl ChunkManager {
                 // Add trees and bushes
                 if rng.gen_bool(0.05) {
                     block.place_sub_block(
-                        0,
-                        1,
-                        0,
+                        (0, 1, 0),
                         SubBlock {
                             id: self.get_block_id_safe("tree").into(),
                             facing: BlockFacing::PosZ,
@@ -521,9 +517,7 @@ impl ChunkManager {
                 // Add cacti and dead bushes
                 if rng.gen_bool(0.02) {
                     block.place_sub_block(
-                        0,
-                        1,
-                        0,
+                        (0, 1, 0),
                         SubBlock {
                             id: self.get_block_id_safe("cactus").into(),
                             facing: BlockFacing::PosZ,
@@ -537,9 +531,7 @@ impl ChunkManager {
                 // Add rocks and snow
                 if rng.gen_bool(0.1) {
                     block.place_sub_block(
-                        0,
-                        1,
-                        0,
+                        (0, 1, 0),
                         SubBlock {
                             id: self.get_block_id_safe("rock").into(),
                             facing: BlockFacing::PosZ,
@@ -553,9 +545,7 @@ impl ChunkManager {
                 // Add coral and seaweed
                 if rng.gen_bool(0.05) {
                     block.place_sub_block(
-                        0,
-                        1,
-                        0,
+                        (0, 1, 0),
                         SubBlock {
                             id: self.get_block_id_safe("coral").into(),
                             facing: BlockFacing::PosZ,
