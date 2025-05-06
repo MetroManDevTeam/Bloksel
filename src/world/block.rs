@@ -1,5 +1,5 @@
-use crate::world::block_facing::BlockFacing as BlockFacingImport;
-use crate::world::{BlockFacing, BlockId, BlockOrientation, ConnectedDirections};
+use crate::world::block_facing::BlockFacing;
+use crate::world::{BlockId, BlockOrientation, ConnectedDirections};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub struct Block {
     pub id: u16,
     pub orientation: BlockOrientation,
-    pub facing: BlockFacingImport,
+    pub facing: BlockFacing,
 }
 
 #[derive(Debug, Clone)]
