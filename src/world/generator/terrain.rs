@@ -125,13 +125,30 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
+    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
         let mut chunk = Chunk::new(coord);
-        match self.config.world_type {
-            WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
-            WorldType::Flat => self.generate_flat_chunk(&mut chunk, coord),
-            WorldType::Superflat => self.generate_superflat_chunk(&mut chunk, coord),
+        let mut rng = rand::thread_rng();
+
+        // Base terrain generation
+        for x in 0..16 {
+            for z in 0..16 {
+                let height = self.get_height(coord.x * 16 + x, coord.z * 16 + z);
+                for y in 0..16 {
+                    let block_y = coord.y * 16 + y;
+                    if block_y < height {
+                        let block = if block_y < 5 {
+                            Block::new(BlockId::new(1, 0, 0)) // Stone
+                        } else if block_y < height - 1 {
+                            Block::new(BlockId::new(2, 0, 0)) // Dirt
+                        } else {
+                            Block::new(BlockId::new(3, 0, 0)) // Grass
+                        };
+                        chunk.set_block(x, y, z, Some(block));
+                    }
+                }
+            }
         }
+
         chunk
     }
 
