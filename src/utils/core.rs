@@ -70,6 +70,11 @@ impl Profiler {
             frame_count: self.frame_count,
         }
     }
+
+    pub fn update_frustum(&mut self) {
+        let view_proj = self.projection_matrix() * self.view_matrix();
+        self.frustum = math::ViewFrustum::new(view_proj);
+    }
 }
 
 /// Coordinate system conversions
