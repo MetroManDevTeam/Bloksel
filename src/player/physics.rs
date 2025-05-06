@@ -108,7 +108,7 @@ impl Player {
     fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
         match self.state {
             PlayerState::Walking => {
-                let speed = self.physics.walk_speed;
+                let speed = self.physics.speed;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -127,7 +127,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Crouching => {
-                let speed = self.physics.crouch_speed;
+                let speed = self.physics.speed * 0.5;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -146,7 +146,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Flying => {
-                let speed = self.physics.fly_speed;
+                let speed = self.physics.speed * 2.0;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -171,7 +171,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Sprinting => {
-                let speed = self.physics.sprint_speed;
+                let speed = self.physics.speed * 1.5;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
