@@ -167,6 +167,12 @@ impl Default for BlockId {
     }
 }
 
+impl From<BlockId> for u16 {
+    fn from(id: BlockId) -> u16 {
+        id.0 as u16
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: BlockId,
