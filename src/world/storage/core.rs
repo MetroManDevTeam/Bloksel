@@ -1,5 +1,5 @@
+use crate::world::ChunkCoord;
 use crate::world::chunk::Chunk;
-use crate::world::chunk_coord::ChunkCoord;
 use anyhow::Result;
 use log;
 use serde::{Deserialize, Serialize};
