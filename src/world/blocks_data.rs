@@ -6,10 +6,10 @@ use super::{
     block_tech::BlockFlags,
     block_visual::{BlockFacing, BlockOrientation},
 };
-use crate::world::{BlockDefinition, BlockId};
-use std::collections::{HashMap, HashSet};
 use crate::world::block::Block;
+use crate::world::{BlockDefinition, BlockId};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockCategory {
@@ -194,9 +194,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -217,10 +221,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            break_resistance: 2.0,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 2,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -249,10 +256,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            flammable: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -274,10 +284,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            flammable: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: vec![ColorVariant {
@@ -311,10 +324,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            liquid: true,
-            passable: true,
-            transparent: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: true,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -337,11 +353,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            liquid: true,
-            passable: true,
-            emissive: true,
+            is_solid: false,
+            is_transparent: false,
+            is_liquid: true,
+            is_flora: false,
+            is_decorative: false,
             light_level: 15,
-            ..Default::default()
+            break_resistance: 2,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -363,9 +381,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -388,8 +410,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            transparent: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: vec![ColorVariant {
@@ -423,10 +450,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            break_resistance: 2.0,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 2,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -450,9 +480,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
         ]),
         material: default_material(),
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -481,10 +515,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            flammable: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -501,10 +538,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
         texture_faces: HashMap::from([(BlockFacing::All, "stonebrick.png".into())]),
         material: default_material(),
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            break_resistance: 1.8,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: vec![
             BlockVariant {
@@ -546,10 +586,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
         texture_faces: HashMap::from([(BlockFacing::All, "bedrock.png".into())]),
         material: default_material(),
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            break_resistance: 9999.0,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 9999,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -571,8 +614,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            passable: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: false,
+            is_flora: true,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -601,9 +649,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: true,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
@@ -625,10 +677,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            transparent: true,
-            passable: true,
-            flammable: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: false,
+            is_flora: true,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: vec![BlockVariant {
             id: 1,
@@ -658,10 +713,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            transparent: true,
-            passable: true,
-            flammable: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: false,
+            is_flora: true,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: vec![ColorVariant {
@@ -702,8 +760,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            transparent: true,
-            ..Default::default()
+            is_solid: false,
+            is_transparent: true,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: true,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: vec![ColorVariant {
