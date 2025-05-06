@@ -28,7 +28,7 @@ impl ConnectedDirections {
             BlockFacing::NegX => self.set(ConnectedDirections::WEST, connected),
             BlockFacing::PosY => self.set(ConnectedDirections::UP, connected),
             BlockFacing::NegY => self.set(ConnectedDirections::DOWN, connected),
-            BlockFacing::None => (),
+            BlockFacing::None => {}
         }
     }
 
@@ -42,6 +42,10 @@ impl ConnectedDirections {
             BlockFacing::NegY => self.contains(ConnectedDirections::DOWN),
             BlockFacing::None => false,
         }
+    }
+
+    pub fn from_u8(value: u8) -> Self {
+        Self::from_bits_truncate(value)
     }
 }
 
