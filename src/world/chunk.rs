@@ -58,6 +58,7 @@ pub struct Chunk {
     pub coord: ChunkCoord,
     blocks: Vec<Option<Block>>,
     pub mesh: Option<ChunkMesh>,
+    block_registry: Arc<BlockRegistry>,
 }
 
 impl Chunk {
@@ -66,6 +67,7 @@ impl Chunk {
             coord,
             blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
+            block_registry: Arc::new(BlockRegistry::new()),
         }
     }
 
@@ -78,6 +80,7 @@ impl Chunk {
             coord,
             blocks: template.blocks.clone(),
             mesh: None,
+            block_registry: template.block_registry.clone(),
         }
     }
 
@@ -199,6 +202,73 @@ impl Chunk {
             self.coord.z() as f32 * CHUNK_SIZE as f32,
         );
         Mat4::from_translation(pos)
+    }
+
+    pub fn get_block_id_safe(&self, name: &str) -> BlockId {
+        self.block_registry
+            .get_by_name(name)
+            .map(|def| def.id)
+            .unwrap_or(BlockId::new(10, 0, 0))
+    }
+
+    pub fn create_grass_block(&mut self) -> Block {
+        let mut block = Block::new(self.get_block_id_safe("grass"));
+        block.place_sub_block(
+            (0, 1, 0),
+            SubBlock::new(self.get_block_id_safe("grass").base_id() as u16)
+                .with_facing(BlockFacing::None)
+                .with_orientation(BlockOrientation::None)
+                .with_connections(ConnectedDirections::empty()),
+        );
+        block
+    }
+
+    pub fn create_tree_block(&mut self) -> Block {
+        let mut block = Block::new(self.get_block_id_safe("tree"));
+        block.place_sub_block(
+            (0, 1, 0),
+            SubBlock::new(self.get_block_id_safe("tree").base_id() as u16)
+                .with_facing(BlockFacing::None)
+                .with_orientation(BlockOrientation::None)
+                .with_connections(ConnectedDirections::empty()),
+        );
+        block
+    }
+
+    pub fn create_cactus_block(&mut self) -> Block {
+        let mut block = Block::new(self.get_block_id_safe("cactus"));
+        block.place_sub_block(
+            (0, 1, 0),
+            SubBlock::new(self.get_block_id_safe("cactus").base_id() as u16)
+                .with_facing(BlockFacing::None)
+                .with_orientation(BlockOrientation::None)
+                .with_connections(ConnectedDirections::empty()),
+        );
+        block
+    }
+
+    pub fn create_rock_block(&mut self) -> Block {
+        let mut block = Block::new(self.get_block_id_safe("rock"));
+        block.place_sub_block(
+            (0, 1, 0),
+            SubBlock::new(self.get_block_id_safe("rock").base_id() as u16)
+                .with_facing(BlockFacing::None)
+                .with_orientation(BlockOrientation::None)
+                .with_connections(ConnectedDirections::empty()),
+        );
+        block
+    }
+
+    pub fn create_coral_block(&mut self) -> Block {
+        let mut block = Block::new(self.get_block_id_safe("coral"));
+        block.place_sub_block(
+            (0, 1, 0),
+            SubBlock::new(self.get_block_id_safe("coral").base_id() as u16)
+                .with_facing(BlockFacing::None)
+                .with_orientation(BlockOrientation::None)
+                .with_connections(ConnectedDirections::empty()),
+        );
+        block
     }
 }
 
@@ -382,8 +452,9 @@ impl ChunkManager {
 
     fn get_block_id_safe(&self, name: &str) -> BlockId {
         self.block_registry
-            .get_block_id(name)
-            .unwrap_or(BlockId::AIR)
+            .get_by_name(name)
+            .map(|def| def.id)
+            .unwrap_or(BlockId::new(10, 0, 0))
     }
 
     fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
