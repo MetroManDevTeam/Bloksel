@@ -8,6 +8,8 @@ use super::{
 };
 use crate::world::{BlockDefinition, BlockId};
 use std::collections::{HashMap, HashSet};
+use crate::world::block::Block;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockCategory {
@@ -20,16 +22,62 @@ pub enum BlockCategory {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockFlags {
-    pub transparent: bool,
-    pub emissive: bool,
-    pub flammable: bool,
-    pub conductive: bool,
-    pub magnetic: bool,
-    pub climbable: bool,
-    pub liquid: bool,
-    pub passable: bool,
+    pub is_solid: bool,
+    pub is_transparent: bool,
+    pub is_liquid: bool,
+    pub is_flora: bool,
+    pub is_decorative: bool,
     pub light_level: u8,
-    pub break_resistance: f32,
+    pub break_resistance: u8,
+}
+
+impl BlockFlags {
+    pub fn new() -> Self {
+        Self {
+            is_solid: false,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 0,
+        }
+    }
+
+    pub fn with_solid(mut self, solid: bool) -> Self {
+        self.is_solid = solid;
+        self
+    }
+
+    pub fn with_transparent(mut self, transparent: bool) -> Self {
+        self.is_transparent = transparent;
+        self
+    }
+
+    pub fn with_liquid(mut self, liquid: bool) -> Self {
+        self.is_liquid = liquid;
+        self
+    }
+
+    pub fn with_flora(mut self, flora: bool) -> Self {
+        self.is_flora = flora;
+        self
+    }
+
+    pub fn with_decorative(mut self, decorative: bool) -> Self {
+        self.is_decorative = decorative;
+        self
+    }
+
+    pub fn with_light_level(mut self, light_level: u8) -> Self {
+        self.light_level = light_level;
+        self
+    }
+
+    pub fn with_break_resistance(mut self, break_resistance: u8) -> Self {
+        self.break_resistance = break_resistance;
+        self
+    }
 }
 
 // Initialize a default block material
@@ -70,10 +118,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
         ]),
         material: default_material(),
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            break_resistance: 1.5,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: false,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: vec![BlockVariant {
             id: 1,
@@ -115,9 +166,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
             mat
         },
         flags: BlockFlags {
-            solid: true,
-            occludes: true,
-            ..Default::default()
+            is_solid: true,
+            is_transparent: false,
+            is_liquid: false,
+            is_flora: true,
+            is_decorative: false,
+            light_level: 0,
+            break_resistance: 1,
         },
         variations: Vec::new(),
         color_variations: Vec::new(),
