@@ -310,7 +310,9 @@ impl ChunkRenderer {
 
                 // Bind texture atlas
                 gl::ActiveTexture(gl::TEXTURE0);
-                gl::BindTexture(gl::TEXTURE_2D, self.texture_atlas);
+                if let Some(texture_id) = self.texture_atlas_id {
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                }
                 self.shader.set_uniform("texture_atlas", &0);
 
                 // Bind VAO and draw
