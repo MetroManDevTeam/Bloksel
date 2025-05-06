@@ -100,6 +100,7 @@ pub impl Default for Orientation {
         Self {
             yaw: 0.0,
             pitch: 0.0,
+            roll: 0.0,
         }
     }
 }
