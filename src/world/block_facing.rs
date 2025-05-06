@@ -2,90 +2,50 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockFacing {
-    PosX,
-    NegX,
-    PosY,
-    NegY,
-    PosZ,
-    NegZ,
-    Wall,
-    Floor,
-    Ceiling,
-    Corner,
-    Edge,
-    Custom(u8),
-    None,
+    North = 0,
+    South = 1,
+    East = 2,
+    West = 3,
+    Up = 4,
+    Down = 5,
 }
 
 impl BlockFacing {
-    pub fn from_normal(normal: glam::Vec3) -> Self {
-        if normal.x > 0.0 {
-            Self::PosX
-        } else if normal.x < 0.0 {
-            Self::NegX
-        } else if normal.y > 0.0 {
-            Self::PosY
-        } else if normal.y < 0.0 {
-            Self::NegY
-        } else if normal.z > 0.0 {
-            Self::PosZ
-        } else if normal.z < 0.0 {
-            Self::NegZ
-        } else {
-            Self::None
+    pub fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::North),
+            1 => Some(Self::South),
+            2 => Some(Self::East),
+            3 => Some(Self::West),
+            4 => Some(Self::Up),
+            5 => Some(Self::Down),
+            _ => None,
         }
     }
 
-    pub fn to_normal(self) -> glam::Vec3 {
-        match self {
-            Self::PosX => glam::Vec3::X,
-            Self::NegX => -glam::Vec3::X,
-            Self::PosY => glam::Vec3::Y,
-            Self::NegY => -glam::Vec3::Y,
-            Self::PosZ => glam::Vec3::Z,
-            Self::NegZ => -glam::Vec3::Z,
-            Self::Wall
-            | Self::Floor
-            | Self::Ceiling
-            | Self::Corner
-            | Self::Edge
-            | Self::Custom(_)
-            | Self::None => glam::Vec3::ZERO,
-        }
+    pub fn to_index(&self) -> usize {
+        *self as usize
     }
 
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            0 => Self::Wall,
-            1 => Self::Floor,
-            2 => Self::Ceiling,
-            3 => Self::Corner,
-            4 => Self::Edge,
-            n => Self::Custom(n),
-        }
-    }
-
-    pub fn to_u8(self) -> u8 {
-        match self {
-            Self::Wall => 0,
-            Self::Floor => 1,
-            Self::Ceiling => 2,
-            Self::Corner => 3,
-            Self::Edge => 4,
-            Self::Custom(n) => n,
-            _ => 0,
-        }
+    pub fn all() -> [Self; 6] {
+        [
+            Self::North,
+            Self::South,
+            Self::East,
+            Self::West,
+            Self::Up,
+            Self::Down,
+        ]
     }
 
     pub fn opposite(&self) -> Self {
         match self {
-            Self::PosX => Self::NegX,
-            Self::NegX => Self::PosX,
-            Self::PosY => Self::NegY,
-            Self::NegY => Self::PosY,
-            Self::PosZ => Self::NegZ,
-            Self::NegZ => Self::PosZ,
-            _ => Self::None,
+            Self::North => Self::South,
+            Self::South => Self::North,
+            Self::East => Self::West,
+            Self::West => Self::East,
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
         }
     }
 }
