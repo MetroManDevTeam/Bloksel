@@ -14,7 +14,7 @@ impl ChunkCoord {
         let x = (pos.x / chunk_size as f32).floor() as i32;
         let y = (pos.y / chunk_size as f32).floor() as i32;
         let z = (pos.z / chunk_size as f32).floor() as i32;
-        Self(IVec3::new(x, y, z))
+        Self::new(x, y, z)
     }
 
     pub fn from_world(position: Vec3) -> Self {
@@ -42,39 +42,49 @@ impl ChunkCoord {
     }
 
     pub fn to_path(&self) -> PathBuf {
-        PathBuf::from(format!("{}_{}_{}.chunk", self.0.x, self.0.y, self.0.z))
+        PathBuf::from(format!(
+            "chunks/{}/{}/{}.chunk",
+            self.0.x, self.0.y, self.0.z
+        ))
     }
 
     pub fn from_path(path: &Path) -> std::io::Result<Self> {
         let file_name = path
-            .file_stem()
+            .file_name()
             .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk file name")
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid chunk file name")
             })?
             .to_str()
             .ok_or_else(|| {
                 std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
+                    std::io::ErrorKind::InvalidInput,
                     "Invalid UTF-8 in chunk file name",
                 )
             })?;
 
-        let parts: Vec<&str> = file_name.split('_').collect();
-        if parts.len() != 3 {
+        if !file_name.ends_with(".chunk") {
             return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid chunk file name format",
+                std::io::ErrorKind::InvalidInput,
+                "Not a chunk file",
             ));
         }
 
-        let x = parts[0].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid x coordinate")
+        let coords: Vec<&str> = file_name.trim_end_matches(".chunk").split('_').collect();
+        if coords.len() != 3 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid chunk coordinates",
+            ));
+        }
+
+        let x = coords[0].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid x coordinate")
         })?;
-        let y = parts[1].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid y coordinate")
+        let y = coords[1].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid y coordinate")
         })?;
-        let z = parts[2].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid z coordinate")
+        let z = coords[2].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid z coordinate")
         })?;
 
         Ok(Self::new(x, y, z))
