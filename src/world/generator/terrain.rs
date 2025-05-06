@@ -1,10 +1,22 @@
+use crate::utils::math::IVec3;
+use crate::world::block::{Block, BlockFacing, BlockOrientation, SubBlock};
 use crate::world::block_id::BlockId;
+use crate::world::block_registry::BlockRegistry;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
-use noise::{NoiseFn, Perlin};
-use rand::Rng;
+use noise::{Fbm, NoiseFn, Perlin};
+use parking_lot::RwLock;
+use rand::{Rng, rngs::ChaCha12Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+
+// Constants
+const CHUNK_SIZE: usize = 16;
+const SUB_RESOLUTION: usize = 4;
+const SEA_LEVEL: i32 = 64;
+const BASE_TERRAIN_HEIGHT: f64 = 64.0;
+const FLAT_WORLD_HEIGHT: i32 = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BiomeType {
@@ -23,6 +35,29 @@ pub enum WorldType {
     Flat,
     Amplified,
     LargeBiomes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerrainConfig {
+    pub seed: u32,
+    pub world_type: WorldType,
+    pub terrain_amplitude: f64,
+    pub world_scale: f64,
+    pub cave_threshold: f64,
+    pub flat_world_layers: Vec<(BlockId, u32)>,
+}
+
+impl Default for TerrainConfig {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            world_type: WorldType::Normal,
+            terrain_amplitude: 32.0,
+            world_scale: 0.01,
+            cave_threshold: 0.7,
+            flat_world_layers: Vec::new(),
+        }
+    }
 }
 
 pub struct TerrainGenerator {
