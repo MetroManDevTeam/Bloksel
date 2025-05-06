@@ -68,15 +68,12 @@ impl SpatialPartition {
         self.spatial_index.clear();
 
         let radius = config.render_distance as i32;
-        let center_chunk = ChunkCoord::from_world_pos(center, config.chunk_size);
+        let center_chunk = ChunkCoord::from_world_pos(center, config.chunk_size as i32);
 
         for x in -radius..=radius {
             for z in -radius..=radius {
-                let coord = ChunkCoord {
-                    x: center_chunk.x + x,
-                    y: center_chunk.y,
-                    z: center_chunk.z + z,
-                };
+                let coord =
+                    ChunkCoord::new(center_chunk.x() + x, center_chunk.y(), center_chunk.z() + z);
                 let key = self.spatial_key(coord);
                 self.spatial_index.insert(coord, key);
                 self.quadtree.add_chunk(coord);
@@ -93,7 +90,7 @@ impl SpatialPartition {
     }
 
     fn calculate_distance(&self, pos: Vec3, coord: &ChunkCoord, chunk_size: u32) -> f32 {
-        let chunk_center = coord.to_world_center(chunk_size);
+        let chunk_center = coord.to_world_center(chunk_size as i32);
         pos.distance(chunk_center)
     }
 
@@ -108,7 +105,7 @@ impl SpatialPartition {
     }
 
     fn spatial_key(&self, coord: ChunkCoord) -> u32 {
-        ((coord.x as u32) << 16) | (coord.z as u32)
+        ((coord.x() as u32) << 16) | (coord.z() as u32)
     }
 
     fn get_visible_chunks(&self) -> Vec<ChunkCoord> {
@@ -118,7 +115,7 @@ impl SpatialPartition {
     fn get_loading_priority(&self, player_pos: Vec3, chunk_size: u32) -> Vec<ChunkCoord> {
         let mut chunks: Vec<_> = self.spatial_index.keys().cloned().collect();
         chunks.sort_by_key(|c| {
-            let center = c.to_world_center(chunk_size);
+            let center = c.to_world_center(chunk_size as i32);
             (player_pos.distance(center) * 1000.0) as u32
         });
         chunks
@@ -251,81 +248,119 @@ impl ViewFrustum {
 
     pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
         let view_proj = proj * view;
-        let mut frustum = Self::new();
+        let mut planes = [MathPlane::default(); 6];
 
         // Left plane
-        frustum.planes[0] = MathPlane {
-            normal: Vec3::new(
+        planes[0] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w + view_proj.x_axis.x,
                 view_proj.y_axis.w + view_proj.y_axis.x,
                 view_proj.z_axis.w + view_proj.z_axis.x,
             ),
-            distance: view_proj.w_axis.w + view_proj.w_axis.x,
-        };
+            view_proj.w_axis.w + view_proj.w_axis.x,
+        );
 
         // Right plane
-        frustum.planes[1] = MathPlane {
-            normal: Vec3::new(
+        planes[1] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w - view_proj.x_axis.x,
                 view_proj.y_axis.w - view_proj.y_axis.x,
                 view_proj.z_axis.w - view_proj.z_axis.x,
             ),
-            distance: view_proj.w_axis.w - view_proj.w_axis.x,
-        };
+            view_proj.w_axis.w - view_proj.w_axis.x,
+        );
 
         // Bottom plane
-        frustum.planes[2] = MathPlane {
-            normal: Vec3::new(
+        planes[2] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w + view_proj.x_axis.y,
                 view_proj.y_axis.w + view_proj.y_axis.y,
                 view_proj.z_axis.w + view_proj.z_axis.y,
             ),
-            distance: view_proj.w_axis.w + view_proj.w_axis.y,
-        };
+            view_proj.w_axis.w + view_proj.w_axis.y,
+        );
 
         // Top plane
-        frustum.planes[3] = MathPlane {
-            normal: Vec3::new(
+        planes[3] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w - view_proj.x_axis.y,
                 view_proj.y_axis.w - view_proj.y_axis.y,
                 view_proj.z_axis.w - view_proj.z_axis.y,
             ),
-            distance: view_proj.w_axis.w - view_proj.w_axis.y,
-        };
+            view_proj.w_axis.w - view_proj.w_axis.y,
+        );
 
         // Near plane
-        frustum.planes[4] = MathPlane {
-            normal: Vec3::new(
+        planes[4] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w + view_proj.x_axis.z,
                 view_proj.y_axis.w + view_proj.y_axis.z,
                 view_proj.z_axis.w + view_proj.z_axis.z,
             ),
-            distance: view_proj.w_axis.w + view_proj.w_axis.z,
-        };
+            view_proj.w_axis.w + view_proj.w_axis.z,
+        );
 
         // Far plane
-        frustum.planes[5] = MathPlane {
-            normal: Vec3::new(
+        planes[5] = MathPlane::new(
+            Vec3::new(
                 view_proj.x_axis.w - view_proj.x_axis.z,
                 view_proj.y_axis.w - view_proj.y_axis.z,
                 view_proj.z_axis.w - view_proj.z_axis.z,
             ),
-            distance: view_proj.w_axis.w - view_proj.w_axis.z,
-        };
+            view_proj.w_axis.w - view_proj.w_axis.z,
+        );
 
         // Normalize all planes
-        for plane in &mut frustum.planes {
+        for plane in &mut planes {
             let length = plane.normal.length();
             plane.normal /= length;
             plane.distance /= length;
         }
 
-        frustum
+        Self { planes }
     }
 
-    pub fn intersects_frustum(&self, frustum: &MathViewFrustum) -> bool {
+    pub fn intersects_aabb(&self, aabb: &MathAABB) -> bool {
         for plane in &self.planes {
-            if !frustum.intersects_plane(plane) {
+            let p = Vec3::new(
+                if plane.normal.x >= 0.0 {
+                    aabb.max.x
+                } else {
+                    aabb.min.x
+                },
+                if plane.normal.y >= 0.0 {
+                    aabb.max.y
+                } else {
+                    aabb.min.y
+                },
+                if plane.normal.z >= 0.0 {
+                    aabb.max.z
+                } else {
+                    aabb.min.z
+                },
+            );
+
+            let n = Vec3::new(
+                if plane.normal.x >= 0.0 {
+                    aabb.min.x
+                } else {
+                    aabb.max.x
+                },
+                if plane.normal.y >= 0.0 {
+                    aabb.min.y
+                } else {
+                    aabb.max.y
+                },
+                if plane.normal.z >= 0.0 {
+                    aabb.min.z
+                } else {
+                    aabb.max.z
+                },
+            );
+
+            if plane.normal.dot(p) + plane.distance < 0.0
+                && plane.normal.dot(n) + plane.distance < 0.0
+            {
                 return false;
             }
         }
