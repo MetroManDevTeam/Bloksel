@@ -16,8 +16,8 @@ use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 
-const ATLAS_START_SIZE: u32 = 1024;
-const MAX_ATLAS_SIZE: u32 = 4096;
+const ATLAS_START_SIZE: u32 = 16;
+const MAX_ATLAS_SIZE: u32 = 2048;
 const TEXTURE_PADDING: u32 = 2;
 
 #[derive(Debug, thiserror::Error)]
@@ -40,11 +40,25 @@ pub struct ChunkRenderer {
     pub debug_mode: bool,
     pub lod_level: u8,
     pending_textures: HashSet<u16>,
+    shader: ShaderProgram,
+    texture_atlas_size: u32,
 }
 
 impl ChunkRenderer {
     pub fn new() -> Result<Self, anyhow::Error> {
-        let mut renderer = Self {
+        let shader = ShaderProgram::new("assets/shaders/chunk.vert", "assets/shaders/chunk.frag")?;
+
+        let mut texture_atlas = 0;
+        unsafe {
+            gl::GenTextures(1, &mut texture_atlas);
+            gl::BindTexture(gl::TEXTURE_2D, texture_atlas);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+        }
+
+        Ok(Self {
             materials: HashMap::new(),
             texture_atlas: Some(RgbaImage::new(ATLAS_START_SIZE, ATLAS_START_SIZE)),
             texture_atlas_id: None,
@@ -54,10 +68,9 @@ impl ChunkRenderer {
             debug_mode: false,
             lod_level: 0,
             pending_textures: HashSet::new(),
-        };
-
-        renderer.init_default_materials()?;
-        Ok(renderer)
+            shader,
+            texture_atlas_size: ATLAS_START_SIZE,
+        })
     }
 
     fn init_default_materials(&mut self) -> Result<(), anyhow::Error> {
@@ -210,15 +223,15 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<(), anyhow::Error> {
+    pub fn upload_chunk_data(&mut self, chunk: &mut Chunk, mesh: &mut ChunkMesh) {
         unsafe {
-            let mut vao: GLuint = 0;
-            gl::GenVertexArrays(1, &mut vao);
-            gl::BindVertexArray(vao);
+            // Generate and bind VAO
+            gl::GenVertexArrays(1, &mut mesh.vao);
+            gl::BindVertexArray(mesh.vao);
 
-            let mut vbo: GLuint = 0;
-            gl::GenBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            // Generate and bind VBO
+            gl::GenBuffers(1, &mut mesh.vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, mesh.vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (mesh.vertices.len() * std::mem::size_of::<f32>()) as isize,
@@ -226,8 +239,25 @@ impl ChunkRenderer {
                 gl::STATIC_DRAW,
             );
 
+            // Generate and bind EBO
+            gl::GenBuffers(1, &mut mesh.ebo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (mesh.indices.len() * std::mem::size_of::<u32>()) as isize,
+                mesh.indices.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+
             // Position attribute
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                8 * std::mem::size_of::<f32>() as i32,
+                std::ptr::null(),
+            );
             gl::EnableVertexAttribArray(0);
 
             // Normal attribute
@@ -236,36 +266,24 @@ impl ChunkRenderer {
                 3,
                 gl::FLOAT,
                 gl::FALSE,
-                0,
-                mesh.normals.as_ptr() as *const _,
+                8 * std::mem::size_of::<f32>() as i32,
+                (3 * std::mem::size_of::<f32>()) as *const _,
             );
             gl::EnableVertexAttribArray(1);
 
             // UV attribute
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, 0, mesh.uvs.as_ptr() as *const _);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                8 * std::mem::size_of::<f32>() as i32,
+                (6 * std::mem::size_of::<f32>()) as *const _,
+            );
             gl::EnableVertexAttribArray(2);
 
-            let mut ebo: GLuint = 0;
-            gl::GenBuffers(1, &mut ebo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.indices.len() * std::mem::size_of::<u32>()) as isize,
-                mesh.indices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            chunk.mesh = Some(ChunkMesh {
-                vertices: mesh.vertices.clone(),
-                indices: mesh.indices.clone(),
-                normals: mesh.normals.clone(),
-                uvs: mesh.uvs.clone(),
-                vao,
-                vbo,
-                ebo,
-            });
+            gl::BindVertexArray(0);
         }
-        Ok(())
     }
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
@@ -463,16 +481,18 @@ impl ChunkRenderer {
     pub fn render_chunk(
         &self,
         chunk: &Chunk,
-        shader: &ShaderProgram,
+        camera: &Camera,
         view_matrix: &Mat4,
         projection_matrix: &Mat4,
-    ) -> Result<(), anyhow::Error> {
+    ) {
         if let Some(mesh) = &chunk.mesh {
             unsafe {
+                self.shader.use_program();
                 gl::BindVertexArray(mesh.vao);
-                shader.set_uniform_mat4("model", &chunk.transform());
-                shader.set_uniform_mat4("view", view_matrix);
-                shader.set_uniform_mat4("projection", projection_matrix);
+
+                self.shader.set_uniform("model", &chunk.transform());
+                self.shader.set_uniform("view", view_matrix);
+                self.shader.set_uniform("projection", projection_matrix);
 
                 gl::DrawElements(
                     gl::TRIANGLES,
@@ -480,9 +500,10 @@ impl ChunkRenderer {
                     gl::UNSIGNED_INT,
                     std::ptr::null(),
                 );
+
+                gl::BindVertexArray(0);
             }
         }
-        Ok(())
     }
 }
 
