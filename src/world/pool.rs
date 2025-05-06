@@ -10,20 +10,39 @@ pub struct ChunkPool {
 }
 
 impl ChunkPool {
-    /// Creates a new pool with base template and maximum size
-    pub fn new(capacity: usize) -> Self {
-        let mut pool = Self {
-            chunks: RwLock::new(HashMap::new()),
-            max_size: capacity,
-        };
-        for _ in 0..capacity {
-            let coord = ChunkCoord::new(0, 0, 0); // Temporary coord
-            pool.chunks
-                .write()
-                .unwrap()
-                .insert(coord, Arc::new(Chunk::empty()));
+    /// Creates a new pool with maximum size
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            chunks: RwLock::new(HashMap::with_capacity(max_size)),
+            max_size,
         }
-        pool
+    }
+
+    /// Gets a chunk from the pool if it exists
+    pub fn get(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.chunks.read().unwrap().get(&coord).cloned()
+    }
+
+    /// Inserts a chunk into the pool, removing the oldest one if at capacity
+    pub fn insert(&self, coord: ChunkCoord, chunk: Arc<Chunk>) -> Result<(), &'static str> {
+        let mut chunks = self.chunks.write().unwrap();
+        if chunks.len() >= self.max_size {
+            if let Some((&oldest_coord, _)) = chunks.iter().next() {
+                chunks.remove(&oldest_coord);
+            }
+        }
+        chunks.insert(coord, chunk);
+        Ok(())
+    }
+
+    /// Removes and returns a chunk from the pool
+    pub fn remove(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.chunks.write().unwrap().remove(&coord)
+    }
+
+    /// Clears all chunks from the pool
+    pub fn clear(&self) {
+        self.chunks.write().unwrap().clear();
     }
 
     /// Acquires a chunk from the pool or creates a new one
@@ -33,18 +52,18 @@ impl ChunkPool {
         if let Some(chunk) = chunks.get(&coord).cloned() {
             Ok(chunk)
         } else {
-            Err(anyhow!("Chunk not found in pool"))
+            Err("Chunk not found in pool")
         }
     }
 
     /// Returns a chunk to the pool
-    pub fn release(&self, coord: ChunkCoord) -> Result<()> {
+    pub fn release(&self, coord: ChunkCoord) -> Result<(), &'static str> {
         let mut chunks = self.chunks.write().unwrap();
 
         if chunks.remove(&coord).is_some() {
             Ok(())
         } else {
-            Err(anyhow!("Chunk not in use at {:?}", coord))
+            Err("Chunk not in use at {:?}")
         }
     }
 
@@ -72,29 +91,6 @@ impl ChunkPool {
             total_chunks: chunks.len(),
             memory_usage: chunks.len() * CHUNK_VOLUME * std::mem::size_of::<u16>(),
         }
-    }
-
-    pub fn get(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.read().unwrap().get(&coord).cloned()
-    }
-
-    pub fn insert(&self, coord: ChunkCoord, chunk: Arc<Chunk>) {
-        let mut chunks = self.chunks.write().unwrap();
-        if chunks.len() >= self.max_size {
-            // Remove the oldest chunk if we're at capacity
-            if let Some((&oldest_coord, _)) = chunks.iter().next() {
-                chunks.remove(&oldest_coord);
-            }
-        }
-        chunks.insert(coord, chunk);
-    }
-
-    pub fn remove(&self, coord: ChunkCoord) {
-        self.chunks.write().unwrap().remove(&coord);
-    }
-
-    pub fn clear(&self) {
-        self.chunks.write().unwrap().clear();
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
