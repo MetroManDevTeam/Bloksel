@@ -21,6 +21,12 @@ impl BlockOrientation {
             BlockFacing::NegX => Self::West,
             BlockFacing::PosY => Self::Up,
             BlockFacing::NegY => Self::Down,
+            BlockFacing::Wall => Self::None,
+            BlockFacing::Floor => Self::None,
+            BlockFacing::Ceiling => Self::None,
+            BlockFacing::Corner => Self::None,
+            BlockFacing::Edge => Self::None,
+            BlockFacing::Custom(_) => Self::None,
             BlockFacing::None => Self::None,
         }
     }
@@ -41,5 +47,25 @@ impl BlockOrientation {
 impl Default for BlockOrientation {
     fn default() -> Self {
         Self::None
+    }
+}
+
+impl From<BlockFacing> for BlockOrientation {
+    fn from(facing: BlockFacing) -> Self {
+        match facing {
+            BlockFacing::PosZ => Self::North,
+            BlockFacing::NegZ => Self::South,
+            BlockFacing::PosX => Self::East,
+            BlockFacing::NegX => Self::West,
+            BlockFacing::PosY => Self::Up,
+            BlockFacing::NegY => Self::Down,
+            BlockFacing::Wall => Self::None,
+            BlockFacing::Floor => Self::None,
+            BlockFacing::Ceiling => Self::None,
+            BlockFacing::Corner => Self::None,
+            BlockFacing::Edge => Self::None,
+            BlockFacing::Custom(_) => Self::None,
+            BlockFacing::None => Self::None,
+        }
     }
 }
