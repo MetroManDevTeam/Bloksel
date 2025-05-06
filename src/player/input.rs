@@ -3,7 +3,7 @@ use glam::Vec2;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::keyboard::KeyCode;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct PlayerInput {
     pub forward: bool,
     pub backward: bool,
@@ -15,45 +15,21 @@ pub struct PlayerInput {
     pub sprint: bool,
     pub crouch: bool,
     pub mouse_delta: Vec2,
-    pub mouse_scroll: f32,
-}
-
-impl Default for PlayerInput {
-    fn default() -> Self {
-        Self {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            fly_up: false,
-            fly_down: false,
-            sprint: false,
-            crouch: false,
-            mouse_delta: Vec2::ZERO,
-            mouse_scroll: 0.0,
-        }
-    }
+    pub mouse_position: Vec2,
+    pub mouse_scroll: Vec2,
+    pub zoom_delta: Option<MouseScrollDelta>,
 }
 
 impl PlayerInput {
     pub fn handle_mouse_scroll(&mut self, delta: MouseScrollDelta) {
-        match delta {
-            MouseScrollDelta::LineDelta(_, y) => {
-                self.mouse_scroll = y;
-            }
-            MouseScrollDelta::PixelDelta(pos) => {
-                self.mouse_scroll = pos.y as f32 * 0.01;
-            }
-        }
+        self.zoom_delta = Some(delta);
     }
 
-    pub fn handle_mouse_movement(&mut self, delta: Vec2) {
+    pub fn handle_mouse_move(&mut self, delta: Vec2) {
         self.mouse_delta = delta;
     }
 
-    pub fn handle_key_input(&mut self, key: KeyCode, state: ElementState) {
-        let pressed = state == ElementState::Pressed;
+    pub fn handle_key(&mut self, key: KeyCode, pressed: bool) {
         match key {
             KeyCode::KeyW => self.forward = pressed,
             KeyCode::KeyS => self.backward = pressed,
@@ -64,12 +40,12 @@ impl PlayerInput {
             KeyCode::KeyE => self.fly_up = pressed,
             KeyCode::KeyQ => self.fly_down = pressed,
             KeyCode::ControlLeft => self.crouch = pressed,
-            _ => (),
+            _ => {}
         }
     }
 
     pub fn reset(&mut self) {
         self.mouse_delta = Vec2::ZERO;
-        self.mouse_scroll = 0.0;
+        self.zoom_delta = None;
     }
 }
