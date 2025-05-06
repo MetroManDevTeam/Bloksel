@@ -46,10 +46,6 @@ impl AABB {
         self.contains(point)
     }
 
-    pub fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
-        frustum.intersects_aabb(self)
-    }
-
     pub fn transform(&self, transform: Mat4) -> Self {
         let corners = [
             Vec3::new(self.min.x, self.min.y, self.min.z),
@@ -93,79 +89,6 @@ impl ViewFrustum {
                 Plane::default(),
             ],
         }
-    }
-
-    pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
-        let vp = *proj * *view;
-        let mut planes = [Plane::default(); 6];
-
-        // Extract planes from view-projection matrix
-        // Right plane
-        planes[0] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] - vp.x_axis[0],
-                vp.w_axis[1] - vp.x_axis[1],
-                vp.w_axis[2] - vp.x_axis[2],
-            ),
-            vp.w_axis[3] - vp.x_axis[3],
-        );
-
-        // Left plane
-        planes[1] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] + vp.x_axis[0],
-                vp.w_axis[1] + vp.x_axis[1],
-                vp.w_axis[2] + vp.x_axis[2],
-            ),
-            vp.w_axis[3] + vp.x_axis[3],
-        );
-
-        // Top plane
-        planes[2] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] - vp.y_axis[0],
-                vp.w_axis[1] - vp.y_axis[1],
-                vp.w_axis[2] - vp.y_axis[2],
-            ),
-            vp.w_axis[3] - vp.y_axis[3],
-        );
-
-        // Bottom plane
-        planes[3] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] + vp.y_axis[0],
-                vp.w_axis[1] + vp.y_axis[1],
-                vp.w_axis[2] + vp.y_axis[2],
-            ),
-            vp.w_axis[3] + vp.y_axis[3],
-        );
-
-        // Far plane
-        planes[4] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] - vp.z_axis[0],
-                vp.w_axis[1] - vp.z_axis[1],
-                vp.w_axis[2] - vp.z_axis[2],
-            ),
-            vp.w_axis[3] - vp.z_axis[3],
-        );
-
-        // Near plane
-        planes[5] = Plane::new(
-            Vec3::new(
-                vp.w_axis[0] + vp.z_axis[0],
-                vp.w_axis[1] + vp.z_axis[1],
-                vp.w_axis[2] + vp.z_axis[2],
-            ),
-            vp.w_axis[3] + vp.z_axis[3],
-        );
-
-        // Normalize all planes
-        for plane in &mut planes {
-            plane.normalize();
-        }
-
-        Self { planes }
     }
 
     pub fn contains_point(&self, point: Vec3) -> bool {
