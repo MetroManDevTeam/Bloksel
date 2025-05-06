@@ -29,16 +29,15 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(config: EngineConfig, world_config: WorldGenConfig) -> Self {
-        let storage = Box::new(FileChunkStorage::new("world"));
-        let pool = ChunkPool::new(1000); // Maximum 1000 chunks in pool
-        let generator = TerrainGenerator::new(world_config, Arc::new(Default::default()));
-
+    pub fn new() -> Self {
         Self {
-            generator,
-            storage,
-            pool,
-            config,
+            storage: Box::new(FileChunkStorage::new("world")),
+            pool: ChunkPool::new(1000), // Maximum 1000 chunks in pool
+            generator: TerrainGenerator::new(
+                WorldGenConfig::default(),
+                Arc::new(Default::default()),
+            ),
+            config: EngineConfig::default(),
         }
     }
 
@@ -70,12 +69,12 @@ impl World {
         (local_x, local_y, local_z)
     }
 
-    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<&Chunk> {
-        self.storage.get_chunk(coord).map(|arc| arc.as_ref())
+    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.storage.get_chunk(coord)
     }
 
-    pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
-        self.storage.get_chunk_mut(coord).and_then(Arc::get_mut)
+    pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Arc<Chunk>> {
+        self.storage.get_chunk_mut(coord)
     }
 
     pub fn has_chunk(&self, coord: ChunkCoord) -> bool {
