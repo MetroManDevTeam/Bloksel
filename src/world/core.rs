@@ -1,3 +1,5 @@
+use crate::config::{core::EngineConfig, worldgen::WorldGenConfig};
+use crate::render::pipeline::ChunkRenderer;
 use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
 use crate::world::block::Block;
@@ -5,39 +7,32 @@ use crate::world::block_id::BlockId;
 use crate::world::block_material::BlockMaterial;
 use crate::world::block_material::MaterialModifiers;
 use crate::world::blocks_data::BlockRegistry;
-use crate::world::chunk::Chunk;
-use crate::world::chunk::ChunkManager;
-use crate::world::chunk::SerializedChunk;
-use crate::world::chunk_coord::ChunkCoord;
-use crate::world::generator::terrain::{TerrainGenerator, WorldGenConfig};
+use crate::world::chunk::{Chunk, ChunkCoord};
+use crate::world::generator::TerrainGenerator;
 use crate::world::pool::ChunkPool;
 use crate::world::pool::PoolStats;
 use crate::world::spatial::QuadTree;
 use crate::world::spatial::SpatialPartition;
 use crate::world::storage::core::{ChunkStorage, MemoryStorage};
 use crate::world::storage::file::FileChunkStorage;
-use crate::{config::core::EngineConfig, render::pipeline::ChunkRenderer};
 use glam::Vec3;
 use std::path::Path;
 use std::sync::Arc;
 
 pub struct World {
-    generator: TerrainGenerator,
     storage: Box<dyn ChunkStorage>,
     pool: ChunkPool,
+    generator: TerrainGenerator,
     config: EngineConfig,
 }
 
 impl World {
-    pub fn new() -> Self {
+    pub fn new(config: EngineConfig, world_config: WorldGenConfig) -> Self {
         Self {
             storage: Box::new(FileChunkStorage::new("world")),
             pool: ChunkPool::new(1000), // Maximum 1000 chunks in pool
-            generator: TerrainGenerator::new(
-                WorldGenConfig::default(),
-                Arc::new(Default::default()),
-            ),
-            config: EngineConfig::default(),
+            generator: TerrainGenerator::new(world_config, Arc::new(Default::default())),
+            config,
         }
     }
 
