@@ -2,8 +2,8 @@
 
 use super::block_facing::BlockFacing;
 use super::block_flags::BlockFlags;
-use super::block_id::{BlockCategory, BlockDefinition, BlockId};
-use super::block_material::BlockMaterial;
+use super::block_id::{BlockCategory, BlockDefinition, BlockId, BlockVariant, ColorVariant};
+use super::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use super::block_orientation::BlockOrientation;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
