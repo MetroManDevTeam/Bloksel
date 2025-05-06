@@ -77,10 +77,11 @@ impl World {
 
     pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
         if let Some(chunk) = self.storage.get_chunk(coord) {
-            Arc::get_mut(chunk)
-        } else {
-            None
+            if let Some(chunk_mut) = Arc::get_mut(chunk) {
+                return Some(chunk_mut);
+            }
         }
+        None
     }
 
     pub fn has_chunk(&self, coord: ChunkCoord) -> bool {
@@ -88,7 +89,9 @@ impl World {
     }
 
     pub fn set_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
-        self.storage.set_chunk(coord, Arc::new(chunk));
+        if !self.storage.get_chunk(coord).is_some() {
+            self.storage.set_chunk(coord, Arc::new(chunk));
+        }
     }
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) {
