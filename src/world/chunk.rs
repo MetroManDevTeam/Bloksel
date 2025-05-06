@@ -13,15 +13,16 @@ use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
 use glam::{IVec3, Vec3};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::{self, BufWriter};
+use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
 
-pub const CHUNK_SIZE: u32 = 16;
+pub const CHUNK_SIZE: u32 = 32;
 pub const CHUNK_VOLUME: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +47,7 @@ impl ChunkMesh {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     pub coord: ChunkCoord,
-    pub blocks: Vec<Block>,
+    blocks: Vec<Option<Block>>,
     pub mesh: Option<ChunkMesh>,
 }
 
@@ -54,7 +55,7 @@ impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
-            blocks: vec![Block::new(BlockId::from(0)); CHUNK_VOLUME],
+            blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
         }
     }
@@ -72,15 +73,22 @@ impl Chunk {
     }
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> Option<&Block> {
-        let index = (y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x) as usize;
-        self.blocks.get(index)
+        let index = self.get_index(x, y, z);
+        self.blocks[index].as_ref()
     }
 
-    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block: Block) {
-        let index = (y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x) as usize;
-        if let Some(slot) = self.blocks.get_mut(index) {
-            *slot = block;
-        }
+    pub fn get_block_mut(&mut self, x: u32, y: u32, z: u32) -> Option<&mut Block> {
+        let index = self.get_index(x, y, z);
+        self.blocks[index].as_mut()
+    }
+
+    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block: Option<Block>) {
+        let index = self.get_index(x, y, z);
+        self.blocks[index] = block;
+    }
+
+    fn get_index(&self, x: u32, y: u32, z: u32) -> usize {
+        (x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE) as usize
     }
 
     pub fn get_block_at(&self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
@@ -111,8 +119,7 @@ impl Chunk {
             self.coord.z()
         ));
         let file = File::create(chunk_file)?;
-        let writer = BufWriter::new(file);
-        self.save(writer)?;
+        self.save_to_writer(file)?;
         Ok(())
     }
 
@@ -123,22 +130,22 @@ impl Chunk {
             coord.y(),
             coord.z()
         ));
-        let file = File::open(chunk_file)?;
-        Self::load(file)
+        Self::load(chunk_file)
     }
 
-    pub fn save(&self, writer: &mut impl io::Write) -> io::Result<()> {
-        serialize_into(writer, self).map_err(|e| match e {
-            bincode::Error::Io(e) => e,
-            _ => io::Error::new(io::ErrorKind::Other, "Serialization failed"),
-        })
+    pub fn save_to_writer(&self, mut writer: impl io::Write) -> io::Result<()> {
+        bincode::serialize_into(&mut writer, self)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
-    pub fn load(file: &mut impl io::Read) -> io::Result<Self> {
-        deserialize_from(file).map_err(|e| match e {
-            bincode::Error::Io(e) => e,
-            _ => io::Error::new(io::ErrorKind::Other, "Deserialization failed"),
-        })
+    pub fn load(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Self::load_from_reader(reader)
+    }
+
+    pub fn load_from_reader(mut reader: impl io::Read) -> io::Result<Self> {
+        bincode::deserialize_from(&mut reader).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
     pub fn add_biome_features(&mut self, rng: &mut ChaCha12Rng, block_registry: &BlockRegistry) {
@@ -158,6 +165,20 @@ impl Chunk {
                                 block.place_sub_block((x as u8, y as u8, z as u8), sub_block);
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn generate_random(&mut self, probability: f64) {
+        let mut rng = ChaCha12Rng::from_entropy();
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    if rng.gen_bool(probability) {
+                        let block = Block::new(BlockId::new(1));
+                        self.set_block(x, y, z, Some(block));
                     }
                 }
             }
@@ -242,7 +263,7 @@ impl ChunkManager {
                         x,
                         y,
                         z,
-                        Block::new(BlockId::new(1)), // Stone block
+                        Some(Block::new(BlockId::new(1))), // Stone block
                     );
                 }
             }
