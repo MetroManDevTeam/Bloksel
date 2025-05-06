@@ -220,71 +220,74 @@ pub struct ColorVariant {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockRegistry {
-    blocks: HashMap<BlockId, Block>,
-    materials: HashMap<BlockId, BlockMaterial>,
-    physics_cache: HashMap<BlockId, BlockPhysics>,
-    name_to_id: HashMap<String, BlockId>,
-    id_to_name: HashMap<BlockId, String>,
     next_id: u32,
+    blocks: HashMap<String, BlockId>,
+    block_names: HashMap<BlockId, String>,
+    block_flags: HashMap<BlockId, BlockFlags>,
+    block_materials: HashMap<BlockId, BlockMaterial>,
+    block_variations: HashMap<BlockId, HashSet<BlockId>>,
+    block_colors: HashMap<BlockId, HashSet<BlockId>>,
 }
 
 impl BlockRegistry {
     pub fn new() -> Self {
         Self {
-            blocks: HashMap::new(),
-            materials: HashMap::new(),
-            physics_cache: HashMap::new(),
-            name_to_id: HashMap::new(),
-            id_to_name: HashMap::new(),
             next_id: 0,
+            blocks: HashMap::new(),
+            block_names: HashMap::new(),
+            block_flags: HashMap::new(),
+            block_materials: HashMap::new(),
+            block_variations: HashMap::new(),
+            block_colors: HashMap::new(),
         }
     }
 
     pub fn register_block(
         &mut self,
-        name: String,
-        material: BlockMaterial,
+        name: impl Into<String>,
         flags: BlockFlags,
-    ) -> Result<BlockId, BlockError> {
-        if self.name_to_id.contains_key(&name) {
-            return Err(BlockError::DuplicateName(name));
+        material: BlockMaterial,
+    ) -> BlockId {
+        let name = name.into();
+        if let Some(&id) = self.blocks.get(&name) {
+            return id;
         }
 
         let id = BlockId::new(self.next_id, 0, 0);
         self.next_id += 1;
 
-        let block = Block::new(id);
-        self.blocks.insert(id, block);
-        self.materials.insert(id, material);
-        self.physics_cache.insert(id, BlockPhysics::from(flags));
-        self.name_to_id.insert(name.clone(), id);
-        self.id_to_name.insert(id, name);
+        self.blocks.insert(name.clone(), id);
+        self.block_names.insert(id, name);
+        self.block_flags.insert(id, flags);
+        self.block_materials.insert(id, material);
+        self.block_variations.insert(id, HashSet::new());
+        self.block_colors.insert(id, HashSet::new());
 
-        Ok(id)
-    }
-
-    pub fn get_block(&self, id: BlockId) -> Option<&Block> {
-        self.blocks.get(&id)
-    }
-
-    pub fn get_block_mut(&mut self, id: BlockId) -> Option<&mut Block> {
-        self.blocks.get_mut(&id)
-    }
-
-    pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
-        self.materials.get(&id).cloned()
-    }
-
-    pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
-        self.physics_cache.get(&id).cloned().unwrap_or_default()
+        id
     }
 
     pub fn get_block_id(&self, name: &str) -> Option<BlockId> {
-        self.name_to_id.get(name).copied()
+        self.blocks.get(name).copied()
     }
 
     pub fn get_block_name(&self, id: BlockId) -> Option<&str> {
-        self.id_to_name.get(&id).map(|s| s.as_str())
+        self.block_names.get(&id).map(|s| s.as_str())
+    }
+
+    pub fn get_block_flags(&self, id: BlockId) -> Option<BlockFlags> {
+        self.block_flags.get(&id).copied()
+    }
+
+    pub fn get_block_material(&self, id: BlockId) -> Option<BlockMaterial> {
+        self.block_materials.get(&id).copied()
+    }
+
+    pub fn get_block_variations(&self, id: BlockId) -> Option<&HashSet<BlockId>> {
+        self.block_variations.get(&id)
+    }
+
+    pub fn get_block_colors(&self, id: BlockId) -> Option<&HashSet<BlockId>> {
+        self.block_colors.get(&id)
     }
 }
 
