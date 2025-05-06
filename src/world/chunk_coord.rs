@@ -1,6 +1,6 @@
 use glam::{IVec3, Vec3};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChunkCoord(pub IVec3);
@@ -10,11 +10,11 @@ impl ChunkCoord {
         Self(IVec3::new(x, y, z))
     }
 
-    pub fn from_world_pos(world_pos: Vec3, chunk_size: i32) -> Self {
-        let x = (world_pos.x / chunk_size as f32).floor() as i32;
-        let y = (world_pos.y / chunk_size as f32).floor() as i32;
-        let z = (world_pos.z / chunk_size as f32).floor() as i32;
-        Self::new(x, y, z)
+    pub fn from_world_pos(pos: Vec3, chunk_size: i32) -> Self {
+        let x = (pos.x / chunk_size as f32).floor() as i32;
+        let y = (pos.y / chunk_size as f32).floor() as i32;
+        let z = (pos.z / chunk_size as f32).floor() as i32;
+        Self(IVec3::new(x, y, z))
     }
 
     pub fn from_world(position: Vec3) -> Self {
@@ -41,50 +41,45 @@ impl ChunkCoord {
         )
     }
 
-    pub fn to_path(&self) -> String {
-        format!("{}_{}_{}.chunk", self.0.x, self.0.y, self.0.z)
+    pub fn to_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}_{}_{}.chunk", self.0.x, self.0.y, self.0.z))
     }
 
-    pub fn from_path(path: &Path) -> std::io::Result<Self> {
-        let file_name = path
-            .file_stem()
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk file name")
-            })?
-            .to_str()
-            .ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Invalid UTF-8 in chunk file name",
-                )
-            })?;
+    pub fn from_path(path: &str) -> Option<Self> {
+        let filename = path.split('/').last()?.strip_suffix(".chunk")?;
+        let coords: Vec<i32> = filename.split('_').filter_map(|s| s.parse().ok()).collect();
 
-        let parts: Vec<&str> = file_name.split('_').collect();
-        if parts.len() != 3 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid chunk file name format",
-            ));
+        if coords.len() == 3 {
+            Some(Self(IVec3::new(coords[0], coords[1], coords[2])))
+        } else {
+            None
         }
-
-        let x = parts[0].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid x coordinate")
-        })?;
-        let y = parts[1].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid y coordinate")
-        })?;
-        let z = parts[2].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid z coordinate")
-        })?;
-
-        Ok(Self::new(x, y, z))
     }
 
-    pub fn distance_squared(&self, other: &ChunkCoord) -> i32 {
-        let dx = self.x() - other.x();
-        let dy = self.y() - other.y();
-        let dz = self.z() - other.z();
-        dx * dx + dy * dy + dz * dz
+    pub fn get_neighbors(&self) -> Vec<Self> {
+        let mut neighbors = Vec::with_capacity(26);
+        for x in -1..=1 {
+            for y in -1..=1 {
+                for z in -1..=1 {
+                    if x == 0 && y == 0 && z == 0 {
+                        continue;
+                    }
+                    neighbors.push(Self(self.0 + IVec3::new(x, y, z)));
+                }
+            }
+        }
+        neighbors
+    }
+
+    pub fn manhattan_distance(&self, other: &Self) -> i32 {
+        (self.0.x - other.0.x).abs() + (self.0.y - other.0.y).abs() + (self.0.z - other.0.z).abs()
+    }
+
+    pub fn distance(&self, other: &Self) -> f32 {
+        let dx = (self.0.x - other.0.x) as f32;
+        let dy = (self.0.y - other.0.y) as f32;
+        let dz = (self.0.z - other.0.z) as f32;
+        (dx * dx + dy * dy + dz * dz).sqrt()
     }
 }
 
