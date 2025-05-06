@@ -203,7 +203,7 @@ impl ViewFrustum {
 }
 
 /// Geometric plane
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Plane {
     pub normal: Vec3,
     pub distance: f32,
