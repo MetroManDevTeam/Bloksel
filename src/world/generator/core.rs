@@ -23,9 +23,9 @@ impl WorldGenerator for SimpleGenerator {
             for y in 0..16 {
                 for z in 0..16 {
                     let block = self.get_block(
-                        coord.x * 16 + x as i32,
-                        coord.y * 16 + y as i32,
-                        coord.z * 16 + z as i32,
+                        coord.x() * 16 + x as i32,
+                        coord.y() * 16 + y as i32,
+                        coord.z() * 16 + z as i32,
                     );
                     chunk.set_block(x, y, z, block);
                 }
