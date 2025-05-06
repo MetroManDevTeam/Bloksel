@@ -1,7 +1,7 @@
 //! src/utils/math.rs
 //! Mathematical utilities and geometric types
 use bitflags::bitflags;
-use glam::{Vec3, Vec4, Mat4};
+use glam::{Mat4, Vec3, Vec4};
 
 /// Axis-aligned bounding box
 #[derive(Debug, Clone, Copy)]
@@ -20,12 +20,12 @@ impl AABB {
     }
 
     pub fn intersects(&self, other: &AABB) -> bool {
-        self.min.x <= other.max.x &&
-        self.max.x >= other.min.x &&
-        self.min.y <= other.max.y &&
-        self.max.y >= other.min.y &&
-        self.min.z <= other.max.z &&
-        self.max.z >= other.min.z
+        self.min.x <= other.max.x
+            && self.max.x >= other.min.x
+            && self.min.y <= other.max.y
+            && self.max.y >= other.min.y
+            && self.min.z <= other.max.z
+            && self.max.z >= other.min.z
     }
 }
 
@@ -38,7 +38,7 @@ impl ViewFrustum {
     pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
         let vp = proj * view;
         let mut planes = [Plane::default(); 6];
-        
+
         // Plane extraction logic...
         planes
     }
@@ -70,7 +70,10 @@ pub mod raycast {
 
     impl Ray {
         pub fn new(origin: Vec3, direction: Vec3) -> Self {
-            Self { origin, direction: direction.normalize() }
+            Self {
+                origin,
+                direction: direction.normalize(),
+            }
         }
 
         pub fn intersect_aabb(&self, aabb: &super::AABB) -> Option<f32> {
@@ -79,8 +82,6 @@ pub mod raycast {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Orientation {
@@ -94,9 +95,12 @@ pub enum Orientation {
     None,
 }
 
-oub impl Default for Orientation {
+pub impl Default for Orientation {
     fn default() -> Self {
-        Orientation::North
+        Self {
+            yaw: 0.0,
+            pitch: 0.0,
+        }
     }
 }
 
@@ -109,7 +113,9 @@ pub impl Orientation {
             Orientation::West => glam::Mat4::from_rotation_y(-std::f32::consts::FRAC_PI_2),
             Orientation::Up => glam::Mat4::from_rotation_x(-std::f32::consts::FRAC_PI_2),
             Orientation::Down => glam::Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2),
-            Orientation::Custom(x, y, z, w) => glam::Mat4::from_quat(glam::Quat::from_xyzw(*x, *y, *z, *w)),
+            Orientation::Custom(x, y, z, w) => {
+                glam::Mat4::from_quat(glam::Quat::from_xyzw(*x, *y, *z, *w))
+            }
             Orientation::None => glam::Mat4::IDENTITY,
         }
     }
@@ -142,4 +148,3 @@ bitflags! {
         const DOWN = 0b00100000;
     }
 }
-            
