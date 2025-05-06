@@ -10,59 +10,62 @@ use crate::{
     render::pipeline::ChunkRenderer,
     world::{
         BlockId, BlockMaterial, BlockRegistry, ChunkManager, ChunkPool, MaterialModifiers,
-        PoolStats, QuadTree, SerializedChunk, SpatialPartition,
+        PoolStats, QuadTree, SerializedChunk, SpatialPartition, TerrainGenerator,
     },
 };
 use std::sync::Arc;
 
 pub struct World {
-    pub chunk_manager: ChunkManager,
-    pub block_registry: BlockRegistry,
-    pub spatial_partition: SpatialPartition,
-    generator: Arc<dyn WorldGenerator>,
-    storage: Arc<dyn ChunkStorage>,
-    pool: Arc<ChunkPool>,
+    pub generator: TerrainGenerator,
+    pub storage: SpatialPartition,
+    pub pool: ChunkPool,
+    pub config: WorldGenConfig,
 }
 
 impl World {
-    pub fn new(
-        config: WorldGenConfig,
-        renderer: Arc<Renderer>,
-        block_registry: BlockRegistry,
-    ) -> Self {
-        let block_registry = Arc::new(block_registry);
+    pub fn new(config: WorldGenConfig, block_registry: Arc<BlockRegistry>) -> Self {
         Self {
-            chunk_manager: ChunkManager::new(config.clone(), renderer, block_registry.clone()),
-            spatial_partition: SpatialPartition::new(&config.engine),
-            block_registry,
+            generator: TerrainGenerator::new(config.clone(), block_registry),
+            storage: SpatialPartition::new(),
+            pool: ChunkPool::new(),
             config,
         }
     }
 
-    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        if let Some(chunk) = self.storage.get_chunk(coord) {
-            return Some(chunk);
-        }
+    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<Block> {
+        let chunk_coord = ChunkCoord::from_world_pos(x, y, z);
+        let (local_x, local_y, local_z) = chunk_coord.get_local_coords(x, y, z);
 
-        let chunk = self.generator.generate_chunk(coord);
-        let chunk = Arc::new(chunk);
-        self.storage.set_chunk(coord, chunk.clone());
-        Some(chunk)
+        if let Some(chunk) = self.storage.get_chunk(&chunk_coord) {
+            chunk
+                .get_block(local_x.into(), local_y.into(), local_z.into())
+                .cloned()
+        } else {
+            None
+        }
     }
 
-    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Block {
-        let chunk_x = x.div_euclid(16);
-        let chunk_y = y.div_euclid(16);
-        let chunk_z = z.div_euclid(16);
-        let coord = ChunkCoord::new(chunk_x, chunk_y, chunk_z);
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: Option<Block>) {
+        let chunk_coord = ChunkCoord::from_world_pos(x, y, z);
+        let (local_x, local_y, local_z) = chunk_coord.get_local_coords(x, y, z);
 
-        if let Some(chunk) = self.get_chunk(coord) {
-            let local_x = x.rem_euclid(16) as u8;
-            let local_y = y.rem_euclid(16) as u8;
-            let local_z = z.rem_euclid(16) as u8;
-            chunk.get_block(local_x, local_y, local_z)
-        } else {
-            self.generator.get_block(x, y, z)
+        if let Some(chunk) = self.storage.get_chunk_mut(&chunk_coord) {
+            chunk.set_block(local_x.into(), local_y.into(), local_z.into(), block);
+        }
+    }
+
+    pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<Arc<Chunk>> {
+        self.storage.get_chunk(coord)
+    }
+
+    pub fn get_chunk_mut(&mut self, coord: &ChunkCoord) -> Option<&mut Chunk> {
+        self.storage.get_chunk_mut(coord)
+    }
+
+    pub fn generate_chunk(&mut self, coord: ChunkCoord) {
+        if !self.storage.has_chunk(&coord) {
+            let chunk = self.generator.generate_chunk(coord);
+            self.storage.set_chunk(coord, chunk);
         }
     }
 }
