@@ -9,7 +9,7 @@ use crate::world::blocks_data::BLOCKS;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Display, Formatter};
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -30,28 +30,29 @@ pub enum BlockCategory {
     Mechanical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockId(pub u16);
 
 impl BlockId {
-    pub const fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
-        Self((base_id << 16) | ((variation & 0xFF) << 8) | (color_id & 0xFF) as u16)
+    pub fn new(base_id: u16, variation: u8, color_id: u8) -> Self {
+        let combined = ((base_id as u32) << 16) | ((variation as u32) << 8) | (color_id as u32);
+        Self((combined & 0xFFFF) as u16)
     }
 
-    pub fn base_id(&self) -> u32 {
-        (self.0 as u32) >> 16
+    pub fn base_id(&self) -> u16 {
+        (self.0 >> 8) as u16
     }
 
-    pub fn variation(&self) -> u32 {
-        ((self.0 as u32) >> 8) & 0xFF
+    pub fn variation(&self) -> u8 {
+        ((self.0 >> 4) & 0xF) as u8
     }
 
-    pub fn color_id(&self) -> u32 {
-        self.0 as u32 & 0xFF
+    pub fn color_id(&self) -> u8 {
+        (self.0 & 0xF) as u8
     }
 
-    pub fn get_id(&self) -> u32 {
-        self.0 as u32
+    pub fn get_id(&self) -> u16 {
+        self.0
     }
 
     pub fn to_block(self) -> Block {
@@ -60,12 +61,12 @@ impl BlockId {
 
     pub const AIR: BlockId = BlockId(0);
 
-    pub fn with_variation(base_id: u32, variation: u16) -> Self {
-        Self((base_id << 16 | variation as u32) as u16)
+    pub fn with_variation(base_id: u16, variation: u8) -> Self {
+        Self(base_id << 8 | variation as u16)
     }
 
-    pub fn with_color(base_id: u32, color_id: u16) -> Self {
-        Self((base_id << 16 | color_id as u32) as u16)
+    pub fn with_color(base_id: u16, color_id: u8) -> Self {
+        Self(base_id << 4 | color_id as u16)
     }
 
     pub fn from_str(s: &str) -> Result<Self, BlockError> {
@@ -75,13 +76,13 @@ impl BlockId {
         }
 
         let base_id = parts[0]
-            .parse::<u32>()
+            .parse::<u16>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
         let variation = parts[1]
-            .parse::<u32>()
+            .parse::<u8>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
         let color_id = parts[2]
-            .parse::<u32>()
+            .parse::<u8>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
 
         Ok(Self::new(base_id, variation, color_id))
@@ -98,13 +99,7 @@ impl BlockId {
 
 impl Display for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0 >> 16)?;
-
-        if self.0 & 0xFFFF != 0 {
-            write!(f, ":{}", self.0 & 0xFFFF)?;
-        }
-
-        Ok(())
+        write!(f, "{}", self.base_id())
     }
 }
 
@@ -148,13 +143,13 @@ impl FromStr for BlockId {
         }
 
         let base_id = parts[0]
-            .parse::<u32>()
+            .parse::<u16>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
         let variation = parts[1]
-            .parse::<u32>()
+            .parse::<u8>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
         let color_id = parts[2]
-            .parse::<u32>()
+            .parse::<u8>()
             .map_err(|_| BlockError::InvalidIdFormat)?;
 
         Ok(Self::new(base_id, variation, color_id))
