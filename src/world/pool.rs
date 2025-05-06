@@ -2,7 +2,12 @@ use std::sync::Arc;
 use std::collections::{HashMap, VecDeque};
 use parking_lot::Mutex;
 use anyhow::{Result, anyhow};
-use super::chunk::{Chunk, ChunkCoord};
+use crate::{
+    render::MeshBuilder,
+    config::GameConfig,
+    utils::math::{Vec3, Mat4}
+    
+};
 
 /// Thread-safe pool for reusing chunk memory
 pub struct ChunkPool {
