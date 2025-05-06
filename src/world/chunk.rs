@@ -1,23 +1,41 @@
-struct ChunkCoord(IVec3);
+use crate::utils::math::ChunkCoord;
+use crate::world::block_id::BlockId;
+use crate::world::block_mat::BlockMaterial;
+use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SerializedChunk {
-    pub coord: ChunkCoord, // Made public
-    pub blocks: Vec<CompressedBlock>,
+pub const CHUNK_SIZE: usize = 16;
+pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+
+pub struct Chunk {
+    pub blocks: [BlockId; CHUNK_VOLUME],
+    pub materials: [BlockMaterial; CHUNK_VOLUME],
+    pub coord: ChunkCoord,
+    pub is_empty: bool,
 }
 
-impl SerializedChunk {
-    pub fn from_chunk(coord: ChunkCoord, _chunk: &Chunk) -> Self {
-        let blocks = Vec::new();
-        // TODO: Implement actual conversion logic
-        Self { coord, blocks }
+impl Chunk {
+    pub fn new(coord: ChunkCoord) -> Self {
+        Self {
+            blocks: [BlockId(0); CHUNK_VOLUME],
+            materials: [BlockMaterial {
+                albedo: [1.0, 1.0, 1.0, 1.0],
+                roughness: 1.0,
+                metallic: 0.0,
+                emission: [0.0, 0.0, 0.0],
+                texture_index: 0,
+            }; CHUNK_VOLUME],
+            coord,
+            is_empty: true,
+        }
     }
 
-    pub fn save(&self, path: &Path) -> std::io::Result<()> {
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        bincode::serialize_into(&mut writer, self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockId {
+        self.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x]
+    }
+
+    pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: BlockId) {
+        self.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] = block;
+        self.is_empty = false;
     }
 }
 
@@ -80,16 +98,26 @@ impl ChunkManager {
 
     pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, seed: u32) -> &Chunk {
         if !self.chunks.contains_key(&coord) {
-            let chunk = self.generate_chunk(coord, seed);
+            let chunk = self.generate_chunk(coord);
             self.add_chunk(coord, chunk);
         }
         self.chunks.get(&coord).unwrap().as_ref().unwrap()
     }
 
     pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
-        let chunk = Arc::new(Chunk::new(coord));
-        self.chunks.insert(coord, Arc::clone(&chunk));
-        chunk
+        let mut chunk = Chunk::new(coord);
+
+        // Simple terrain generation
+        for x in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                let height = 64; // Simple flat terrain
+                for y in 0..height {
+                    chunk.set_block(x, y, z, BlockId(1)); // Stone block
+                }
+            }
+        }
+
+        Arc::new(chunk)
     }
 
     pub fn generate_merged_mesh(&self) -> ChunkMesh {
