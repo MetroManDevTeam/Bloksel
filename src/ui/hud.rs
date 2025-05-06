@@ -1,33 +1,24 @@
-use egui::Context;
+use egui::{Context, TopBottomPanel};
+use crate::world::BlockRegistry;
 
 pub struct HUD {
-    pub show_fps: bool,
-    pub show_debug: bool,
-    pub show_inventory: bool,
+    block_registry: BlockRegistry,
 }
 
 impl HUD {
-    pub fn new() -> Self {
+    pub fn new(block_registry: BlockRegistry) -> Self {
         Self {
-            show_fps: true,
-            show_debug: false,
-            show_inventory: false,
+            block_registry,
         }
     }
 
-    pub fn draw(&mut self, ctx: &Context) {
-        egui::TopBottomPanel::top("hud").show(ctx, |ui| {
-            if self.show_fps {
-                ui.label(format!("FPS: {:.1}", ctx.fps()));
-            }
-
-            if self.show_debug {
-                ui.label("Debug Info");
-            }
-
-            if self.show_inventory {
-                ui.label("Inventory");
-            }
+    pub fn show(&mut self, ctx: &Context) {
+        TopBottomPanel::top("hud").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Selected Block: None");
+                ui.separator();
+                ui.label("FPS: 60");
+            });
         });
     }
 }
