@@ -5,6 +5,7 @@ use crate::world::block_mat::BlockMaterial;
 use crate::world::chunk::ChunkMesh;
 use crate::world::{BlockRegistry, Chunk};
 use anyhow::Context;
+use anyhow::Result;
 use gl::types::{GLsizei, GLuint};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use image::DynamicImage;
@@ -40,7 +41,7 @@ pub struct ChunkRenderer {
 }
 
 impl ChunkRenderer {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, anyhow::Error> {
         let mut renderer = Self {
             materials: HashMap::new(),
             texture_atlas: Some(RgbaImage::new(ATLAS_START_SIZE, ATLAS_START_SIZE)),
@@ -57,7 +58,7 @@ impl ChunkRenderer {
         Ok(renderer)
     }
 
-    fn init_default_materials(&mut self) -> Result<()> {
+    fn init_default_materials(&mut self) -> Result<(), anyhow::Error> {
         self.load_material(
             1,
             BlockMaterial {
@@ -85,7 +86,11 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    pub fn load_material(&mut self, block_id: u16, material: BlockMaterial) -> Result<()> {
+    pub fn load_material(
+        &mut self,
+        block_id: u16,
+        material: BlockMaterial,
+    ) -> Result<(), anyhow::Error> {
         if let Some(ref path) = material.texture_path {
             self.queue_texture_load(block_id, path)?;
         }
@@ -93,12 +98,12 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    fn queue_texture_load(&mut self, block_id: u16, path: &str) -> Result<()> {
+    fn queue_texture_load(&mut self, block_id: u16, path: &str) -> Result<(), anyhow::Error> {
         self.pending_textures.insert(block_id);
         Ok(())
     }
 
-    pub fn process_texture_queue(&mut self) -> Result<()> {
+    pub fn process_texture_queue(&mut self) -> Result<(), anyhow::Error> {
         let mut new_atlas = RgbaImage::new(ATLAS_START_SIZE, ATLAS_START_SIZE);
         let mut current_pos = (TEXTURE_PADDING, TEXTURE_PADDING);
         let mut max_row_height = 0;
@@ -203,7 +208,7 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<()> {
+    fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<(), anyhow::Error> {
         unsafe {
             // Generate buffers if they don't exist
             if chunk.mesh.vao == 0 {
@@ -502,7 +507,7 @@ impl ChunkRenderer {
         shader: &ShaderProgram,
         view_matrix: &Mat4,
         projection_matrix: &Mat4,
-    ) -> Result<()> {
+    ) -> Result<(), anyhow::Error> {
         unsafe {
             gl::BindVertexArray(chunk.mesh.vao);
             if chunk.mesh.needs_upload {
