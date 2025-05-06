@@ -430,11 +430,11 @@ impl TerrainGenerator {
                         .map(|def| def.id)
                         .unwrap_or(BlockId::from(10)) =>
             {
-                if rng.random_ratio(1, 10) {
+                if rng.gen_ratio(1, 10) {
                     block.place_sub_block(
-                        rng.random_range(0..SUB_RESOLUTION as u8),
-                        rng.random_range(0..SUB_RESOLUTION as u8),
-                        rng.random_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
                         SubBlock {
                             id: self
                                 .block_registry
@@ -458,9 +458,9 @@ impl TerrainGenerator {
                         .unwrap_or(BlockId::from(10)) =>
             {
                 block.place_sub_block(
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
                         id: self
                             .block_registry
@@ -481,8 +481,8 @@ impl TerrainGenerator {
     }
 
     fn add_strata_details(&self, block: &mut Block, world_y: i32, rng: &mut ChaCha12Rng) {
-        if world_y < SEA_LEVEL - 8 && rng.random_ratio(1, 10) {
-            let ore_type = match rng.random_range(0..100) {
+        if world_y < SEA_LEVEL - 8 && rng.gen_ratio(1, 10) {
+            let ore_type = match rng.gen_range(0..100) {
                 0..=5 => "coal_ore",
                 6..=8 => "iron_ore",
                 9..=10 => "gold_ore",
@@ -490,11 +490,11 @@ impl TerrainGenerator {
                 _ => "stone",
             };
 
-            for _ in 0..rng.random_range(1..=3) {
+            for _ in 0..rng.gen_range(1..=3) {
                 block.place_sub_block(
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
-                    rng.random_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    rng.gen_range(0..SUB_RESOLUTION as u8),
                     SubBlock {
                         id: self
                             .block_registry
