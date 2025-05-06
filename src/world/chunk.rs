@@ -159,8 +159,8 @@ impl Chunk {
                             // Grass block
                             if rng.gen_bool(0.1) {
                                 let sub_block = SubBlock::new(3) // Tall grass
-                                    .with_facing(BlockFacing::PosY)
-                                    .with_orientation(BlockOrientation::None)
+                                    .with_facing(BlockFacing::PosZ)
+                                    .with_orientation(BlockOrientation::North)
                                     .with_connections(ConnectedDirections::empty());
                                 block.place_sub_block((x as u8, y as u8, z as u8), sub_block);
                             }
@@ -207,9 +207,9 @@ impl Chunk {
         block.place_sub_block(
             (0, 1, 0),
             SubBlock {
-                id: self.get_block_id_safe("grass"),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                id: self.get_block_id_safe("grass").into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::default(),
             },
         );
@@ -221,9 +221,9 @@ impl Chunk {
         block.place_sub_block(
             (0, 1, 0),
             SubBlock {
-                id: self.get_block_id_safe("tree"),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                id: self.get_block_id_safe("tree").into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::default(),
             },
         );
@@ -235,9 +235,9 @@ impl Chunk {
         block.place_sub_block(
             (0, 1, 0),
             SubBlock {
-                id: self.get_block_id_safe("cactus"),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                id: self.get_block_id_safe("cactus").into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::default(),
             },
         );
@@ -249,9 +249,9 @@ impl Chunk {
         block.place_sub_block(
             (0, 1, 0),
             SubBlock {
-                id: self.get_block_id_safe("rock"),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                id: self.get_block_id_safe("rock").into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::default(),
             },
         );
@@ -263,9 +263,9 @@ impl Chunk {
         block.place_sub_block(
             (0, 1, 0),
             SubBlock {
-                id: self.get_block_id_safe("coral"),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                id: self.get_block_id_safe("coral").into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::default(),
             },
         );
@@ -493,9 +493,9 @@ impl ChunkManager {
                         1,
                         0,
                         SubBlock {
-                            id: self.get_block_id_safe("grass"),
-                            facing: BlockFacing::PosY,
-                            orientation: BlockOrientation::None,
+                            id: self.get_block_id_safe("grass").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
@@ -509,9 +509,9 @@ impl ChunkManager {
                         1,
                         0,
                         SubBlock {
-                            id: self.get_block_id_safe("tree"),
-                            facing: BlockFacing::PosY,
-                            orientation: BlockOrientation::None,
+                            id: self.get_block_id_safe("tree").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
@@ -525,9 +525,9 @@ impl ChunkManager {
                         1,
                         0,
                         SubBlock {
-                            id: self.get_block_id_safe("cactus"),
-                            facing: BlockFacing::PosY,
-                            orientation: BlockOrientation::None,
+                            id: self.get_block_id_safe("cactus").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
@@ -541,9 +541,9 @@ impl ChunkManager {
                         1,
                         0,
                         SubBlock {
-                            id: self.get_block_id_safe("rock"),
-                            facing: BlockFacing::PosY,
-                            orientation: BlockOrientation::None,
+                            id: self.get_block_id_safe("rock").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
@@ -557,9 +557,9 @@ impl ChunkManager {
                         1,
                         0,
                         SubBlock {
-                            id: self.get_block_id_safe("coral"),
-                            facing: BlockFacing::PosY,
-                            orientation: BlockOrientation::None,
+                            id: self.get_block_id_safe("coral").into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
