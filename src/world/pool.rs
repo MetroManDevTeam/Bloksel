@@ -1,24 +1,12 @@
-use crate::config::GameConfig;
-use crate::render::MeshBuilder;
-use crate::world::BlockFacing;
-use crate::world::BlockOrientation;
-use crate::world::block::Block;
 use crate::world::chunk::Chunk;
-use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME};
 use crate::world::chunk_coord::ChunkCoord;
-use anyhow::{Result, anyhow};
-use glam::f32::sse2::mat4::Mat4;
-use glam::f32::vec3::Vec3;
-use parking_lot::Mutex;
-use parking_lot::RwLock;
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 /// Thread-safe pool for reusing chunk memory
 pub struct ChunkPool {
     chunks: RwLock<HashMap<ChunkCoord, Arc<Chunk>>>,
     max_size: usize,
-    config: GameConfig,
 }
 
 impl ChunkPool {
@@ -27,7 +15,6 @@ impl ChunkPool {
         let mut pool = Self {
             chunks: RwLock::new(HashMap::new()),
             max_size: capacity,
-            config: GameConfig::default(),
         };
         for _ in 0..capacity {
             let coord = ChunkCoord::new(0, 0, 0); // Temporary coord
@@ -41,7 +28,7 @@ impl ChunkPool {
 
     /// Acquires a chunk from the pool or creates a new one
     pub fn acquire(&self, coord: ChunkCoord) -> Result<Arc<Chunk>> {
-        let chunks = self.chunks.read();
+        let chunks = self.chunks.read().unwrap();
 
         if let Some(chunk) = chunks.get(&coord).cloned() {
             Ok(chunk)
@@ -52,7 +39,7 @@ impl ChunkPool {
 
     /// Returns a chunk to the pool
     pub fn release(&self, coord: ChunkCoord) -> Result<()> {
-        let mut chunks = self.chunks.write();
+        let mut chunks = self.chunks.write().unwrap();
 
         if chunks.remove(&coord).is_some() {
             Ok(())
@@ -63,7 +50,7 @@ impl ChunkPool {
 
     /// Pre-allocates chunks in the pool
     pub fn warmup(&self, count: usize) {
-        let mut chunks = self.chunks.write();
+        let mut chunks = self.chunks.write().unwrap();
         let target = count.min(self.max_size - chunks.len());
 
         for _ in 0..target {
@@ -74,13 +61,13 @@ impl ChunkPool {
 
     /// Calculates current memory usage in bytes
     pub fn current_memory_usage(&self) -> usize {
-        let chunks = self.chunks.read();
+        let chunks = self.chunks.read().unwrap();
         chunks.len() * CHUNK_VOLUME * std::mem::size_of::<u16>()
     }
 
     /// Gets current utilization metrics
     pub fn stats(&self) -> PoolStats {
-        let chunks = self.chunks.read();
+        let chunks = self.chunks.read().unwrap();
         PoolStats {
             total_chunks: chunks.len(),
             memory_usage: chunks.len() * CHUNK_VOLUME * std::mem::size_of::<u16>(),
@@ -88,39 +75,39 @@ impl ChunkPool {
     }
 
     pub fn get(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.read().get(&coord).cloned()
+        self.chunks.read().unwrap().get(&coord).cloned()
     }
 
     pub fn insert(&self, coord: ChunkCoord, chunk: Arc<Chunk>) {
-        let mut chunks = self.chunks.write();
+        let mut chunks = self.chunks.write().unwrap();
         if chunks.len() >= self.max_size {
-            // Remove the oldest chunk
-            if let Some(oldest) = chunks.keys().next().cloned() {
-                chunks.remove(&oldest);
+            // Remove the oldest chunk if we're at capacity
+            if let Some((&oldest_coord, _)) = chunks.iter().next() {
+                chunks.remove(&oldest_coord);
             }
         }
         chunks.insert(coord, chunk);
     }
 
     pub fn remove(&self, coord: ChunkCoord) {
-        self.chunks.write().remove(&coord);
+        self.chunks.write().unwrap().remove(&coord);
     }
 
     pub fn clear(&self) {
-        self.chunks.write().clear();
+        self.chunks.write().unwrap().clear();
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.read().get(&coord).cloned()
+        self.chunks.read().unwrap().get(&coord).cloned()
     }
 
     pub fn set_chunk(&self, coord: ChunkCoord, chunk: Arc<Chunk>) {
-        let mut chunks = self.chunks.write();
+        let mut chunks = self.chunks.write().unwrap();
         chunks.insert(coord, chunk);
     }
 
     pub fn remove_chunk(&self, coord: ChunkCoord) {
-        self.chunks.write().remove(&coord);
+        self.chunks.write().unwrap().remove(&coord);
     }
 }
 
