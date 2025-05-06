@@ -1,22 +1,24 @@
 use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
 use crate::world::block::Block;
+use crate::world::block_id::BlockId;
+use crate::world::block_material::BlockMaterial;
+use crate::world::block_material::MaterialModifiers;
+use crate::world::blocks_data::BlockRegistry;
 use crate::world::chunk::Chunk;
+use crate::world::chunk::ChunkManager;
+use crate::world::chunk::SerializedChunk;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::generator::terrain::{TerrainGenerator, WorldGenConfig};
 use crate::world::pool::ChunkPool;
+use crate::world::pool::PoolStats;
+use crate::world::spatial::QuadTree;
 use crate::world::spatial::SpatialPartition;
-use crate::world::storage::core::ChunkStorage;
-use crate::world::storage::file::FileChunkStorage;
-use crate::{
-    config::core::EngineConfig,
-    render::pipeline::ChunkRenderer,
-    world::{
-        BlockId, BlockMaterial, BlockRegistry, ChunkManager, MaterialModifiers, PoolStats,
-        QuadTree, SerializedChunk,
-    },
-};
+use crate::world::storage::core::{ChunkStorage, MemoryStorage};
+use crate::world::storage::file::FileStorage;
+use crate::{config::core::EngineConfig, render::pipeline::ChunkRenderer};
 use glam::Vec3;
+use std::path::Path;
 use std::sync::Arc;
 
 pub struct World {
@@ -69,11 +71,24 @@ impl World {
     }
 
     pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<&Chunk> {
-        self.storage.get_chunk(coord)
+        self.storage.get_chunk(*coord).as_deref()
     }
 
     pub fn get_chunk_mut(&mut self, coord: &ChunkCoord) -> Option<&mut Chunk> {
-        self.storage.get_chunk_mut(coord)
+        if let Some(chunk) = self.storage.get_chunk(*coord) {
+            // Since we can't get a mutable reference to an Arc, we need to clone it
+            // and create a new Arc with the modified chunk
+            let mut chunk = (*chunk).clone();
+            let modified = Arc::new(chunk);
+            self.storage.set_chunk(*coord, modified);
+            None // We can't return a mutable reference to the Arc's contents
+        } else {
+            None
+        }
+    }
+
+    pub fn has_chunk(&self, coord: &ChunkCoord) -> bool {
+        self.storage.get_chunk(*coord).is_some()
     }
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) {
