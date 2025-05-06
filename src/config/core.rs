@@ -1,16 +1,11 @@
-pub mod chunksys;
-pub mod game;
-pub mod gameplay;
-pub mod rendering;
-pub mod worldgen;
+use crate::config::{
+    chunksys::ChunkSysConfig, game::TerrainConfig, gameplay::GameplayConfig,
+    rendering::RenderConfig, worldgen::WorldGenConfig,
+};
 
-pub use chunksys::ChunkSysConfig;
-pub use game::TerrainConfig;
-pub use gameplay::GameplayConfig;
-pub use rendering::RenderConfig;
-pub use worldgen::WorldGenConfig;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineConfig {
     pub world_seed: u64,
     pub render_distance: u32,
