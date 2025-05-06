@@ -15,10 +15,9 @@ pub use math::{
 };
 
 /// Error types
-pub mod error_types;
+pub mod error_impl;
 
 /// Error types
-#[derive(Error, Debug)]
 pub enum EngineError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
