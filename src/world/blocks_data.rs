@@ -175,7 +175,7 @@ impl Default for BlockRegistry {
 pub const BLOCKS: &[BlockDefinition] = &[
     // 1: Stone
     BlockDefinition {
-        id: BlockId::new(1),
+        id: BlockId::new(1, 0, 0),
         name: "stone".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -218,7 +218,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
     // 2: Grass
     BlockDefinition {
-        id: BlockId::new(2),
+        id: BlockId::new(2, 0, 0),
         name: "grass".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -251,7 +251,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
     // 3: Water
     BlockDefinition {
-        id: BlockId::new(3),
+        id: BlockId::new(3, 0, 0),
         name: "water".into(),
         category: crate::world::block_id::BlockCategory::Liquid,
         default_facing: BlockFacing::None,
@@ -284,7 +284,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
     // 4: Lava
     BlockDefinition {
-        id: BlockId::new(4),
+        id: BlockId::new(4, 0, 0),
         name: "lava".into(),
         category: crate::world::block_id::BlockCategory::Liquid,
         default_facing: BlockFacing::None,
@@ -317,7 +317,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
     // 5: Sand
     BlockDefinition {
-        id: BlockId::new(5),
+        id: BlockId::new(5, 0, 0),
         name: "sand".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -350,7 +350,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
     // 6: Glass
     BlockDefinition {
-        id: BlockId::new(6),
+        id: BlockId::new(6, 0, 0),
         name: "glass".into(),
         category: crate::world::block_id::BlockCategory::Transparent,
         default_facing: BlockFacing::None,
