@@ -202,10 +202,12 @@ impl Chunk {
         let mut block = Block::new(self.get_block_id_safe("grass"));
         block.place_sub_block(
             (0, 1, 0),
-            SubBlock::new(self.get_block_id_safe("grass").base_id() as u16)
-                .with_facing(BlockFacing::None)
-                .with_orientation(BlockOrientation::None)
-                .with_connections(ConnectedDirections::empty()),
+            SubBlock {
+                id: self.get_block_id_safe("grass"),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::default(),
+            },
         );
         block
     }
@@ -214,10 +216,12 @@ impl Chunk {
         let mut block = Block::new(self.get_block_id_safe("tree"));
         block.place_sub_block(
             (0, 1, 0),
-            SubBlock::new(self.get_block_id_safe("tree").base_id() as u16)
-                .with_facing(BlockFacing::None)
-                .with_orientation(BlockOrientation::None)
-                .with_connections(ConnectedDirections::empty()),
+            SubBlock {
+                id: self.get_block_id_safe("tree"),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::default(),
+            },
         );
         block
     }
@@ -226,10 +230,12 @@ impl Chunk {
         let mut block = Block::new(self.get_block_id_safe("cactus"));
         block.place_sub_block(
             (0, 1, 0),
-            SubBlock::new(self.get_block_id_safe("cactus").base_id() as u16)
-                .with_facing(BlockFacing::None)
-                .with_orientation(BlockOrientation::None)
-                .with_connections(ConnectedDirections::empty()),
+            SubBlock {
+                id: self.get_block_id_safe("cactus"),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::default(),
+            },
         );
         block
     }
@@ -238,10 +244,12 @@ impl Chunk {
         let mut block = Block::new(self.get_block_id_safe("rock"));
         block.place_sub_block(
             (0, 1, 0),
-            SubBlock::new(self.get_block_id_safe("rock").base_id() as u16)
-                .with_facing(BlockFacing::None)
-                .with_orientation(BlockOrientation::None)
-                .with_connections(ConnectedDirections::empty()),
+            SubBlock {
+                id: self.get_block_id_safe("rock"),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::default(),
+            },
         );
         block
     }
@@ -250,10 +258,12 @@ impl Chunk {
         let mut block = Block::new(self.get_block_id_safe("coral"));
         block.place_sub_block(
             (0, 1, 0),
-            SubBlock::new(self.get_block_id_safe("coral").base_id() as u16)
-                .with_facing(BlockFacing::None)
-                .with_orientation(BlockOrientation::None)
-                .with_connections(ConnectedDirections::empty()),
+            SubBlock {
+                id: self.get_block_id_safe("coral"),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::default(),
+            },
         );
         block
     }
@@ -480,7 +490,6 @@ impl ChunkManager {
                         0,
                         SubBlock {
                             id: self.get_block_id_safe("grass"),
-                            metadata: 0,
                             facing: BlockFacing::PosY,
                             orientation: BlockOrientation::None,
                             connections: ConnectedDirections::default(),
@@ -497,7 +506,6 @@ impl ChunkManager {
                         0,
                         SubBlock {
                             id: self.get_block_id_safe("tree"),
-                            metadata: 0,
                             facing: BlockFacing::PosY,
                             orientation: BlockOrientation::None,
                             connections: ConnectedDirections::default(),
@@ -514,7 +522,6 @@ impl ChunkManager {
                         0,
                         SubBlock {
                             id: self.get_block_id_safe("cactus"),
-                            metadata: 0,
                             facing: BlockFacing::PosY,
                             orientation: BlockOrientation::None,
                             connections: ConnectedDirections::default(),
@@ -531,7 +538,6 @@ impl ChunkManager {
                         0,
                         SubBlock {
                             id: self.get_block_id_safe("rock"),
-                            metadata: 0,
                             facing: BlockFacing::PosY,
                             orientation: BlockOrientation::None,
                             connections: ConnectedDirections::default(),
@@ -548,7 +554,6 @@ impl ChunkManager {
                         0,
                         SubBlock {
                             id: self.get_block_id_safe("coral"),
-                            metadata: 0,
                             facing: BlockFacing::PosY,
                             orientation: BlockOrientation::None,
                             connections: ConnectedDirections::default(),
