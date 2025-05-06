@@ -1,18 +1,10 @@
 use crate::{
-    world::{
-        BlockId,
-        BlockMaterial,
-        MaterialModifiers,
-        BlockRegistry,
-        ChunkManager,
-        SerializedChunk,
-        ChunkPool,
-        PoolStats,
-        SpatialPartition,
-        QuadTree,
-    },
-    config::WorldConfig,
+    config::WorldGenConfig,
     render::pipeline::ChunkRenderer,
+    world::{
+        BlockId, BlockMaterial, BlockRegistry, ChunkManager, ChunkPool, MaterialModifiers,
+        PoolStats, QuadTree, SerializedChunk, SpatialPartition,
+    },
 };
 
 pub struct World {
@@ -22,7 +14,11 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(config: &WorldConfig, renderer: ChunkRenderer, block_registry: BlockRegistry) -> Self {
+    pub fn new(
+        config: &WorldGenConfig,
+        renderer: ChunkRenderer,
+        block_registry: BlockRegistry,
+    ) -> Self {
         Self {
             chunk_manager: ChunkManager::new(config.clone(), renderer, block_registry.clone()),
             block_registry,
