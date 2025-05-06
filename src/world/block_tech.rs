@@ -39,21 +39,12 @@ impl Default for BlockPhysics {
 }
 
 impl BlockPhysics {
-    pub fn new(solid: bool, liquid: bool, gas: bool, physics: PhysicsProperties) -> Self {
-        Self {
-            solid,
-            liquid,
-            gas,
-            physics: physics,
-        }
-    }
-
     pub fn solid() -> Self {
         Self {
             solid: true,
             liquid: false,
             gas: false,
-            density: 1.0,
+            density: 2.0,
             friction: 0.5,
             restitution: 0.2,
             viscosity: 0.0,
@@ -65,10 +56,10 @@ impl BlockPhysics {
             solid: false,
             liquid: true,
             gas: false,
-            density: 0.8,
+            density: 1.0,
             friction: 0.1,
             restitution: 0.0,
-            viscosity: 0.5,
+            viscosity: 1.0,
         }
     }
 
@@ -77,7 +68,7 @@ impl BlockPhysics {
             solid: false,
             liquid: false,
             gas: true,
-            density: 0.1,
+            density: 0.001,
             friction: 0.0,
             restitution: 0.0,
             viscosity: 0.0,
