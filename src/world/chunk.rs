@@ -1,11 +1,15 @@
 use crate::render::pipeline::ChunkRenderer;
 use crate::utils::math::{ChunkCoord, IVec3};
+use crate::world::BlockOrientation;
+use crate::world::block::Block;
 use crate::world::block_id::BlockId;
 use crate::world::block_mat::BlockMaterial;
 use crate::world::block_visual::{BlockFacing, ConnectedDirections};
+use crate::world::chunk_coord::ChunkCoord;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use crate::world::{Block, BlockRegistry, WorldConfig};
 use bincode::{deserialize_from, serialize_into};
+use gl::types::GLuint;
 use glam::Vec3;
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -13,8 +17,8 @@ use std::io::BufWriter;
 use std::path::Path;
 use std::sync::Arc;
 
-pub const CHUNK_SIZE: usize = 16;
-pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+pub const CHUNK_SIZE: u8 = 16;
+pub const CHUNK_VOLUME: usize = (CHUNK_SIZE as usize).pow(3);
 
 #[derive(Debug, Clone)]
 pub struct ChunkMesh {
@@ -34,58 +38,40 @@ impl ChunkMesh {
             vbo: 0,
             ebo: 0,
             index_count: 0,
-            needs_upload: true,
+            needs_upload: false,
             vertex_data: Vec::new(),
             index_data: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Chunk {
-    pub blocks: [BlockId; CHUNK_VOLUME],
-    pub materials: [BlockMaterial; CHUNK_VOLUME],
     pub coord: ChunkCoord,
-    pub is_empty: bool,
+    pub blocks: [Block; CHUNK_VOLUME],
     pub mesh: ChunkMesh,
 }
 
 impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
-            blocks: [BlockId(0); CHUNK_VOLUME],
-            materials: [BlockMaterial::default(); CHUNK_VOLUME],
             coord,
-            is_empty: true,
+            blocks: [Block::new(0); CHUNK_VOLUME],
             mesh: ChunkMesh::new(),
         }
     }
 
-    pub fn empty(size: usize) -> Self {
-        Self::new(ChunkCoord::new(0, 0, 0))
+    pub fn get_block(&self, x: u8, y: u8, z: u8) -> Block {
+        let index = (x as usize)
+            + (y as usize) * CHUNK_SIZE as usize
+            + (z as usize) * (CHUNK_SIZE as usize).pow(2);
+        self.blocks[index]
     }
 
-    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
-        let mut chunk = template.clone();
-        chunk.coord = coord;
-        chunk
-    }
-
-    pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockId {
-        self.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x]
-    }
-
-    pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: BlockId) {
-        self.blocks[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] = block;
-        self.is_empty = false;
-    }
-
-    pub fn transform(&self) -> glam::Mat4 {
-        glam::Mat4::from_translation(glam::Vec3::new(
-            self.coord.x as f32 * CHUNK_SIZE as f32,
-            self.coord.y as f32 * CHUNK_SIZE as f32,
-            self.coord.z as f32 * CHUNK_SIZE as f32,
-        ))
+    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Block) {
+        let index = (x as usize)
+            + (y as usize) * CHUNK_SIZE as usize
+            + (z as usize) * (CHUNK_SIZE as usize).pow(2);
+        self.blocks[index] = block;
     }
 }
 
