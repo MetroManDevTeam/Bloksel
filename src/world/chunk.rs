@@ -7,6 +7,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
 use crate::world::block_material::BlockMaterial;
 use crate::world::block_visual::ConnectedDirections;
+use crate::world::blocks_data::get_block_registry;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::generator::terrain::BiomeType;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
@@ -55,32 +56,17 @@ impl ChunkMesh {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
-    pub coord: ChunkCoord,
-    blocks: Vec<Option<Block>>,
+    pub position: ChunkCoord,
+    pub blocks: Vec<Option<Block>>,
     pub mesh: Option<ChunkMesh>,
-    block_registry: Arc<BlockRegistry>,
 }
 
 impl Chunk {
-    pub fn new(coord: ChunkCoord) -> Self {
+    pub fn new(position: ChunkCoord) -> Self {
         Self {
-            coord,
+            position,
             blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
-            block_registry: Arc::new(BlockRegistry::new()),
-        }
-    }
-
-    pub fn empty() -> Self {
-        Self::new(ChunkCoord::new(0, 0, 0))
-    }
-
-    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
-        Self {
-            coord,
-            blocks: template.blocks.clone(),
-            mesh: None,
-            block_registry: template.block_registry.clone(),
         }
     }
 
@@ -126,9 +112,9 @@ impl Chunk {
     pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
         let chunk_file = world_dir.join(format!(
             "chunk_{}_{}_{}.bin",
-            self.coord.x(),
-            self.coord.y(),
-            self.coord.z()
+            self.position.x(),
+            self.position.y(),
+            self.position.z()
         ));
         let file = File::create(chunk_file)?;
         self.save_to_writer(file)?;
@@ -197,15 +183,16 @@ impl Chunk {
 
     pub fn transform(&self) -> Mat4 {
         let pos = Vec3::new(
-            self.coord.x() as f32 * CHUNK_SIZE as f32,
-            self.coord.y() as f32 * CHUNK_SIZE as f32,
-            self.coord.z() as f32 * CHUNK_SIZE as f32,
+            self.position.x() as f32 * CHUNK_SIZE as f32,
+            self.position.y() as f32 * CHUNK_SIZE as f32,
+            self.position.z() as f32 * CHUNK_SIZE as f32,
         );
         Mat4::from_translation(pos)
     }
 
     pub fn get_block_id_safe(&self, name: &str) -> BlockId {
-        self.block_registry
+        get_block_registry()
+            .borrow()
             .get_by_name(name)
             .map(|def| def.id)
             .unwrap_or(BlockId::new(10, 0, 0))
