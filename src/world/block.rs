@@ -1,10 +1,10 @@
+use crate::world::BlockMaterial;
 use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::BlockPhysics;
 use crate::world::block_visual::ConnectedDirections;
 use crate::world::blocks_data::BlockRegistry;
-use crate::world::BlockMaterial;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -103,8 +103,7 @@ impl Block {
     }
 
     pub fn is_solid(&self) -> bool {
-        self.get_physics(&BlockRegistry::default())
-            .is_solid()
+        self.get_physics(&BlockRegistry::default()).is_solid()
     }
 }
 
