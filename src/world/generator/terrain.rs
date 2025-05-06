@@ -2,6 +2,7 @@ use crate::utils::math::IVec3;
 use crate::world::block::{Block, BlockFacing, BlockOrientation, SubBlock};
 use crate::world::block_id::BlockId;
 use crate::world::block_registry::BlockRegistry;
+use crate::world::block_visual::ConnectedDirections;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
@@ -436,7 +437,7 @@ impl TerrainGenerator {
                             metadata: 0,
                             facing: BlockFacing::None,
                             orientation: BlockOrientation::Wall,
-                            connections: Vec::new(),
+                            connections: ConnectedDirections::empty(),
                         },
                     );
                 }
@@ -462,7 +463,7 @@ impl TerrainGenerator {
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
-                        connections: Vec::new(),
+                        connections: ConnectedDirections::empty(),
                     },
                 );
             }
@@ -496,7 +497,7 @@ impl TerrainGenerator {
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
-                        connections: Vec::new(),
+                        connections: ConnectedDirections::empty(),
                     },
                 );
             }
