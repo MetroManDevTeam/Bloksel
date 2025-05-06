@@ -85,31 +85,6 @@ impl ConnectedDirections {
     }
 }
 
-impl BlockFacing {
-    pub fn opposite(&self) -> Self {
-        match self {
-            BlockFacing::PosZ => BlockFacing::NegZ,
-            BlockFacing::NegZ => BlockFacing::PosZ,
-            BlockFacing::PosX => BlockFacing::NegX,
-            BlockFacing::NegX => BlockFacing::PosX,
-            BlockFacing::PosY => BlockFacing::NegY,
-            BlockFacing::NegY => BlockFacing::PosY,
-            _ => BlockFacing::None,
-        }
-    }
-
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            0 => Self::Wall,
-            1 => Self::Floor,
-            2 => Self::Ceiling,
-            3 => Self::Corner,
-            4 => Self::Edge,
-            n => Self::Custom(n),
-        }
-    }
-}
-
 impl BlockOrientation {
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
@@ -122,11 +97,5 @@ impl BlockOrientation {
             6 => Some(Self::Down),
             _ => None,
         }
-    }
-}
-
-impl Default for BlockFacing {
-    fn default() -> Self {
-        BlockFacing::None
     }
 }
