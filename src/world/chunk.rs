@@ -70,6 +70,10 @@ impl Chunk {
         }
     }
 
+    pub fn empty() -> Self {
+        Self::new(ChunkCoord::new(0, 0, 0))
+    }
+
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> Option<&Block> {
         let index = self.get_index(x, y, z);
         self.blocks[index].as_ref()
