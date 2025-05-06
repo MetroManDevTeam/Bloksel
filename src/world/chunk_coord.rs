@@ -2,7 +2,7 @@ use glam::{IVec3, Vec3};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ChunkCoord(pub IVec3);
 
 impl ChunkCoord {
@@ -41,53 +41,47 @@ impl ChunkCoord {
         )
     }
 
+    pub fn to_world_center(&self, chunk_size: i32) -> Vec3 {
+        let pos = self.to_world_pos(chunk_size);
+        pos + Vec3::splat(chunk_size as f32 / 2.0)
+    }
+
     pub fn to_path(&self) -> PathBuf {
-        PathBuf::from(format!(
-            "chunks/{}/{}/{}.chunk",
-            self.0.x, self.0.y, self.0.z
-        ))
+        PathBuf::from(format!("chunk_{}_{}_{}.bin", self.0.x, self.0.y, self.0.z))
     }
 
     pub fn from_path(path: &Path) -> std::io::Result<Self> {
         let file_name = path
             .file_name()
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid chunk file name")
-            })?
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?
             .to_str()
             .ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Invalid UTF-8 in chunk file name",
-                )
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid filename")
             })?;
 
-        if !file_name.ends_with(".chunk") {
+        if !file_name.starts_with("chunk_") || !file_name.ends_with(".bin") {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Not a chunk file",
+                "Invalid chunk file format",
             ));
         }
 
-        let coords: Vec<&str> = file_name.trim_end_matches(".chunk").split('_').collect();
+        let coords = file_name[6..file_name.len() - 4]
+            .split('_')
+            .map(|s| s.parse::<i32>())
+            .collect::<Result<Vec<i32>, _>>()
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid coordinates")
+            })?;
+
         if coords.len() != 3 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Invalid chunk coordinates",
+                "Invalid coordinate count",
             ));
         }
 
-        let x = coords[0].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid x coordinate")
-        })?;
-        let y = coords[1].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid y coordinate")
-        })?;
-        let z = coords[2].parse::<i32>().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid z coordinate")
-        })?;
-
-        Ok(Self::new(x, y, z))
+        Ok(Self::new(coords[0], coords[1], coords[2]))
     }
 
     pub fn get_neighbors(&self) -> Vec<Self> {
