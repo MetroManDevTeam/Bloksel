@@ -117,7 +117,7 @@ impl Chunk {
         sub_z: u8,
     ) -> Option<&SubBlock> {
         self.get_block_at(world_x, world_y, world_z)
-            .and_then(|block| block.get_sub_block((sub_x, sub_y, sub_z)))
+            .and_then(|block| block.get_sub_block(&(sub_x, sub_y, sub_z)))
     }
 
     pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
@@ -139,7 +139,7 @@ impl Chunk {
             coord.y(),
             coord.z()
         ));
-        Self::load(chunk_file)
+        Self::load(&chunk_file)
     }
 
     pub fn save_to_writer(&self, mut writer: impl io::Write) -> io::Result<()> {
@@ -161,16 +161,14 @@ impl Chunk {
         for y in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
-                    if let Some(block) = self.get_block(x, y, z) {
-                        if block.id.base_id == 2 {
+                    if let Some(block) = self.get_block_mut(x, y, z) {
+                        if block.base_id() == 2 {
                             // Grass block
                             if rng.gen_bool(0.1) {
-                                let sub_block = SubBlock {
-                                    id: BlockId::from(3), // Tall grass
-                                    facing: BlockFacing::PosY,
-                                    orientation: BlockOrientation::None,
-                                    connections: ConnectedDirections::empty(),
-                                };
+                                let sub_block = SubBlock::new(3) // Tall grass
+                                    .with_facing(BlockFacing::PosY)
+                                    .with_orientation(BlockOrientation::None)
+                                    .with_connections(ConnectedDirections::empty());
                                 block.place_sub_block((x as u8, y as u8, z as u8), sub_block);
                             }
                         }
@@ -186,7 +184,7 @@ impl Chunk {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
                     if rng.gen_bool(probability) {
-                        let block = Block::new(BlockId::new(1));
+                        let block = Block::new(BlockId::new(1, 0, 0));
                         self.set_block(x, y, z, Some(block));
                     }
                 }
