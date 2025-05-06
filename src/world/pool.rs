@@ -1,9 +1,10 @@
 use crate::config::GameConfig;
 use crate::render::MeshBuilder;
-use crate::utils::math::{Mat4, Vec3};
 use crate::world::ChunkCoord;
 use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME, Chunk};
 use anyhow::{Result, anyhow};
+use glam::f32::sse2::mat4::Mat4;
+use glam::f32::vec3::Vec3;
 use parking_lot::Mutex;
 use parking_lot::RwLock;
 use std::collections::{HashMap, VecDeque};
