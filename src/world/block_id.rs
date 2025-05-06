@@ -149,6 +149,7 @@ pub struct Block {
 
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockVariant {
     pub id: u16,
     pub name: String,
