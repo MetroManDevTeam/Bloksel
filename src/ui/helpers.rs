@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+use crate::ui::world::WorldMeta;
 
 // Helper components
 
@@ -22,21 +24,38 @@ pub fn logo(ui: &mut egui::Ui) {
 }
 
 // World management
-pub fn load_saved_worlds() -> Vec<WorldMeta> {
-    let saves_dir = Path::new("saves");
-    let mut worlds = Vec::new();
+pub fn save_world(world: &WorldMeta) -> std::io::Result<()> {
+    let world_dir = get_worlds_dir().join(&world.name);
+    std::fs::create_dir_all(&world_dir)?;
     
-    if let Ok(entries) = std::fs::read_dir(saves_dir) {
-        for entry in entries.flatten() {
-            if let Ok(meta) = std::fs::read_to_string(entry.path().join("world.json")) {
-                if let Ok(world) = serde_json::from_str(&meta) {
-                    worlds.push(world);
+    let meta_path = world_dir.join("world.meta");
+    let meta_json = serde_json::to_string_pretty(world)?;
+    std::fs::write(meta_path, meta_json)?;
+    
+    Ok(())
+}
+
+pub fn load_saved_worlds() -> Vec<WorldMeta> {
+    let mut worlds = Vec::new();
+    if let Ok(worlds_dir) = std::fs::read_dir(get_worlds_dir()) {
+        for entry in worlds_dir.flatten() {
+            if let Ok(meta_path) = entry.path().join("world.meta").canonicalize() {
+                if let Ok(meta_json) = std::fs::read_to_string(meta_path) {
+                    if let Ok(world) = serde_json::from_str::<WorldMeta>(&meta_json) {
+                        worlds.push(world);
+                    }
                 }
             }
         }
     }
-    
     worlds
+}
+
+fn get_worlds_dir() -> PathBuf {
+    let mut dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    dir.push("Bloksel");
+    dir.push("worlds");
+    dir
 }
 
 pub fn delete_world(name: &str) {

@@ -1,33 +1,31 @@
+use crate::config::core::EngineConfig;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct WorldMeta {
     pub name: String,
-    pub seed: u64,
-    pub last_played: chrono::DateTime<chrono::Local>,
-    pub play_time: f32,
-    pub version: String,
-    pub preview_image: Option<Vec<u8>>,
+    pub world_type: WorldType,
+    pub difficulty: Difficulty,
+    pub seed: String,
+    pub last_played: chrono::DateTime<chrono::Utc>,
 }
 
-
+#[derive(Debug, Clone)]
 pub struct CreateWorldState {
-    name: String,
-    seed: String,
-    world_type: WorldType,
-    difficulty: Difficulty,
-    bonus_chest: bool,
-    generate_structures: bool,
+    pub name: String,
+    pub world_type: WorldType,
+    pub difficulty: Difficulty,
+    pub seed: String,
+    pub config: EngineConfig,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WorldType {
-    Default,
+    Normal,
     Flat,
-    Amplified,
-    LargeBiomes,
+    Custom,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Difficulty {
     Peaceful,
     Easy,
