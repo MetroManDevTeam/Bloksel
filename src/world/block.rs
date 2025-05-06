@@ -3,7 +3,7 @@ use crate::world::{BlockId, BlockOrientation, ConnectedDirections};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Block {
     pub id: u16,
     pub orientation: BlockOrientation,
@@ -11,7 +11,7 @@ pub struct Block {
     pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubBlock {
     pub id: BlockId,
     pub metadata: u8,
