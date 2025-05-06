@@ -1,10 +1,14 @@
 use crate::{
-    config::core::EngineConfig,
+    config::{core::EngineConfig, worldgen::WorldGenConfig},
     player::physics::Player,
     render::{pipeline::ChunkRenderer, shaders::ShaderProgram},
     world::{
-        block_id::BlockRegistry as BlockIdRegistry, blocks_data::BlockRegistry, chunk::Chunk,
-        chunk_coord::ChunkCoord, generator::TerrainGenerator, pool::ChunkPool,
+        block_id::BlockRegistry as BlockIdRegistry,
+        blocks_data::BlockRegistry,
+        chunk::Chunk,
+        chunk_coord::ChunkCoord,
+        generator::terrain::{TerrainGenerator, WorldGenConfig as TerrainWorldGenConfig},
+        pool::ChunkPool,
         spatial::SpatialPartition,
     },
 };
@@ -58,8 +62,28 @@ impl VoxelEngine {
     pub fn new(config: EngineConfig) -> Result<Self> {
         // Initialize core systems
         let block_registry = Arc::new(BlockRegistry::default());
+        let terrain_config = TerrainWorldGenConfig {
+            world_seed: config.worldgen.world_seed,
+            terrain_height: config.worldgen.terrain_height as i32,
+            water_level: config.worldgen.water_level as i32,
+            biome_scale: config.worldgen.biome_scale as f64,
+            noise_scale: config.worldgen.noise_scale as f64,
+            octaves: 4,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            height_multiplier: 1.0,
+            world_type: crate::world::generator::terrain::WorldType::Normal,
+            terrain_amplitude: 1.0,
+            cave_threshold: config.worldgen.cave_density as f64,
+            flat_world_layers: vec![
+                (crate::world::block_id::BlockId::new(1, 0, 0), 1), // Bedrock
+                (crate::world::block_id::BlockId::new(2, 0, 0), 3), // Stone
+                (crate::world::block_id::BlockId::new(3, 0, 0), 1), // Dirt
+                (crate::world::block_id::BlockId::new(4, 0, 0), 1), // Grass
+            ],
+        };
         let terrain_generator = Arc::new(TerrainGenerator::new(
-            config.worldgen.clone(),
+            terrain_config,
             block_registry.clone(),
         ));
 
