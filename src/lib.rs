@@ -16,9 +16,10 @@ pub use player::{
     physics::{Player, PlayerState},
 };
 pub use render::{pipeline::RenderPipeline, shaders::ShaderProgram};
+pub use utils::core::Ray;
 pub use utils::{
     error::BlockError,
-    math::{Plane, Ray, ViewFrustum},
+    math::{Plane, ViewFrustum},
 };
 pub use world::{
     block_id::BlockRegistry,
