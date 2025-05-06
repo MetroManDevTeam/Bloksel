@@ -6,6 +6,7 @@ use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSetting
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::BlockPhysics;
 use crate::world::block_visual::ConnectedDirections;
+use crate::world::blocks_data::BLOCKS;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
