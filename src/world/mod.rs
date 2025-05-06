@@ -1,6 +1,8 @@
+pub mod block;
 pub mod block_facing;
 pub mod block_id;
 pub mod block_mat;
+pub mod block_orientation;
 pub mod block_tech;
 pub mod block_visual;
 pub mod blocks_data;
@@ -12,11 +14,14 @@ pub mod pool;
 pub mod spatial;
 pub mod storage;
 
+pub use block::{Block, SubBlock};
 pub use block_facing::BlockFacing;
 pub use block_id::BlockId;
-pub use block_mat::{BlockMaterial, MaterialModifiers};
+pub use block_mat::BlockMaterial;
+pub use block_orientation::BlockOrientation;
+pub use block_visual::ConnectedDirections;
 pub use blocks_data::BlockRegistry;
-pub use chunk::{CHUNK_SIZE, CHUNK_VOLUME, Chunk, ChunkManager};
+pub use chunk::{Chunk, ChunkManager, CHUNK_SIZE, CHUNK_VOLUME};
 pub use chunk_coord::ChunkCoord;
 pub use core::*;
 pub use generator::*;
