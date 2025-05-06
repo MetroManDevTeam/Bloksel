@@ -1,13 +1,49 @@
+use crate::world::BlockFacing;
+use crate::world::BlockOrientation;
 use crate::world::ChunkCoord;
+use crate::world::block::Block;
 use crate::world::chunk::Chunk;
 use anyhow::Result;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::{
     path::Path,
     time::{Duration, Instant},
 };
+
+pub trait ChunkStorage: Send + Sync {
+    fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>>;
+    fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>);
+    fn remove_chunk(&mut self, coord: ChunkCoord);
+}
+
+pub struct MemoryStorage {
+    chunks: HashMap<ChunkCoord, Arc<Chunk>>,
+}
+
+impl MemoryStorage {
+    pub fn new() -> Self {
+        Self {
+            chunks: HashMap::new(),
+        }
+    }
+}
+
+impl ChunkStorage for MemoryStorage {
+    fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.chunks.get(&coord).cloned()
+    }
+
+    fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>) {
+        self.chunks.insert(coord, chunk);
+    }
+
+    fn remove_chunk(&mut self, coord: ChunkCoord) {
+        self.chunks.remove(&coord);
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct WorldSave {
