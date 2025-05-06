@@ -2,6 +2,8 @@ use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
 use crate::world::block::Block;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockData {
