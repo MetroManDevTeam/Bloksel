@@ -1,7 +1,10 @@
 use crate::world::block::Block;
 use crate::world::block_error::BlockError;
 use crate::world::block_facing::BlockFacing;
+use crate::world::block_flags::BlockFlags;
+use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_visual::ConnectedDirections;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
