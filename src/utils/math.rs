@@ -1,7 +1,7 @@
 //! src/utils/math.rs
 //! Mathematical utilities and geometric types
 use bitflags::bitflags;
-use glam::{Mat4, Quat, Vec3, Vec4};
+use glam::{IVec3, Mat4, Quat, Vec3, Vec4};
 use serde::{Deserialize, Serialize};
 
 /// Axis-aligned bounding box
@@ -48,22 +48,10 @@ impl AABB {
 
     pub fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
         for plane in &frustum.planes {
-            let mut min_point = Vec3::new(
-                if plane.normal.x > 0.0 {
-                    self.min.x
-                } else {
-                    self.max.x
-                },
-                if plane.normal.y > 0.0 {
-                    self.min.y
-                } else {
-                    self.max.y
-                },
-                if plane.normal.z > 0.0 {
-                    self.min.z
-                } else {
-                    self.max.z
-                },
+            let min_point = Vec3::new(
+                if plane.normal.x > 0.0 { self.min.x } else { self.max.x },
+                if plane.normal.y > 0.0 { self.min.y } else { self.max.y },
+                if plane.normal.z > 0.0 { self.min.z } else { self.max.z },
             );
             if plane.distance(min_point) < 0.0 {
                 return false;
@@ -75,25 +63,25 @@ impl AABB {
     pub fn transform(&self, transform: Mat4) -> Self {
         let corners = [
             Vec3::new(self.min.x, self.min.y, self.min.z),
-            Vec3::new(self.min.x, self.min.y, self.max.z),
-            Vec3::new(self.min.x, self.max.y, self.min.z),
-            Vec3::new(self.min.x, self.max.y, self.max.z),
             Vec3::new(self.max.x, self.min.y, self.min.z),
-            Vec3::new(self.max.x, self.min.y, self.max.z),
+            Vec3::new(self.min.x, self.max.y, self.min.z),
             Vec3::new(self.max.x, self.max.y, self.min.z),
+            Vec3::new(self.min.x, self.min.y, self.max.z),
+            Vec3::new(self.max.x, self.min.y, self.max.z),
+            Vec3::new(self.min.x, self.max.y, self.max.z),
             Vec3::new(self.max.x, self.max.y, self.max.z),
         ];
 
-        let mut new_min = Vec3::splat(f32::MAX);
-        let mut new_max = Vec3::splat(f32::MIN);
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
 
         for corner in corners {
             let transformed = transform.transform_point3(corner);
-            new_min = new_min.min(transformed);
-            new_max = new_max.max(transformed);
+            min = min.min(transformed);
+            max = max.max(transformed);
         }
 
-        AABB::new(new_min, new_max)
+        Self { min, max }
     }
 }
 
@@ -110,61 +98,37 @@ impl ViewFrustum {
 
         // Left plane
         planes[0] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w + vp.x_axis.x,
-                vp.y_axis.w + vp.y_axis.x,
-                vp.z_axis.w + vp.z_axis.x,
-            ),
+            Vec3::new(vp.x_axis.w + vp.x_axis.x, vp.y_axis.w + vp.y_axis.x, vp.z_axis.w + vp.z_axis.x),
             vp.w_axis.w + vp.w_axis.x,
         );
 
         // Right plane
         planes[1] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w - vp.x_axis.x,
-                vp.y_axis.w - vp.y_axis.x,
-                vp.z_axis.w - vp.z_axis.x,
-            ),
+            Vec3::new(vp.x_axis.w - vp.x_axis.x, vp.y_axis.w - vp.y_axis.x, vp.z_axis.w - vp.z_axis.x),
             vp.w_axis.w - vp.w_axis.x,
         );
 
         // Bottom plane
         planes[2] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w + vp.x_axis.y,
-                vp.y_axis.w + vp.y_axis.y,
-                vp.z_axis.w + vp.z_axis.y,
-            ),
+            Vec3::new(vp.x_axis.w + vp.x_axis.y, vp.y_axis.w + vp.y_axis.y, vp.z_axis.w + vp.z_axis.y),
             vp.w_axis.w + vp.w_axis.y,
         );
 
         // Top plane
         planes[3] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w - vp.x_axis.y,
-                vp.y_axis.w - vp.y_axis.y,
-                vp.z_axis.w - vp.z_axis.y,
-            ),
+            Vec3::new(vp.x_axis.w - vp.x_axis.y, vp.y_axis.w - vp.y_axis.y, vp.z_axis.w - vp.z_axis.y),
             vp.w_axis.w - vp.w_axis.y,
         );
 
         // Near plane
         planes[4] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w + vp.x_axis.z,
-                vp.y_axis.w + vp.y_axis.z,
-                vp.z_axis.w + vp.z_axis.z,
-            ),
+            Vec3::new(vp.x_axis.w + vp.x_axis.z, vp.y_axis.w + vp.y_axis.z, vp.z_axis.w + vp.z_axis.z),
             vp.w_axis.w + vp.w_axis.z,
         );
 
         // Far plane
         planes[5] = Plane::new(
-            Vec3::new(
-                vp.x_axis.w - vp.x_axis.z,
-                vp.y_axis.w - vp.y_axis.z,
-                vp.z_axis.w - vp.z_axis.z,
-            ),
+            Vec3::new(vp.x_axis.w - vp.x_axis.z, vp.y_axis.w - vp.y_axis.z, vp.z_axis.w - vp.z_axis.z),
             vp.w_axis.w - vp.w_axis.z,
         );
 
