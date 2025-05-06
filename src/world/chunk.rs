@@ -1,5 +1,5 @@
-use crate::ChunkCoord;
 use crate::config::WorldGenConfig;
+use crate::engine::ChunkCoord;
 use crate::render::pipeline::ChunkRenderer;
 use crate::world::BlockOrientation;
 use crate::world::BlockRegistry;
