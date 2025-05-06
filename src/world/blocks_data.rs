@@ -1,7 +1,7 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
 use crate::world::block_facing::BlockFacing;
-use crate::world::block_id::{BlockDefinition, BlockId};
+use crate::world::block_id::{BlockCategory, BlockDefinition, BlockId, BlockVariant, ColorVariant};
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::{BlockFlags, BlockPhysics};
