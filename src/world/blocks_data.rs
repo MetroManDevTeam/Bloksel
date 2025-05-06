@@ -46,6 +46,12 @@ impl BlockRegistry {
     pub fn get_block_flags(&self, id: BlockId) -> Option<BlockFlags> {
         self.get_by_id(id).map(|def| def.flags)
     }
+
+    pub fn get_block_physics(&self, id: BlockId) -> BlockPhysics {
+        self.get_by_id(id).map(|def| BlockPhysics::from(def.flags))
+    
+    }
+
 }
 
 impl Default for BlockRegistry {
