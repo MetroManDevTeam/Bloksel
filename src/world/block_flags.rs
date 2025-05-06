@@ -2,7 +2,7 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 bitflags! {
-    #[derive(Serialize, Deserialize, Default)]
+    #[derive(Serialize, Deserialize, Default, Debug, Clone, Copy)]
     pub struct BlockFlags: u32 {
         const SOLID = 0x1;
         const TRANSPARENT = 0x2;
