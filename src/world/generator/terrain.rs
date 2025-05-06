@@ -67,125 +67,104 @@ impl Default for TerrainConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldGenConfig {
-    pub seed: u64,
-    pub scale: f64,
+    pub world_seed: u64,
+    pub terrain_height: i32,
+    pub water_level: i32,
+    pub biome_scale: f64,
+    pub noise_scale: f64,
     pub octaves: u32,
     pub persistence: f64,
     pub lacunarity: f64,
     pub height_multiplier: f64,
-    pub water_level: i32,
-    pub stone_level: i32,
-    pub dirt_depth: i32,
-    pub base_block: BlockId,
-    pub stone_block: BlockId,
-    pub dirt_block: BlockId,
-    pub water_block: BlockId,
 }
 
 impl Default for WorldGenConfig {
     fn default() -> Self {
         Self {
-            seed: 0,
-            scale: 100.0,
+            world_seed: 0,
+            terrain_height: 64,
+            water_level: 32,
+            biome_scale: 100.0,
+            noise_scale: 50.0,
             octaves: 4,
             persistence: 0.5,
             lacunarity: 2.0,
             height_multiplier: 32.0,
-            water_level: 32,
-            stone_level: 0,
-            dirt_depth: 4,
-            base_block: BlockId::new(0),
-            stone_block: BlockId::new(1),
-            dirt_block: BlockId::new(2),
-            water_block: BlockId::new(3),
         }
     }
 }
 
 pub struct TerrainGenerator {
-    config: TerrainConfig,
+    config: WorldGenConfig,
     block_registry: Arc<BlockRegistry>,
-    noise_layers: RwLock<HashMap<String, Fbm<Perlin>>>,
-    height_cache: RwLock<HashMap<(i32, i32), f64>>,
-    biome_cache: RwLock<HashMap<(i32, i32), BiomeType>>,
-    chunk_cache: RwLock<HashMap<ChunkCoord, Arc<Chunk>>>,
+    rng: ChaCha12Rng,
 }
 
 impl TerrainGenerator {
-    pub fn new(seed: u32, block_registry: Arc<BlockRegistry>, world_type: WorldType) -> Self {
-        let mut config = TerrainConfig {
-            seed,
-            world_type,
-            ..Default::default()
-        };
-
-        // Adjust parameters based on world type
-        match world_type {
-            WorldType::Amplified => {
-                config.terrain_amplitude = 48.0;
-                config.world_scale = 0.005;
-            }
-            WorldType::LargeBiomes => {
-                config.world_scale = 0.002;
-            }
-            _ => {}
-        }
-
-        let mut generator = Self {
+    pub fn new(config: WorldGenConfig, block_registry: Arc<BlockRegistry>) -> Self {
+        Self {
             config,
             block_registry,
-            noise_layers: RwLock::new(HashMap::new()),
-            height_cache: RwLock::new(HashMap::new()),
-            biome_cache: RwLock::new(HashMap::new()),
-            chunk_cache: RwLock::new(HashMap::new()),
-        };
-
-        generator.initialize_noise_layers();
-        generator
+            rng: ChaCha12Rng::seed_from_u64(config.world_seed),
+        }
     }
 
-    fn initialize_noise_layers(&mut self) {
-        let mut layers = self.noise_layers.write();
+    pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
+        let mut chunk = Chunk::new();
+        let base_x = coord.x * 32;
+        let base_y = coord.y * 32;
+        let base_z = coord.z * 32;
 
-        // Primary terrain noise
-        layers.insert("terrain".into(), self.create_noise_layer(0, 0.01, 0.5, 6));
+        for x in 0..32 {
+            for z in 0..32 {
+                let world_x = base_x + x as i32;
+                let world_z = base_z + z as i32;
+                let height = self.get_height(world_x as f64, world_z as f64) as i32;
 
-        // Detail noise
-        layers.insert("detail".into(), self.create_noise_layer(1, 0.05, 0.8, 3));
+                for y in 0..32 {
+                    let world_y = base_y + y as i32;
+                    if world_y < height {
+                        let block = if world_y < height - 4 {
+                            Block::new(BlockId::new(1)) // Stone
+                        } else {
+                            Block::new(BlockId::new(2)) // Grass
+                        };
+                        chunk.set_block(x, y as u32, z, Some(block));
+                    } else {
+                        chunk.set_block(x, y as u32, z, Some(Block::new(BlockId::new(0)))); // Air
+                    }
+                }
+            }
+        }
 
-        // Biome noise
-        layers.insert("biome".into(), self.create_noise_layer(2, 0.001, 1.0, 1));
-
-        // Cave noise
-        layers.insert("caves".into(), self.create_noise_layer(3, 0.03, 0.7, 4));
+        chunk
     }
 
-    fn create_noise_layer(
-        &self,
-        seed_offset: u32,
-        frequency: f64,
-        persistence: f64,
-        octaves: usize,
-    ) -> Fbm<Perlin> {
-        Fbm::<Perlin>::new(self.config.seed + seed_offset)
-            .set_octaves(octaves)
-            .set_frequency(frequency)
-            .set_persistence(persistence)
-            .set_lacunarity(2.0)
+    fn get_height(&self, x: f64, z: f64) -> f64 {
+        let mut amplitude = 1.0;
+        let mut frequency = 1.0;
+        let mut height = 0.0;
+        let mut max_amplitude = 0.0;
+
+        for _ in 0..self.config.octaves {
+            let sample_x = x / self.config.noise_scale * frequency;
+            let sample_z = z / self.config.noise_scale * frequency;
+
+            let noise_value = (noise::simplex2(sample_x, sample_z) + 1.0) * 0.5;
+            height += noise_value * amplitude;
+            max_amplitude += amplitude;
+
+            amplitude *= self.config.persistence;
+            frequency *= self.config.lacunarity;
+        }
+
+        height /= max_amplitude;
+        height * self.config.height_multiplier + self.config.terrain_height as f64
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        {
-            let cache = self.chunk_cache.read();
-            if let Some(chunk) = cache.get(&coord) {
-                return Some(chunk.clone());
-            }
-        }
-
         let chunk = self.generate_chunk(coord);
-        let mut cache = self.chunk_cache.write();
-        cache.insert(coord, chunk.clone());
-        Some(chunk)
+        Some(Arc::new(chunk))
     }
 
     pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
@@ -203,7 +182,7 @@ impl TerrainGenerator {
 
     fn generate_normal_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64
+            self.config.world_seed as u64
                 + coord.x() as u64 * 341873128712
                 + coord.z() as u64 * 132897987541,
         );
@@ -254,7 +233,7 @@ impl TerrainGenerator {
 
     fn generate_flat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.seed as u64
+            self.config.world_seed as u64
                 + coord.x() as u64 * 341873128712
                 + coord.z() as u64 * 132897987541,
         );
@@ -317,14 +296,6 @@ impl TerrainGenerator {
     }
 
     fn calculate_height(&self, x: i32, z: i32, biome: BiomeType) -> i32 {
-        let cache_key = (x, z);
-        {
-            let cache = self.height_cache.read();
-            if let Some(h) = cache.get(&cache_key) {
-                return *h as i32;
-            }
-        }
-
         let base_noise = self.sample_noise("terrain", x, z);
         let detail_noise = self.sample_noise("detail", x, z);
         let biome_mod = self.biome_height_modifier(biome);
@@ -345,9 +316,6 @@ impl TerrainGenerator {
         };
 
         let final_height = height.clamp(SEA_LEVEL as f64 - 8.0, 256.0) as i32;
-        self.height_cache
-            .write()
-            .insert(cache_key, final_height as f64);
         final_height
     }
 
@@ -364,14 +332,6 @@ impl TerrainGenerator {
     }
 
     fn calculate_biome(&self, x: i32, z: i32) -> BiomeType {
-        let cache_key = (x, z);
-        {
-            let cache = self.biome_cache.read();
-            if let Some(b) = cache.get(&cache_key) {
-                return *b;
-            }
-        }
-
         let temp = self.sample_noise("biome", x, z);
         let moisture = self.sample_noise("biome", x + 1000, z + 1000);
 
@@ -385,7 +345,6 @@ impl TerrainGenerator {
             _ => BiomeType::Plains,
         };
 
-        self.biome_cache.write().insert(cache_key, biome);
         biome
     }
 
@@ -573,12 +532,11 @@ impl TerrainGenerator {
     }
 
     fn sample_noise(&self, layer: &str, x: i32, z: i32) -> f64 {
-        let layers = self.noise_layers.read();
-        let noise = layers.get(layer).unwrap();
-        noise.get([
-            x as f64 * self.config.world_scale,
-            z as f64 * self.config.world_scale,
-        ])
+        let noise = noise::simplex2(
+            x as f64 / self.config.noise_scale,
+            z as f64 / self.config.noise_scale,
+        );
+        noise
     }
 
     pub fn generate_tree(&self, base_pos: IVec3) -> HashMap<IVec3, Block> {
@@ -615,11 +573,5 @@ impl TerrainGenerator {
         }
 
         blocks
-    }
-
-    pub fn clear_cache(&self) {
-        self.height_cache.write().clear();
-        self.biome_cache.write().clear();
-        self.chunk_cache.write().clear();
     }
 }
