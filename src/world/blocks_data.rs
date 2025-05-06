@@ -408,6 +408,6 @@ pub fn create_glass_block() -> (TechBlockFlags, BlockMaterial) {
     (flags, material)
 }
 
-pub fn get_block_registry() -> &'static RefCell<BlockRegistry> {
-    BLOCK_REGISTRY.with(|registry| registry)
+pub fn get_block_registry() -> BlockRegistry {
+    BLOCK_REGISTRY.with(|registry| registry.borrow().clone())
 }
