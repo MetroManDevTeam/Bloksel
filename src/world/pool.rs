@@ -1,10 +1,8 @@
+use crate::config::GameConfig;
+use crate::render::MeshBuilder;
+use crate::utils::math::{Mat4, Vec3};
+use crate::world::ChunkCoord;
 use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME, Chunk};
-use crate::world::chunk_coord::ChunkCoord;
-use crate::{
-    config::GameConfig,
-    render::MeshBuilder,
-    utils::math::{Mat4, Vec3},
-};
 use anyhow::{Result, anyhow};
 use parking_lot::Mutex;
 use parking_lot::RwLock;
