@@ -48,10 +48,10 @@ pub static HOST: &str = "x86_64-pc-windows-msvc";
 pub static PROFILE: &str = "debug";
 #[doc=r#"The compiler that cargo resolved to use."#]
 #[allow(dead_code)]
-pub static RUSTC: &str = "C:\\Users\\geris\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\rustc.exe";
+pub static RUSTC: &str = "rustc";
 #[doc=r#"The documentation generator that cargo resolved to use."#]
 #[allow(dead_code)]
-pub static RUSTDOC: &str = "C:\\Users\\geris\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\rustdoc.exe";
+pub static RUSTDOC: &str = "rustdoc";
 #[doc=r#"Value of OPT_LEVEL for the profile used during compilation."#]
 #[allow(dead_code)]
 pub static OPT_LEVEL: &str = "0";
@@ -73,10 +73,10 @@ pub static FEATURES_LOWERCASE: [&str; 1] = ["threading"];
 #[doc=r#"The feature-string as above, from lowercase strings."#]
 #[allow(dead_code)]
 pub static FEATURES_LOWERCASE_STR: &str = "threading";
-#[doc=r#"The output of `C:\Users\geris\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe -V`"#]
+#[doc=r#"The output of `rustc -V`"#]
 #[allow(dead_code)]
 pub static RUSTC_VERSION: &str = "rustc 1.86.0 (05f9846f8 2025-03-31)";
-#[doc=r#"The output of `C:\Users\geris\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustdoc.exe -V`; empty string if `C:\Users\geris\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustdoc.exe -V` failed to execute"#]
+#[doc=r#"The output of `rustdoc -V`; empty string if `rustdoc -V` failed to execute"#]
 #[allow(dead_code)]
 pub static RUSTDOC_VERSION: &str = "rustdoc 1.86.0 (05f9846f8 2025-03-31)";
 #[doc=r#"The target architecture, given by `CARGO_CFG_TARGET_ARCH`."#]

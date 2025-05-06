@@ -1,11 +1,13 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
-use crate::block::{
-    BlockDefinition, BlockCategory, BlockFacing, BlockOrientation, 
-    BlockFlags, BlockId, BlockMaterial, MaterialModifiers, ColorVariant, BlockVariant,
-    TintSettings, TintBlendMode, TintMaskChannel
+use super::{
+    block_id::{BlockDefinition, BlockVariant, ColorVariant},
+    block_mat::{BlockMaterial, MaterialModifiers},
+    block_tech::BlockFlags,
+    block_visual::{BlockFacing, BlockOrientation},
 };
 use std::collections::{HashMap, HashSet};
+
 
 // Initialize a default block material
 fn default_material() -> BlockMaterial {

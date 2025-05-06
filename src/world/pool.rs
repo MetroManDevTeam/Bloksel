@@ -3,9 +3,7 @@ use std::collections::{HashMap, VecDeque};
 use parking_lot::Mutex;
 use anyhow::{Result, anyhow};
 use crate::{
-    render::MeshBuilder,
-    config::GameConfig,
-    utils::math::{Vec3, Mat4}
+    config::GameConfig, render::MeshBuilder, utils::math::{Mat4, Vec3}
     
 };
 

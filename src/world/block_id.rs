@@ -1,50 +1,5 @@
-// block.rs - Complete Implementation with Advanced Color Variation System
 
-use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Display, Formatter};
-use thiserror::Error;
-use bitflags::bitflags;
-use glam::{Vec3, Vec4};
-// ========================
-// Core Type Definitions
-// ========================
-
-// In block.rs add Default implementations
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum BlockFacing {
-    None,
-    North,
-    South,
-    East,
-    West,
-    Up,
-    Down,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub enum BlockOrientation {
-    #[default] 
-    Wall,
-    Floor,
-    Ceiling,
-    Corner,
-    Edge,
-    Custom(u8),
-}
-
-bitflags! {
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    pub struct ConnectedDirections: u8 {
-        const NORTH = 0b00000001;
-        const SOUTH = 0b00000010;
-        const EAST = 0b00000100;
-        const WEST = 0b00001000;
-        const UP = 0b00010000;
-        const DOWN = 0b00100000;
-    }
-}
-
+pub use 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockCategory {
@@ -57,81 +12,6 @@ pub enum BlockCategory {
     Decorative,
     Mechanical,
 }
-
-// ========================
-// Material System
-// ========================
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct BlockMaterial {
-    pub id: u16,
-    pub name: String,
-    pub albedo: [f32:4],
-    pub roughness: f32,
-    pub metallic: f32,
-    pub emissive: [f32; 3],
-    pub texture_path: Option<String>,
-    pub normal_map_path: Option<String>,
-    pub occlusion_map_path: Option<String>,
-    #[serde(default)]
-    pub tintable: bool,
-    #[serde(default)]
-    pub grayscale_base: bool,
-    #[serde(default)]
-    pub tint_mask_path: Option<String>,
-    #[serde(default)]
-    pub vertex_colored: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TintSettings {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_tint_strength")]
-    pub strength: f32,
-    #[serde(default)]
-    pub affects_albedo: bool,
-    #[serde(default)]
-    pub affects_emissive: bool,
-    #[serde(default)]
-    pub affects_roughness: bool,
-    #[serde(default)]
-    pub affects_metallic: bool,
-    #[serde(default)]
-    pub blend_mode: TintBlendMode,
-    #[serde(default)]
-    pub mask_channel: TintMaskChannel,
-}
-
-fn default_tint_strength() -> f32 {
-    1.0
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum TintBlendMode {
-    #[default]
-    Multiply,
-    Overlay,
-    Screen,
-    Additive,
-    Replace,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum TintMaskChannel {
-    #[default]
-    Red,
-    Green,
-    Blue,
-    Alpha,
-    All,
-}
-
-// ========================
-// Block Identification
-// ========================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockId {
@@ -191,6 +71,7 @@ impl BlockId {
     }
 }
 
+
 impl Display for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.base_id)?;
@@ -212,10 +93,6 @@ impl From<u32> for BlockId {
         Self::new(base_id)
     }
 }
-
-// ========================
-// Block Definitions
-// ========================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
@@ -241,55 +118,7 @@ pub struct BlockDefinition {
     pub tint_settings: TintSettings,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockVariant {
-    pub id: u16,
-    pub name: String,
-    #[serde(default)]
-    pub texture_overrides: HashMap<BlockFacing, String>,
-    #[serde(default)]
-    pub material_modifiers: MaterialModifiers,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ColorVariant {
-    pub id: u16,
-    pub name: String,
-    pub color: [f32; 4],
-    #[serde(default)]
-    pub material_modifiers: MaterialModifiers,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct MaterialModifiers {
-    #[serde(default)]
-    pub albedo_factor: Option<[f32; 3]>,
-    #[serde(default)]
-    pub roughness_offset: Option<f32>,
-    #[serde(default)]
-    pub metallic_offset: Option<f32>,
-    #[serde(default)]
-    pub emissive_boost: Option<[f32; 3]>,
-    #[serde(default)]
-    pub tint_strength: Option<f32>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BlockFlags {
-    pub transparent: bool,
-    pub emissive: bool,
-    pub flammable: bool,
-    pub conductive: bool,
-    pub magnetic: bool,
-    pub liquid: bool,
-    pub climbable: bool,
-    pub occludes: bool,
-    pub solid: bool,
-}
-
-// ========================
-// Block Instance System
-// ========================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubBlock {
@@ -308,199 +137,22 @@ pub struct Block {
 
 }
 
-// ========================
-// Implementation
-// ========================
-
-
-impl BlockFacing {
-    pub fn opposite(&self) -> Self {
-        match self {
-            BlockFacing::North => BlockFacing::South,
-            BlockFacing::South => BlockFacing::North,
-            BlockFacing::East => BlockFacing::West,
-            BlockFacing::West => BlockFacing::East,
-            BlockFacing::Up => BlockFacing::Down,
-            BlockFacing::Down => BlockFacing::Up,
-            _ => BlockFacing::None,
-        }
-    }
-
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            0 => Self::Wall,
-            1 => Self::Floor,
-            2 => Self::Ceiling,
-            3 => Self::Corner,
-            4 => Self::Edge,
-            n => Self::Custom(n),
-        }
-    }
-    
+pub struct BlockVariant {
+    pub id: u16,
+    pub name: String,
+    #[serde(default)]
+    pub texture_overrides: HashMap<BlockFacing, String>,
+    #[serde(default)]
+    pub material_modifiers: MaterialModifiers,
 }
 
-impl BlockOrientation {
-
-    pub fn from_u8(value: u8) -> Option<Self> {
-        match value {
-            0 => Some(Self::None),
-            1 => Some(Self::North),
-            2 => Some(Self::South),
-            3 => Some(Self::East),
-            4 => Some(Self::West),
-            5 => Some(Self::Up),
-            6 => Some(Self::Down),
-            _ => None,
-        }
-    }
-
-   } 
-
-impl Default for BlockFacing {
-    fn default() -> Self {
-        BlockFacing::None
-    }
-}
-
-impl BlockMaterial {
-    /// Applies material modifiers from variants/colors
-    pub fn apply_modifiers(&mut self, modifiers: &MaterialModifiers) {
-        // Albedo RGB multiplier
-        if let Some(factor) = modifiers.albedo_factor {
-            self.albedo.x *= factor.x;
-            self.albedo.y *= factor.y;
-            self.albedo.z *= factor.z;
-        }
-
-        // Roughness adjustment
-        if let Some(offset) = modifiers.roughness_offset {
-            self.roughness = (self.roughness + offset).clamp(0.0, 1.0);
-        }
-
-        // Metallic adjustment
-        if let Some(offset) = modifiers.metallic_offset {
-            self.metallic = (self.metallic + offset).clamp(0.0, 1.0);
-        }
-
-        // Emissive boost (clamped to prevent HDR overflow)
-        if let Some(boost) = modifiers.emissive_boost {
-            self.emissive = (self.emissive + boost).min(Vec3::splat(1000.0)); // Arbitrary high value
-        }
-
-        // Direct tint strength override
-        if let Some(strength) = modifiers.tint_strength {
-            self.tint_strength = strength.clamp(0.0, 1.0);
-        }
-    }
-
-    /// Applies color tint using specified blend mode
-    pub fn apply_tint(&mut self, tint: Vec4, settings: &TintSettings) {
-        if !settings.enabled || settings.strength <= 0.0 {
-            return;
-        }
-
-        let strength = settings.strength.clamp(0.0, 1.0);
-        let tint = tint * strength;
-
-        // Albedo tinting
-        if settings.affects_albedo {
-            self.albedo = match settings.blend_mode {
-                TintBlendMode::Multiply => Vec4::new(
-                    self.albedo.x * tint.x,
-                    self.albedo.y * tint.y,
-                    self.albedo.z * tint.z,
-                    self.albedo.w
-                ),
-                TintBlendMode::Overlay => Vec4::new(
-                    if self.albedo.x < 0.5 {
-                        2.0 * self.albedo.x * tint.x
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.albedo.x) * (1.0 - tint.x)
-                    },
-                    // Repeat for y/z
-                    self.albedo.y,
-                    self.albedo.z,
-                    self.albedo.w
-                ),
-                TintBlendMode::Screen => Vec4::ONE - (Vec4::ONE - self.albedo) * (Vec4::ONE - tint),
-                TintBlendMode::Additive => (self.albedo + tint).min(Vec4::ONE),
-                TintBlendMode::Replace => self.albedo.lerp(tint, strength),
-            };
-        }
-
-        // Emissive tinting (RGB only)
-        if settings.affects_emissive {
-            self.emissive = match settings.blend_mode {
-                TintBlendMode::Multiply => Vec3::new(
-                    self.emissive.x * tint.x,
-                    self.emissive.y * tint.y,
-                    self.emissive.z * tint.z
-                ),
-                TintBlendMode::Overlay => Vec3::new(
-                    if self.emissive.x < 0.5 {
-                        2.0 * self.emissive.x * tint.x
-                    } else {
-                        1.0 - 2.0 * (1.0 - self.emissive.x) * (1.0 - tint.x)
-                    },
-                    // Repeat for y/z
-                    self.emissive.y,
-                    self.emissive.z
-                ),
-                TintBlendMode::Screen => Vec3::ONE - (Vec3::ONE - self.emissive) * (Vec3::ONE - tint.truncate()),
-                TintBlendMode::Additive => (self.emissive + tint.truncate()).min(Vec3::splat(1000.0)),
-                TintBlendMode::Replace => self.emissive.lerp(tint.truncate(), strength),
-            };
-        }
-
-        // Roughness adjustment (using tint alpha)
-        if settings.affects_roughness {
-            self.roughness = match settings.blend_mode {
-                TintBlendMode::Multiply => self.roughness * tint.w,
-                TintBlendMode::Overlay => if self.roughness < 0.5 {
-                    2.0 * self.roughness * tint.w
-                } else {
-                    1.0 - 2.0 * (1.0 - self.roughness) * (1.0 - tint.w)
-                },
-                TintBlendMode::Screen => 1.0 - (1.0 - self.roughness) * (1.0 - tint.w),
-                TintBlendMode::Additive => (self.roughness + tint.w).min(1.0),
-                TintBlendMode::Replace => self.roughness * (1.0 - strength) + tint.w * strength,
-            }.clamp(0.0, 1.0);
-        }
-
-        // Metallic adjustment (using tint alpha)
-        if settings.affects_metallic {
-            self.metallic = match settings.blend_mode {
-                TintBlendMode::Multiply => self.metallic * tint.w,
-                TintBlendMode::Overlay => if self.metallic < 0.5 {
-                    2.0 * self.metallic * tint.w
-                } else {
-                    1.0 - 2.0 * (1.0 - self.metallic) * (1.0 - tint.w)
-                },
-                TintBlendMode::Screen => 1.0 - (1.0 - self.metallic) * (1.0 - tint.w),
-                TintBlendMode::Additive => (self.metallic + tint.w).min(1.0),
-                TintBlendMode::Replace => self.metallic * (1.0 - strength) + tint.w * strength,
-            }.clamp(0.0, 1.0);
-        }
-    }
-
-    /// Generates a GPU-friendly material uniform
-    pub fn to_uniform(&self) -> MaterialUniform {
-        MaterialUniform {
-            albedo: self.albedo,
-            emissive: self.emissive.extend(0.0),
-            roughness_metallic: Vec2::new(self.roughness, self.metallic),
-            flags: self.get_flags_bits(),
-        }
-    }
-
-    /// Packs material flags into bitfield
-    fn get_flags_bits(&self) -> u32 {
-        let mut bits = 0;
-        bits |= (self.tintable as u32) << 0;
-        bits |= (self.grayscale_base as u32) << 1;
-        bits |= (self.vertex_colored as u32) << 2;
-        bits
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColorVariant {
+    pub id: u16,
+    pub name: String,
+    pub color: [f32; 4],
+    #[serde(default)]
+    pub material_modifiers: MaterialModifiers,
 }
 
 impl Block {
@@ -564,84 +216,6 @@ impl SubBlock {
         self.orientation = orientation;
     }
 }
-
-// ========================
-// Block Registry
-// ========================
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockPhysics {
-    pub density: f32,
-    pub friction: f32,
-    pub restitution: f32,
-    pub dynamic: bool,
-    pub passable: bool,
-    pub break_resistance: f32,
-    pub flammability: f32,
-    pub thermal_conductivity: f32,
-    pub emissive: bool,
-    pub light_level: u8,
-    pub 
-    physics: HashMap<BlockId, BlockPhysics>,  // Add this
-     
-}
-
-impl Default for BlockPhysics {
-    fn default() -> Self {
-        Self {
-            density: 1000.0, // Water density as default
-            friction: 0.6,
-            restitution: 0.0,
-            dynamic: false,
-            passable: false,
-            break_resistance: 1.0,
-            flammability: 0.0,
-            thermal_conductivity: 0.5,
-            emissive: false,
-            light_level: 0,
-        }
-    }
-}
-
-impl BlockPhysics {
-    pub fn solid(density: f32) -> Self {
-        Self {
-            density,
-            friction: 0.6,
-            restitution: 0.1,
-            dynamic: false,
-            passable: false,
-            ..Default::default()
-        }
-    }
-
-    pub fn liquid(density: f32) -> Self {
-        Self {
-            density,
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
-        }
-    }
-
-    pub fn gas() -> Self {
-        Self {
-            density: 1.2, // Air density
-            friction: 0.0,
-            restitution: 0.0,
-            dynamic: true,
-            passable: true,
-            ..Default::default()
-        }
-    }
-
-    pub fn mass(&self, volume: f32) -> f32 {
-        self.density * volume
-    }
-}
-
 
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -1004,29 +578,4 @@ impl BlockRegistry {
         
         self.rebuild_texture_atlas();
     }
-}
-
-// ========================
-// Error Handling
-// ========================
-
-#[derive(Debug, Error)]
-pub enum BlockError {
-    #[error("Duplicate block ID: {0:?}")]
-    DuplicateId(BlockId),
-    
-    #[error("Duplicate block name: {0}")]
-    DuplicateName(String),
-    
-    #[error("Invalid variant data")]
-    InvalidVariant,
-    
-    #[error("Serialization failed")]
-    SerializationFailed,
-    
-    #[error("Deserialization failed")]
-    DeserializationFailed,
-    
-    #[error("Texture not found: {0}")]
-    TextureNotFound(String),
 }

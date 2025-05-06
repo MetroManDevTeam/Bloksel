@@ -7,6 +7,10 @@ use thiserror::Error;
 
 /// Math utilities and extensions
 pub mod math;
+pub mod error
+
+pub use error::{BlockError}
+pub use math::{ViewFrustum, Orientation, Ray, Plane, RayIntersection, RaycastResult. AABB, ConnectedDirections}
 
 /// Error types
 #[derive(Error, Debug)]

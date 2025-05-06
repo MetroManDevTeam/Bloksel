@@ -22,3 +22,20 @@ impl WorldSave {
         // ... chunk serialization logic
     }
 }
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]  // Added Clone
+struct CompressedSubBlock {
+    local_pos: (u8, u8, u8),
+    id: BlockId,
+    metadata: u8,  // Added missing field
+    orientation: BlockOrientation,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]  // Added Clone
+struct CompressedBlock {
+    position: (usize, usize, usize),
+    id: u16,
+    sub_blocks: Vec<CompressedSubBlock>,
+}

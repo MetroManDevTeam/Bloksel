@@ -31,169 +31,6 @@ pub struct ShaderProgram {
     pub connection_support: bool,
 }
 
-impl ShaderProgram {
-    /// Creates a new shader program from vertex and fragment shader files
-    pub fn new(vertex_path: &str, fragment_path: &str) -> Result<Self, ShaderError> {
-        let vertex_shader = Self::compile_shader(vertex_path, gl::VERTEX_SHADER)?;
-        let fragment_shader = Self::compile_shader(fragment_path, gl::FRAGMENT_SHADER)?;
-        
-        let program = unsafe { gl::CreateProgram() };
-        unsafe {
-            gl::AttachShader(program, vertex_shader);
-            gl::AttachShader(program, fragment_shader);
-            Self::link_program(program)?;
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
-        }
-
-        let mut program = ShaderProgram {
-            id: program,
-            uniforms: std::collections::HashMap::new(),
-            variant_support: false,
-            connection_support: false,
-        };
-
-        program.detect_features();
-        Ok(program)
-    }
-
-    /// Compiles a shader from source file
-    fn compile_shader(path: &str, shader_type: GLenum) -> Result<GLuint, ShaderError> {
-        let source = fs::read_to_string(path)?;
-        let c_source = CString::new(source.as_bytes())?;
-        
-        let shader = unsafe { gl::CreateShader(shader_type) };
-        unsafe {
-            gl::ShaderSource(shader, 1, &c_source.as_ptr(), ptr::null());
-            gl::CompileShader(shader);
-        }
-
-        let mut success = 1;
-        unsafe { gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success) };
-        if success == 0 {
-            let mut len = 0;
-            unsafe { gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len) };
-            let error = Self::get_shader_log(shader, len as usize);
-            return Err(ShaderError::Compilation(error));
-        }
-
-        Ok(shader)
-    }
-
-    /// Links shader program and validates result
-    fn link_program(program: GLuint) -> Result<(), ShaderError> {
-        unsafe {
-            gl::LinkProgram(program);
-            gl::ValidateProgram(program);
-        }
-
-        let mut success = 1;
-        unsafe { gl::GetProgramiv(program, gl::LINK_STATUS, &mut success) };
-        if success == 0 {
-            let mut len = 0;
-            unsafe { gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len) };
-            let error = Self::get_program_log(program, len as usize);
-            return Err(ShaderError::Linking(error));
-        }
-
-        Ok(())
-    }
-
-    /// Detects supported features by checking uniform locations
-    fn detect_features(&mut self) {
-        self.variant_support = self.get_uniform_location("material.variantData").is_ok();
-        self.connection_support = self.get_uniform_location("connectedDirections").is_ok();
-    }
-
-    /// Sets up block material properties including variants
-    
-    pub fn set_block_material(&mut self, material: &BlockMaterial) -> Result<(), ShaderError> {
-        self.set_uniform_vec4("material.albedo", &material.albedo.to_array())?;
-        self.set_uniform_1f("material.roughness", material.roughness)?;
-        self.set_uniform_1f("material.metallic", material.metallic)?;
-        self.set_uniform_vec3("material.emissive",&[f32; 3])?;
-        Ok(())
-    }
-
-
-    /// Sets connected texture directions using bitflags
-    pub fn set_connected_textures(&mut self, connections: u8) -> Result<(), ShaderError> {
-        self.set_uniform_1i("connectedDirections", connections as i32)
-    }
-
-    /// Generic uniform setting methods
-    pub fn get_uniform_location(&mut self, name: &str) -> Result<GLint, ShaderError> {
-        if let Some(loc) = self.uniforms.get(name) {
-            return Ok(*loc);
-        }
-
-        let cname = CString::new(name).map_err(|e| ShaderError::Nul(e))?;
-        let location = unsafe { gl::GetUniformLocation(self.id, cname.as_ptr()) };
-        
-        if location == -1 {
-            return Err(ShaderError::UniformNotFound(name.to_string()));
-        }
-
-        self.uniforms.insert(name.to_string(), location);
-        Ok(location)
-    }
-
-    pub fn set_uniform_1i(&mut self, name: &str, value: i32) -> Result<(), ShaderError> {
-        let loc = self.get_uniform_location(name)?;
-        unsafe { gl::Uniform1i(loc, value) };
-        Ok(())
-    }
-
-    pub fn set_uniform_1f(&mut self, name: &str, value: f32) -> Result<(), ShaderError> {
-        let loc = self.get_uniform_location(name)?;
-        unsafe { gl::Uniform1f(loc, value) };
-        Ok(())
-    }
-
-    pub fn set_uniform_vec3(&mut self, name: &str, value: &[f32; 3]) -> Result<(), ShaderError> {
-        let loc = self.get_uniform_location(name)?;
-        unsafe { gl::Uniform3f(loc, value[0], value[1], value[2]) };
-        Ok(())
-    }
-
-    pub fn set_uniform_vec4(&mut self, name: &str, value: &[f32; 4]) -> Result<()> {
-    let loc = self.get_uniform_location(name)?;
-    unsafe { gl::Uniform4f(loc, value[0], value[1], value[2], value[3]) };
-    Ok(())
-}
-
-    pub fn set_uniform_mat4(&mut self, name: &str, value: &[f32; 16]) -> Result<(), ShaderError> {
-        let loc = self.get_uniform_location(name)?;
-        unsafe { gl::UniformMatrix4fv(loc, 1, gl::FALSE, value.as_ptr()) };
-        Ok(())
-    }
-
-    /// Internal logging utilities
-    fn get_shader_log(shader: GLuint, len: usize) -> String {
-        let mut buffer = Vec::with_capacity(len);
-        unsafe {
-            gl::GetShaderInfoLog(shader, len as i32, ptr::null_mut(), buffer.as_mut_ptr() as *mut GLchar);
-            buffer.set_len(len);
-        }
-        String::from_utf8_lossy(&buffer).into_owned()
-    }
-
-    fn get_program_log(program: GLuint, len: usize) -> String {
-        let mut buffer = Vec::with_capacity(len);
-        unsafe {
-            gl::GetProgramInfoLog(program, len as i32, ptr::null_mut(), buffer.as_mut_ptr() as *mut GLchar);
-            buffer.set_len(len);
-        }
-        String::from_utf8_lossy(&buffer).into_owned()
-    }
-}
-
-impl Drop for ShaderProgram {
-    fn drop(&mut self) {
-        unsafe { gl::DeleteProgram(self.id) };
-    }
-}
-
 /// Predefined voxel shader sources
 pub mod voxel_shaders {
     /// Vertex shader source with variant support
@@ -400,3 +237,11 @@ impl ShaderProgram {
         Ok(program)
     }
 }
+
+
+impl Drop for ShaderProgram {
+    fn drop(&mut self) {
+        unsafe { gl::DeleteProgram(self.id) };
+    }
+}
+

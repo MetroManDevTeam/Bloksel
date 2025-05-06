@@ -1,20 +1,4 @@
-// ui.rs - Menu and World Management UI
-
-use eframe::egui;
-use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
-use crate::engine::{EngineConfig, VoxelEngine};
-
-#[derive(Default, Serialize, Deserialize)]
-pub struct WorldMeta {
-    pub name: String,
-    pub seed: u64,
-    pub last_played: chrono::DateTime<chrono::Local>,
-    pub play_time: f32,
-    pub version: String,
-    pub preview_image: Option<Vec<u8>>,
-}
-
+﻿
 pub struct MenuState {
     current_screen: MenuScreen,
     worlds: Vec<WorldMeta>,
@@ -30,30 +14,6 @@ enum MenuScreen {
     Loading,
 }
 
-struct CreateWorldState {
-    name: String,
-    seed: String,
-    world_type: WorldType,
-    difficulty: Difficulty,
-    bonus_chest: bool,
-    generate_structures: bool,
-}
-
-#[derive(PartialEq)]
-enum WorldType {
-    Default,
-    Flat,
-    Amplified,
-    LargeBiomes,
-}
-
-#[derive(PartialEq)]
-enum Difficulty {
-    Peaceful,
-    Easy,
-    Normal,
-    Hard,
-}
 
 impl Default for MenuState {
     fn default() -> Self {
@@ -255,40 +215,4 @@ impl MenuState {
             _ => None,
         }
     }
-}
-
-// Helper components
-fn button(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    ui.add_sized(
-        [200.0, 40.0], 
-        egui::Button::new(text).fill(egui::Color32::from_rgb(40, 40, 40))
-}
-
-fn logo(ui: &mut egui::Ui) {
-    ui.heading("VOXEL ENGINE");
-    ui.add_space(10.0);
-    ui.label("Version 1.0.0");
-}
-
-// World management
-fn load_saved_worlds() -> Vec<WorldMeta> {
-    let saves_dir = Path::new("saves");
-    let mut worlds = Vec::new();
-    
-    if let Ok(entries) = std::fs::read_dir(saves_dir) {
-        for entry in entries.flatten() {
-            if let Ok(meta) = std::fs::read_to_string(entry.path().join("world.json")) {
-                if let Ok(world) = serde_json::from_str(&meta) {
-                    worlds.push(world);
-                }
-            }
-        }
-    }
-    
-    worlds
-}
-
-fn delete_world(name: &str) {
-    let path = Path::new("saves").join(name);
-    let _ = std::fs::remove_dir_all(path);
 }

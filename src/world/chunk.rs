@@ -1,10 +1,34 @@
+struct ChunkCoord(IVec3);
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SerializedChunk {
+    pub coord: ChunkCoord,  // Made public
+    pub blocks: Vec<CompressedBlock>,
+}
+
+impl SerializedChunk {
+    pub fn from_chunk(coord: ChunkCoord, _chunk: &Chunk) -> Self {
+        let blocks = Vec::new();
+        // TODO: Implement actual conversion logic
+        Self { coord, blocks }
+    }
+
+    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        bincode::serialize_into(&mut writer, self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+}
+
+
 pub struct ChunkManager {
     chunks: HashMap<ChunkCoord, Chunk>,
     renderer: ChunkRenderer,
     world_config: WorldConfig,
     compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>>,
     block_registry: Arc<BlockRegistry>,  // Added missing field
-}
+
 
 impl ChunkManager {
     pub fn new(world_config: WorldConfig, renderer: ChunkRenderer, block_registry: Arc<BlockRegistry>) -> Self {
@@ -107,11 +131,11 @@ impl ChunkManager {
                     chunk.set_block(x, y, z, Some(block));
                 }
             }
-        }
-    }
-
+        
+    
+   
     Arc::new(chunk)
-}
+
     pub fn generate_merged_mesh(&self) -> ChunkMesh {
         let mut merged_mesh = ChunkMesh::new();
         let mut index_offset = 0;
@@ -226,7 +250,7 @@ impl ChunkManager {
             log::warn!("Block {} not found in registry", name);
             BlockId::AIR
         })
-}
+
 
 fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
     match biome {
@@ -242,5 +266,6 @@ fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaC
         },
         _ => {}
     }
-}
-                }
+
+                } 
+    }

@@ -1,33 +1,48 @@
-// main.rs
-use std::time::{Instant, Duration};
-use anyhow::Result;
-use glam::{Vec3, Mat4};
-use crate::{
-    config::EngineConfig,
-    world::World,
-    render::Renderer,
-    player::Player
+// Core Rust
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex, RwLock, atomic::{AtomicBool, Ordering}},
+    time::{Instant, Duration},
+    ops::ControlFlow,
 };
-use log::{info, LevelFilter};
+
+// External Crates
+use anyhow::Result;
+use crossbeam_channel::{bounded, Sender, Receiver};
+use glam::{Vec2, Vec3, Mat4};
+use log::{info, error, LevelFilter};
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use simple_logger::SimpleLogger;
 use winit::{
     window::{Window, WindowBuilder},
     event::{Event, WindowEvent},
     event_loop::EventLoop,
 };
-       
-use std::ops::ControlFlow;
 
-mod engine;
-mod player;
-mod chunk;
-mod block;
-mod chunk_renderer;
-mod terrain_generator;
-mod shader;
+// Engine Modules
+use crate::core::{
+    rendering::{ChunkRenderer, ShaderProgram, Mesh, Camera},
+    worldgen::WorldGenConfig,
+    chunksys::{Chunk, ChunkCoord, ChunkPool, ChunkSysConfig},
+    gameplay::GameplayConfig,
+    game::TerrainConfig,
+    input::PlayerInput,
+    physics::{Player, PlayerState},
+    helpers::{save_world, load_saved_worlds},
+    menu::{MenuState, MenuScreen},
+    world::{WorldMeta, CreateWorldState},
+    utils::{
+        math::{ViewFrustum, Ray, Plane},
+        error::BlockError,
+    },
+};
 
-
-use engine::{EngineConfig};
+// Re-exports for cleaner usage
+pub use crate::core::{
+    rendering::pipeline::RenderPipeline,
+    utils::Orientation,
+};
 
 fn main() -> Result<()> {
     // Initialize logging
@@ -485,4 +500,15 @@ impl Drop for VoxelEngine {
     struct ThreadPoolStats {
     active_threads: usize,
     queued_tasks: usize,
+}
+
+
+
+#[derive(Default)]
+struct EngineStats {
+    frame_count: u64,
+    active_chunks: usize,
+    render_stats: RenderStats,
+    memory_usage: usize,
+    thread_stats: ThreadPoolStats,
 }

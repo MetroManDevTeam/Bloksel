@@ -51,7 +51,7 @@ pub struct Plane {
     pub distance: f32,
 }
 
-impl Plane {
+pub impl Plane {
     pub fn normalize(&mut self) {
         let length = self.normal.length();
         self.normal /= length;
@@ -94,13 +94,13 @@ pub enum Orientation {
     None,
 }
 
-impl Default for Orientation {
+oub impl Default for Orientation {
     fn default() -> Self {
         Orientation::North
     }
 }
 
-impl Orientation {
+pub impl Orientation {
     pub fn to_matrix(&self) -> glam::Mat4 {
         match self {
             Orientation::North => glam::Mat4::IDENTITY,

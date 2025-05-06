@@ -1,7 +1,15 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\src",
+    "\\src\\assets",
+    "\\src\\config",
+    "\\src\\player",
+    "\\src\\render",
+    "\\src\\render\\shaders",
+    "\\src\\ui",
+    "\\src\\world",
+    "\\src\\world\\generator"
   ],
-  "SelectedNode": "\\.gitignore",
   "PreviewInSolutionExplorer": false
 }
