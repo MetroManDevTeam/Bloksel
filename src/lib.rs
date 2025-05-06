@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod config;
+pub mod engine;
 pub mod player;
 pub mod render;
 pub mod ui;
@@ -11,6 +12,7 @@ pub use config::{
     chunksys::ChunkSysConfig, core::EngineConfig, gameplay::GameplayConfig,
     worldgen::WorldGenConfig,
 };
+pub use engine::VoxelEngine;
 pub use player::{
     input::PlayerInput,
     physics::{Player, PlayerState},
