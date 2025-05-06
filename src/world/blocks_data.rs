@@ -1,13 +1,10 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
-use super::{
-    block_id::{BlockDefinition, BlockVariant, ColorVariant},
-    block_mat::{BlockMaterial, MaterialModifiers, TintBlendMode, TintMaskChannel, TintSettings},
-    block_tech::BlockFlags,
-    block_visual::{BlockFacing, BlockOrientation},
-};
-use crate::world::block::Block;
-use crate::world::{BlockDefinition, BlockId};
+use crate::world::block_facing::BlockFacing;
+use crate::world::block_id::{BlockDefinition, BlockId};
+use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
+use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_tech::{BlockFlags, BlockPhysics};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -786,7 +783,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     },
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BlockRegistry {
     blocks: HashMap<BlockId, BlockDefinition>,
     name_to_id: HashMap<String, BlockId>,
