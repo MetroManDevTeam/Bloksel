@@ -16,7 +16,6 @@ use crate::world::spatial::QuadTree;
 use crate::world::spatial::SpatialPartition;
 use crate::world::storage::core::{ChunkStorage, MemoryStorage};
 use crate::world::storage::file::FileChunkStorage;
-use crate::world::storage::file::FileStorage;
 use crate::{config::core::EngineConfig, render::pipeline::ChunkRenderer};
 use glam::Vec3;
 use std::path::Path;
