@@ -23,7 +23,7 @@ pub use block_id::{BlockCategory, BlockData, BlockDefinition, BlockId, BlockRegi
 pub use block_material::BlockMaterial;
 pub use block_orientation::BlockOrientation;
 pub use block_tech::BlockPhysics;
-pub use block_visual::{BlockVisual, ConnectedDirections};
+pub use block_visual::ConnectedDirections;
 pub use blocks_data::BLOCKS;
 pub use chunk::{Chunk, SerializedChunk};
 pub use chunk_coord::ChunkCoord;
