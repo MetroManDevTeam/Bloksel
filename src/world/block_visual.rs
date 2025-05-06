@@ -1,48 +1,44 @@
 use crate::world::block_facing::BlockFacing;
+use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ConnectedDirections {
-    pub north: bool,
-    pub south: bool,
-    pub east: bool,
-    pub west: bool,
-    pub up: bool,
-    pub down: bool,
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub struct ConnectedDirections: u8 {
+        const NORTH = 0b00000001;
+        const SOUTH = 0b00000010;
+        const EAST = 0b00000100;
+        const WEST = 0b00001000;
+        const UP = 0b00010000;
+        const DOWN = 0b00100000;
+    }
 }
 
 impl ConnectedDirections {
     pub fn new() -> Self {
-        Self {
-            north: false,
-            south: false,
-            east: false,
-            west: false,
-            up: false,
-            down: false,
-        }
+        Self::empty()
     }
 
     pub fn set(&mut self, facing: BlockFacing, connected: bool) {
         match facing {
-            BlockFacing::North => self.north = connected,
-            BlockFacing::South => self.south = connected,
-            BlockFacing::East => self.east = connected,
-            BlockFacing::West => self.west = connected,
-            BlockFacing::Up => self.up = connected,
-            BlockFacing::Down => self.down = connected,
+            BlockFacing::North => self.set(ConnectedDirections::NORTH, connected),
+            BlockFacing::South => self.set(ConnectedDirections::SOUTH, connected),
+            BlockFacing::East => self.set(ConnectedDirections::EAST, connected),
+            BlockFacing::West => self.set(ConnectedDirections::WEST, connected),
+            BlockFacing::Up => self.set(ConnectedDirections::UP, connected),
+            BlockFacing::Down => self.set(ConnectedDirections::DOWN, connected),
             BlockFacing::None => (),
         }
     }
 
     pub fn get(&self, facing: BlockFacing) -> bool {
         match facing {
-            BlockFacing::North => self.north,
-            BlockFacing::South => self.south,
-            BlockFacing::East => self.east,
-            BlockFacing::West => self.west,
-            BlockFacing::Up => self.up,
-            BlockFacing::Down => self.down,
+            BlockFacing::North => self.contains(ConnectedDirections::NORTH),
+            BlockFacing::South => self.contains(ConnectedDirections::SOUTH),
+            BlockFacing::East => self.contains(ConnectedDirections::EAST),
+            BlockFacing::West => self.contains(ConnectedDirections::WEST),
+            BlockFacing::Up => self.contains(ConnectedDirections::UP),
+            BlockFacing::Down => self.contains(ConnectedDirections::DOWN),
             BlockFacing::None => false,
         }
     }
