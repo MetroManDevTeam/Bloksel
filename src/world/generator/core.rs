@@ -1,7 +1,3 @@
-pub mod terrain;
-
-pub use terrain::{BiomeType, Generator, Terrain, WorldType};
-
 use crate::world::block::Block;
 use crate::world::block_id::BlockId;
 use crate::world::chunk::Chunk;
