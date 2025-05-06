@@ -18,6 +18,117 @@ pub struct BlockMaterial {
     pub vertex_colored: bool,
 }
 
+impl BlockMaterial {
+    pub fn apply_modifiers(&mut self, modifiers: &MaterialModifiers) {
+        if let Some(albedo_factor) = modifiers.albedo_factor {
+            self.albedo[0] *= albedo_factor[0];
+            self.albedo[1] *= albedo_factor[1];
+            self.albedo[2] *= albedo_factor[2];
+        }
+        if let Some(roughness_offset) = modifiers.roughness_offset {
+            self.roughness = (self.roughness + roughness_offset).clamp(0.0, 1.0);
+        }
+        if let Some(metallic_offset) = modifiers.metallic_offset {
+            self.metallic = (self.metallic + metallic_offset).clamp(0.0, 1.0);
+        }
+        if let Some(emissive_boost) = modifiers.emissive_boost {
+            self.emission[0] += emissive_boost[0];
+            self.emission[1] += emissive_boost[1];
+            self.emission[2] += emissive_boost[2];
+        }
+    }
+
+    pub fn apply_tint(&mut self, color: [f32; 3], settings: &TintSettings) {
+        if !settings.enabled {
+            return;
+        }
+
+        let strength = settings.strength;
+        match settings.blend_mode {
+            TintBlendMode::Multiply => {
+                if settings.affects_albedo {
+                    self.albedo[0] *= color[0] * strength;
+                    self.albedo[1] *= color[1] * strength;
+                    self.albedo[2] *= color[2] * strength;
+                }
+                if settings.affects_emissive {
+                    self.emission[0] *= color[0] * strength;
+                    self.emission[1] *= color[1] * strength;
+                    self.emission[2] *= color[2] * strength;
+                }
+            }
+            TintBlendMode::Overlay => {
+                if settings.affects_albedo {
+                    for i in 0..3 {
+                        if self.albedo[i] < 0.5 {
+                            self.albedo[i] = 2.0 * self.albedo[i] * color[i] * strength;
+                        } else {
+                            self.albedo[i] =
+                                1.0 - 2.0 * (1.0 - self.albedo[i]) * (1.0 - color[i] * strength);
+                        }
+                    }
+                }
+                if settings.affects_emissive {
+                    for i in 0..3 {
+                        if self.emission[i] < 0.5 {
+                            self.emission[i] = 2.0 * self.emission[i] * color[i] * strength;
+                        } else {
+                            self.emission[i] =
+                                1.0 - 2.0 * (1.0 - self.emission[i]) * (1.0 - color[i] * strength);
+                        }
+                    }
+                }
+            }
+            TintBlendMode::Screen => {
+                if settings.affects_albedo {
+                    for i in 0..3 {
+                        self.albedo[i] = 1.0 - (1.0 - self.albedo[i]) * (1.0 - color[i] * strength);
+                    }
+                }
+                if settings.affects_emissive {
+                    for i in 0..3 {
+                        self.emission[i] =
+                            1.0 - (1.0 - self.emission[i]) * (1.0 - color[i] * strength);
+                    }
+                }
+            }
+            TintBlendMode::Additive => {
+                if settings.affects_albedo {
+                    for i in 0..3 {
+                        self.albedo[i] = (self.albedo[i] + color[i] * strength).min(1.0);
+                    }
+                }
+                if settings.affects_emissive {
+                    for i in 0..3 {
+                        self.emission[i] = (self.emission[i] + color[i] * strength).min(1.0);
+                    }
+                }
+            }
+            TintBlendMode::Replace => {
+                if settings.affects_albedo {
+                    for i in 0..3 {
+                        self.albedo[i] = color[i] * strength;
+                    }
+                }
+                if settings.affects_emissive {
+                    for i in 0..3 {
+                        self.emission[i] = color[i] * strength;
+                    }
+                }
+            }
+        }
+
+        if settings.affects_roughness {
+            self.roughness =
+                (self.roughness * (1.0 - strength) + color[0] * strength).clamp(0.0, 1.0);
+        }
+        if settings.affects_metallic {
+            self.metallic =
+                (self.metallic * (1.0 - strength) + color[0] * strength).clamp(0.0, 1.0);
+        }
+    }
+}
+
 impl Default for BlockMaterial {
     fn default() -> Self {
         Self {
