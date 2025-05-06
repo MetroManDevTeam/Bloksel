@@ -11,7 +11,7 @@ pub struct Block {
     pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SubBlock {
     pub id: BlockId,
     pub metadata: u8,
@@ -52,7 +52,7 @@ impl Block {
         self.sub_blocks.remove(&(x, y, z));
     }
 
-    pub fn get_primary_id(&self) -> u16 {
-        self.id.base_id as u16
+    pub fn get_primary_id(&self) -> BlockId {
+        self.id
     }
 }
