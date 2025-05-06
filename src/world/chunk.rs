@@ -88,6 +88,61 @@ impl Chunk {
             mesh: None,
         }
     }
+
+    pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
+        let chunk_file = world_dir.join(format!(
+            "chunk_{}_{}_{}.bin",
+            self.coord.x(),
+            self.coord.y(),
+            self.coord.z()
+        ));
+        let file = File::create(chunk_file)?;
+        let writer = BufWriter::new(file);
+        serialize_into(writer, self)?;
+        Ok(())
+    }
+
+    pub fn load_world(world_dir: &Path, coord: ChunkCoord) -> std::io::Result<Self> {
+        let chunk_file = world_dir.join(format!(
+            "chunk_{}_{}_{}.bin",
+            coord.x(),
+            coord.y(),
+            coord.z()
+        ));
+        let file = File::open(chunk_file)?;
+        let chunk: Chunk = deserialize_from(file)?;
+        Ok(chunk)
+    }
+
+    pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
+        let local_pos = IVec3::new(
+            (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+            (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+            (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+        );
+
+        self.get_block(local_pos.x as u8, local_pos.y as u8, local_pos.z as u8)
+            .map(|block| (block, local_pos))
+    }
+
+    pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
+        let local_pos = IVec3::new(
+            (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+            (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+            (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+        );
+
+        self.get_block(local_pos.x as u8, local_pos.y as u8, local_pos.z as u8)
+            .and_then(|block| {
+                block
+                    .get_sub_block(
+                        (local_pos.x as u8).rem_euclid(CHUNK_SIZE),
+                        (local_pos.y as u8).rem_euclid(CHUNK_SIZE),
+                        (local_pos.z as u8).rem_euclid(CHUNK_SIZE),
+                    )
+                    .map(|sub_block| (sub_block, local_pos))
+            })
+    }
 }
 
 pub struct ChunkManager {
@@ -135,7 +190,7 @@ impl ChunkManager {
 
                         compressed.push(CompressedBlock {
                             position: (x as usize, y as usize, z as usize),
-                            id: block.id.base_id,
+                            id: block.id,
                             sub_blocks,
                         });
                     }
@@ -199,12 +254,8 @@ impl ChunkManager {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
         fs::create_dir_all(&world_dir)?;
 
-        let path = Path::new(&world_dir).join("world.dat");
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-
         for (coord, chunk) in &self.chunks {
-            serialize_into(&mut writer, &(coord, chunk))?;
+            chunk.save_world(Path::new(&world_dir))?;
         }
 
         Ok(())
@@ -212,81 +263,131 @@ impl ChunkManager {
 
     pub fn load_world(&mut self) -> std::io::Result<()> {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
-        let path = Path::new(&world_dir).join("world.dat");
+        let world_path = Path::new(&world_dir);
 
-        if !path.exists() {
+        if !world_path.exists() {
             return Ok(());
         }
 
-        let file = File::open(path)?;
-        let mut reader = std::io::BufReader::new(file);
-
-        while let Ok((coord, chunk)) = deserialize_from(&mut reader) {
-            self.add_chunk(coord, chunk);
+        for entry in fs::read_dir(world_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "bin") {
+                let coord = ChunkCoord::from_path(&path)?;
+                let chunk = Chunk::load_world(world_path, coord)?;
+                self.add_chunk(coord, chunk);
+            }
         }
 
         Ok(())
     }
 
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
-        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as u32);
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
         let chunk = self.chunks.get(&chunk_coord)?;
-
-        let local_x = (world_pos.x as i32 % CHUNK_SIZE as i32) as u8;
-        let local_y = (world_pos.y as i32 % CHUNK_SIZE as i32) as u8;
-        let local_z = (world_pos.z as i32 % CHUNK_SIZE as i32) as u8;
-
-        chunk.get_block(local_x, local_y, local_z).map(|block| {
-            (
-                block,
-                IVec3::new(
-                    chunk_coord.x() * CHUNK_SIZE as i32 + local_x as i32,
-                    chunk_coord.y() * CHUNK_SIZE as i32 + local_y as i32,
-                    chunk_coord.z() * CHUNK_SIZE as i32 + local_z as i32,
-                ),
-            )
-        })
+        chunk.get_block_at(world_pos)
     }
 
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
-        let (block, block_pos) = self.get_block_at(world_pos)?;
-
-        let local_x = (world_pos.x as i32 % CHUNK_SIZE as i32) as u8;
-        let local_y = (world_pos.y as i32 % CHUNK_SIZE as i32) as u8;
-        let local_z = (world_pos.z as i32 % CHUNK_SIZE as i32) as u8;
-
-        block.get_sub_block(local_x, local_y, local_z).map(|sub| {
-            (
-                sub,
-                IVec3::new(
-                    block_pos.x * CHUNK_SIZE as i32 + local_x as i32,
-                    block_pos.y * CHUNK_SIZE as i32 + local_y as i32,
-                    block_pos.z * CHUNK_SIZE as i32 + local_z as i32,
-                ),
-            )
-        })
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
+        let chunk = self.chunks.get(&chunk_coord)?;
+        chunk.get_subblock_at(world_pos)
     }
 
     fn get_block_id_safe(&self, name: &str) -> BlockId {
         self.block_registry
-            .get_by_name(name)
-            .map(|def| def.id)
+            .get_block_id(name)
             .unwrap_or(BlockId::AIR)
     }
 
     fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
+        // Add biome-specific features to the block
         match biome {
-            BiomeType::Grassland => {
-                if rng.gen_ratio(1, 10) {
-                    self.add_grass_features(block, rng);
+            BiomeType::Plains => {
+                // Add grass and flowers
+                if rng.gen_bool(0.1) {
+                    block.place_sub_block(
+                        0,
+                        1,
+                        0,
+                        SubBlock {
+                            id: self.get_block_id_safe("grass"),
+                            metadata: 0,
+                            facing: BlockFacing::PosY,
+                            orientation: BlockOrientation::None,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
                 }
             }
-            BiomeType::Swamp => {
-                if rng.gen_ratio(1, 8) {
-                    self.add_swamp_features(block, rng);
+            BiomeType::Forest => {
+                // Add trees and bushes
+                if rng.gen_bool(0.05) {
+                    block.place_sub_block(
+                        0,
+                        1,
+                        0,
+                        SubBlock {
+                            id: self.get_block_id_safe("tree"),
+                            metadata: 0,
+                            facing: BlockFacing::PosY,
+                            orientation: BlockOrientation::None,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
                 }
             }
-            _ => {}
+            BiomeType::Desert => {
+                // Add cacti and dead bushes
+                if rng.gen_bool(0.02) {
+                    block.place_sub_block(
+                        0,
+                        1,
+                        0,
+                        SubBlock {
+                            id: self.get_block_id_safe("cactus"),
+                            metadata: 0,
+                            facing: BlockFacing::PosY,
+                            orientation: BlockOrientation::None,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
+                }
+            }
+            BiomeType::Mountains => {
+                // Add rocks and snow
+                if rng.gen_bool(0.1) {
+                    block.place_sub_block(
+                        0,
+                        1,
+                        0,
+                        SubBlock {
+                            id: self.get_block_id_safe("rock"),
+                            metadata: 0,
+                            facing: BlockFacing::PosY,
+                            orientation: BlockOrientation::None,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
+                }
+            }
+            BiomeType::Ocean => {
+                // Add coral and seaweed
+                if rng.gen_bool(0.05) {
+                    block.place_sub_block(
+                        0,
+                        1,
+                        0,
+                        SubBlock {
+                            id: self.get_block_id_safe("coral"),
+                            metadata: 0,
+                            facing: BlockFacing::PosY,
+                            orientation: BlockOrientation::None,
+                            connections: ConnectedDirections::default(),
+                        },
+                    );
+                }
+            }
         }
     }
 }
