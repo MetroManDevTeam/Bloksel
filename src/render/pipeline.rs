@@ -223,65 +223,85 @@ impl ChunkRenderer {
         Ok(())
     }
 
-    pub fn upload_chunk_data(&mut self, chunk: &mut Chunk, mesh: &mut ChunkMesh) {
+    pub fn upload_chunk_data(&mut self, _chunk: &mut Chunk, mesh: &mut ChunkMesh) {
         unsafe {
             // Generate and bind VAO
-            gl::GenVertexArrays(1, &mut mesh.vao);
-            gl::BindVertexArray(mesh.vao);
+            let mut vao = 0;
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            mesh.vao = vao;
 
-            // Generate and bind VBO
-            gl::GenBuffers(1, &mut mesh.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, mesh.vbo);
+            // Generate and bind VBO for vertices
+            let mut vbo = 0;
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            mesh.vbo = vbo;
+
+            // Upload vertex data
+            let vertex_data = mesh.vertices.as_slice();
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.vertices.len() * std::mem::size_of::<f32>()) as isize,
-                mesh.vertices.as_ptr() as *const _,
+                (vertex_data.len() * std::mem::size_of::<f32>()) as isize,
+                vertex_data.as_ptr() as *const _,
                 gl::STATIC_DRAW,
             );
 
-            // Generate and bind EBO
-            gl::GenBuffers(1, &mut mesh.ebo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.indices.len() * std::mem::size_of::<u32>()) as isize,
-                mesh.indices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            // Position attribute
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                8 * std::mem::size_of::<f32>() as i32,
-                std::ptr::null(),
-            );
+            // Set up vertex position attribute
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
             gl::EnableVertexAttribArray(0);
 
-            // Normal attribute
-            gl::VertexAttribPointer(
-                1,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                8 * std::mem::size_of::<f32>() as i32,
-                (3 * std::mem::size_of::<f32>()) as *const _,
+            // Generate and bind VBO for normals
+            let mut normal_vbo = 0;
+            gl::GenBuffers(1, &mut normal_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, normal_vbo);
+
+            // Upload normal data
+            let normal_data = mesh.normals.as_slice();
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (normal_data.len() * std::mem::size_of::<f32>()) as isize,
+                normal_data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
             );
+
+            // Set up normal attribute
+            gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
             gl::EnableVertexAttribArray(1);
 
-            // UV attribute
-            gl::VertexAttribPointer(
-                2,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                8 * std::mem::size_of::<f32>() as i32,
-                (6 * std::mem::size_of::<f32>()) as *const _,
+            // Generate and bind VBO for UVs
+            let mut uv_vbo = 0;
+            gl::GenBuffers(1, &mut uv_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, uv_vbo);
+
+            // Upload UV data
+            let uv_data = mesh.uvs.as_slice();
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (uv_data.len() * std::mem::size_of::<f32>()) as isize,
+                uv_data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
             );
+
+            // Set up UV attribute
+            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
             gl::EnableVertexAttribArray(2);
 
+            // Generate and bind EBO
+            let mut ebo = 0;
+            gl::GenBuffers(1, &mut ebo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+            mesh.ebo = ebo;
+
+            // Upload index data
+            let index_data = mesh.indices.as_slice();
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (index_data.len() * std::mem::size_of::<u32>()) as isize,
+                index_data.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+
+            // Unbind VAO
             gl::BindVertexArray(0);
         }
     }
@@ -295,22 +315,21 @@ impl ChunkRenderer {
         }
     }
 
-    fn generate_greedy_mesh(&self, chunk: &Chunk) -> ChunkMesh {
-        let mut mesh = ChunkMesh::new();
-        // Implement greedy meshing algorithm here
-        // (This would be a full implementation spanning multiple functions)
+    fn generate_greedy_mesh(&self, _chunk: &Chunk) -> ChunkMesh {
+        let mesh = ChunkMesh::new();
+        // TODO: Implement greedy meshing
         mesh
     }
 
-    fn generate_simplified_mesh(&self, chunk: &Chunk, factor: u8) -> ChunkMesh {
-        let mut mesh = ChunkMesh::new();
-        // LOD implementation
+    fn generate_simplified_mesh(&self, _chunk: &Chunk, _factor: u8) -> ChunkMesh {
+        let mesh = ChunkMesh::new();
+        // TODO: Implement simplified meshing
         mesh
     }
 
-    fn generate_bounding_box_mesh(&self, chunk: &Chunk) -> ChunkMesh {
-        let mut mesh = ChunkMesh::new();
-        // Simple bounding box representation
+    fn generate_bounding_box_mesh(&self, _chunk: &Chunk) -> ChunkMesh {
+        let mesh = ChunkMesh::new();
+        // TODO: Implement bounding box meshing
         mesh
     }
 
