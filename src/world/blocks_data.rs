@@ -67,64 +67,181 @@ impl BlockFlags {
     }
 }
 
-// Initialize a default block material
-fn default_material() -> BlockMaterial {
-    BlockMaterial {
-        id: 0,
-        name: "default".into(),
-        albedo: [1.0, 1.0, 1.0, 1.0], // Using [f32; 4] instead of Vec4 for serialization
-        roughness: 0.5,
-        metallic: 0.0,
-        emission: [0.0, 0.0, 0.0],
-        texture_path: None,
-        normal_map_path: None,
-        occlusion_map_path: None,
-        tintable: false,
-        grayscale_base: false,
-        tint_mask_path: None,
-        vertex_colored: false,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockMaterial {
+    pub color: [f32; 4],
+    pub emissive: [f32; 3],
+    pub metallic: f32,
+    pub roughness: f32,
+    pub albedo: [f32; 4],
+    pub emission: [f32; 3],
+    pub texture_path: String,
+}
+
+impl Default for BlockMaterial {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0, 1.0],
+            emissive: [0.0, 0.0, 0.0],
+            metallic: 0.0,
+            roughness: 1.0,
+            albedo: [1.0, 1.0, 1.0, 1.0],
+            emission: [0.0, 0.0, 0.0],
+            texture_path: String::new(),
+        }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockDefinition {
+    pub id: BlockId,
+    pub name: String,
+    pub flags: BlockFlags,
+    pub material: BlockMaterial,
+}
+
+impl BlockDefinition {
+    pub fn new(id: BlockId, name: String) -> Self {
+        Self {
+            id,
+            name,
+            flags: BlockFlags::default(),
+            material: BlockMaterial::default(),
+        }
+    }
+
+    pub fn with_flags(mut self, flags: BlockFlags) -> Self {
+        self.flags = flags;
+        self
+    }
+
+    pub fn with_material(mut self, material: BlockMaterial) -> Self {
+        self.material = material;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct BlockRegistry {
-    blocks: HashMap<BlockId, BlockDefinition>,
-    name_to_id: HashMap<String, BlockId>,
+    blocks: HashMap<String, BlockDefinition>,
+    id_to_name: HashMap<BlockId, String>,
 }
 
 impl BlockRegistry {
     pub fn new() -> Self {
         Self {
             blocks: HashMap::new(),
-            name_to_id: HashMap::new(),
+            id_to_name: HashMap::new(),
         }
     }
 
-    pub fn register(&mut self, block: BlockDefinition) {
-        self.blocks.insert(block.id, block.clone());
-        self.name_to_id.insert(block.name.clone(), block.id);
-    }
-
-    pub fn get(&self, id: BlockId) -> Option<&BlockDefinition> {
-        self.blocks.get(&id)
+    pub fn register(&mut self, definition: BlockDefinition) {
+        let name = definition.name.clone();
+        let id = definition.id;
+        self.blocks.insert(name.clone(), definition);
+        self.id_to_name.insert(id, name);
     }
 
     pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
-        self.name_to_id.get(name).and_then(|id| self.blocks.get(id))
+        self.blocks.get(name)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &BlockDefinition> {
-        self.blocks.values()
+    pub fn get_by_id(&self, id: BlockId) -> Option<&BlockDefinition> {
+        self.id_to_name
+            .get(&id)
+            .and_then(|name| self.blocks.get(name))
     }
 
-    pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
-        self.get(id).map(|def| def.material.clone())
+    pub fn get_block_material(&self, id: BlockId) -> Option<&BlockMaterial> {
+        self.get_by_id(id).map(|def| &def.material)
     }
 
-    pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
-        self.get(id)
-            .map(|def| BlockPhysics::from(def.flags))
-            .unwrap_or_default()
+    pub fn get_block_flags(&self, id: BlockId) -> Option<BlockFlags> {
+        self.get_by_id(id).map(|def| def.flags)
+    }
+}
+
+impl Default for BlockRegistry {
+    fn default() -> Self {
+        let mut registry = Self::new();
+
+        // Air
+        registry.register(
+            BlockDefinition::new(BlockId::new(0, 0, 0), "air".to_string())
+                .with_flags(BlockFlags::default().with_transparent(true))
+                .with_material(BlockMaterial::default()),
+        );
+
+        // Stone
+        registry.register(
+            BlockDefinition::new(BlockId::new(1, 0, 0), "stone".to_string())
+                .with_flags(BlockFlags::default().with_solid(true))
+                .with_material(BlockMaterial {
+                    color: [0.5, 0.5, 0.5, 1.0],
+                    ..Default::default()
+                }),
+        );
+
+        // Grass
+        registry.register(
+            BlockDefinition::new(BlockId::new(2, 0, 0), "grass".to_string())
+                .with_flags(BlockFlags::default().with_solid(true))
+                .with_material(BlockMaterial {
+                    color: [0.3, 0.8, 0.3, 1.0],
+                    ..Default::default()
+                }),
+        );
+
+        // Water
+        registry.register(
+            BlockDefinition::new(BlockId::new(3, 0, 0), "water".to_string())
+                .with_flags(
+                    BlockFlags::default()
+                        .with_liquid(true)
+                        .with_transparent(true),
+                )
+                .with_material(BlockMaterial {
+                    color: [0.2, 0.3, 0.9, 0.8],
+                    ..Default::default()
+                }),
+        );
+
+        // Lava
+        registry.register(
+            BlockDefinition::new(BlockId::new(4, 0, 0), "lava".to_string())
+                .with_flags(BlockFlags::default().with_liquid(true).with_light_level(15))
+                .with_material(BlockMaterial {
+                    color: [1.0, 0.5, 0.0, 1.0],
+                    emissive: [1.0, 0.5, 0.0],
+                    ..Default::default()
+                }),
+        );
+
+        // Sand
+        registry.register(
+            BlockDefinition::new(BlockId::new(5, 0, 0), "sand".to_string())
+                .with_flags(BlockFlags::default().with_solid(true))
+                .with_material(BlockMaterial {
+                    color: [0.9, 0.9, 0.7, 1.0],
+                    ..Default::default()
+                }),
+        );
+
+        // Glass
+        registry.register(
+            BlockDefinition::new(BlockId::new(6, 0, 0), "glass".to_string())
+                .with_flags(
+                    BlockFlags::default()
+                        .with_solid(true)
+                        .with_transparent(true),
+                )
+                .with_material(BlockMaterial {
+                    color: [0.9, 0.9, 0.9, 0.5],
+                    ..Default::default()
+                }),
+        );
+
+        registry
     }
 }
 
