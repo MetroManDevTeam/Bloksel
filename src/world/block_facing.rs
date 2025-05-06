@@ -23,4 +23,4 @@ impl BlockFacing {
             BlockFacing::None => BlockFacing::None,
         }
     }
-} 
+}
