@@ -3,8 +3,8 @@ use crate::render::mesh::Mesh;
 use crate::render::shaders::ShaderProgram;
 use crate::render::{Camera, Shader};
 use crate::world::block_material::BlockMaterial;
-use crate::world::chunk::ChunkMesh;
-use crate::world::{BlockRegistry, Chunk};
+use crate::world::chunk::{Chunk, ChunkMesh, CHUNK_SIZE};
+use crate::world::{BlockRegistry, block::Block};
 use anyhow::Context;
 use anyhow::Result;
 use gl::types::{GLsizei, GLuint};
@@ -42,23 +42,12 @@ pub struct ChunkRenderer {
     pending_textures: HashSet<u16>,
     shader: ShaderProgram,
     texture_atlas_size: u32,
+    block_registry: Arc<BlockRegistry>,
 }
 
 impl ChunkRenderer {
-    pub fn new() -> Result<Self, anyhow::Error> {
-        let shader = ShaderProgram::new("assets/shaders/chunk.vert", "assets/shaders/chunk.frag")?;
-
-        let mut texture_atlas = 0;
-        unsafe {
-            gl::GenTextures(1, &mut texture_atlas);
-            gl::BindTexture(gl::TEXTURE_2D, texture_atlas);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-        }
-
-        Ok(Self {
+    pub fn new(shader: ShaderProgram, texture_atlas: GLuint, block_registry: Arc<BlockRegistry>) -> Self {
+        Self {
             materials: HashMap::new(),
             texture_atlas: Some(RgbaImage::new(ATLAS_START_SIZE, ATLAS_START_SIZE)),
             texture_atlas_id: None,
@@ -70,7 +59,8 @@ impl ChunkRenderer {
             pending_textures: HashSet::new(),
             shader,
             texture_atlas_size: ATLAS_START_SIZE,
-        })
+            block_registry,
+        }
     }
 
     fn init_default_materials(&mut self) -> Result<(), anyhow::Error> {
@@ -525,8 +515,7 @@ impl ChunkRenderer {
                 self.shader.use_program();
                 self.shader.set_uniform("model", &chunk.transform());
                 self.shader.set_uniform("view", &camera.view_matrix());
-                self.shader
-                    .set_uniform("projection", &camera.projection_matrix());
+                self.shader.set_uniform("projection", &camera.projection_matrix());
 
                 // Bind texture atlas
                 gl::ActiveTexture(gl::TEXTURE0);
