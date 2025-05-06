@@ -47,7 +47,7 @@ impl ChunkMesh {
 
 pub struct Chunk {
     pub coord: ChunkCoord,
-    pub blocks: [Block; CHUNK_VOLUME],
+    pub blocks: Vec<Option<Block>>,
     pub mesh: ChunkMesh,
 }
 
@@ -55,19 +55,19 @@ impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
-            blocks: [Block::new(0); CHUNK_VOLUME],
+            blocks: vec![None; CHUNK_VOLUME],
             mesh: ChunkMesh::new(),
         }
     }
 
-    pub fn get_block(&self, x: u8, y: u8, z: u8) -> Block {
+    pub fn get_block(&self, x: u8, y: u8, z: u8) -> Option<&Block> {
         let index = (x as usize)
             + (y as usize) * CHUNK_SIZE as usize
             + (z as usize) * (CHUNK_SIZE as usize).pow(2);
-        self.blocks[index]
+        self.blocks[index].as_ref()
     }
 
-    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Block) {
+    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Option<Block>) {
         let index = (x as usize)
             + (y as usize) * CHUNK_SIZE as usize
             + (z as usize) * (CHUNK_SIZE as usize).pow(2);
