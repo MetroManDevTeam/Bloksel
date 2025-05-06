@@ -151,15 +151,6 @@ pub struct BlockDefinition {
     pub tint_settings: TintSettings,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubBlock {
-    pub id: BlockId,
-    pub metadata: u8,
-    pub facing: BlockFacing,
-    pub orientation: BlockOrientation,
-    pub connections: ConnectedDirections,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BlockVariant {
     pub id: u16,
