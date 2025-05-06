@@ -23,7 +23,8 @@ pub use utils::{
 };
 pub use world::{
     block_id::BlockRegistry,
-    chunk::{Chunk, ChunkCoord, SerializedChunk},
+    chunk::{Chunk, SerializedChunk},
+    chunk_coord::ChunkCoord,
     generator::terrain::TerrainGenerator,
     spatial::SpatialPartition,
 };
