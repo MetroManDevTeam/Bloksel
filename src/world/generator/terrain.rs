@@ -204,7 +204,12 @@ impl TerrainGenerator {
                     if block_id != BlockId::new(0) {
                         let mut block = self.create_block(block_id, biome, &mut rng);
                         self.add_strata_details(&mut block, world_y, &mut rng);
-                        chunk.set_block(x, y, z, Some(block));
+                        chunk.set_block(
+                            x.try_into().unwrap(),
+                            y.try_into().unwrap(),
+                            z.try_into().unwrap(),
+                            block,
+                        );
                     }
                 }
             }
@@ -228,7 +233,12 @@ impl TerrainGenerator {
                         let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
                         if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
                             let block = self.create_block(*block_id, BiomeType::Plains, &mut rng);
-                            chunk.set_block(x, chunk_y as usize, z, Some(block));
+                            chunk.set_block(
+                                x.try_into().unwrap(),
+                                chunk_y.try_into().unwrap(),
+                                z.try_into().unwrap(),
+                                block,
+                            );
                         }
                     }
                 }
@@ -248,7 +258,12 @@ impl TerrainGenerator {
                     let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
                     if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
                         let block = self.create_block(bedrock_id, BiomeType::Plains, &mut rng);
-                        chunk.set_block(x, chunk_y as usize, z, Some(block));
+                        chunk.set_block(
+                            x.try_into().unwrap(),
+                            chunk_y.try_into().unwrap(),
+                            z.try_into().unwrap(),
+                            block,
+                        );
                     }
                 }
             }
