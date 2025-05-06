@@ -51,7 +51,11 @@ pub struct Plane {
     pub distance: f32,
 }
 
-pub impl Plane {
+impl Plane {
+    pub fn new(normal: Vec3, distance: f32) -> Self {
+        Self { normal, distance }
+    }
+
     pub fn normalize(&mut self) {
         let length = self.normal.length();
         self.normal /= length;
@@ -95,17 +99,13 @@ pub enum Orientation {
     None,
 }
 
-pub impl Default for Orientation {
+impl Default for Orientation {
     fn default() -> Self {
-        Self {
-            yaw: 0.0,
-            pitch: 0.0,
-            roll: 0.0,
-        }
+        Self::Wall
     }
 }
 
-pub impl Orientation {
+impl Orientation {
     pub fn to_matrix(&self) -> glam::Mat4 {
         match self {
             Orientation::North => glam::Mat4::IDENTITY,
@@ -135,6 +135,10 @@ pub impl Orientation {
             }
             Orientation::None => glam::Vec3::ZERO,
         }
+    }
+
+    pub fn from_quat(quat: Quat) -> Self {
+        // ... existing code ...
     }
 }
 
