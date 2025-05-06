@@ -6,6 +6,7 @@ use crate::world::block_visual::ConnectedDirections;
 use crate::world::{BlockMaterial, BlockRegistry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -62,14 +63,14 @@ impl Block {
         self.id.color_id() as u8
     }
 
-    pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
+    pub fn get_material(&self, registry: &Arc<BlockRegistry>) -> BlockMaterial {
         registry
             .get_block_material(self.id)
             .cloned()
             .unwrap_or_default()
     }
 
-    pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
+    pub fn get_physics(&self, registry: &Arc<BlockRegistry>) -> BlockPhysics {
         registry.get_block_flags(self.id).map_or_else(
             || BlockPhysics::default(),
             |flags| BlockPhysics::from(flags),
