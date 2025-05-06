@@ -1,10 +1,12 @@
-use crate::config::rendering::EngineConfig;
-use crate::utils::core::{AABB, ViewFrustum};
-use crate::world::ChunkCoord;
+use crate::{
+    config::EngineConfig,
+    utils::math::{AABB as MathAABB, Plane as MathPlane, ViewFrustum as MathViewFrustum},
+    world::chunk::{CHUNK_SIZE, ChunkCoord},
+};
 use glam::{Mat4, Vec3};
-use std::collections::HashMap;
-
-use std::collections::BTreeMap;
+use parking_lot::RwLock;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 struct SpatialPartition {
     quadtree: QuadTree,
@@ -23,8 +25,8 @@ impl SpatialPartition {
         }
     }
 
-    fn update(&mut self, player_pos: Vec3, view_frustum: &ViewFrustum, config: &EngineConfig) {
-        if player_pos.distance(self.last_player_pos) > config.chunk_size as f32 * 0.5 {
+    fn update(&mut self, player_pos: Vec3, view_frustum: &MathViewFrustum, config: &EngineConfig) {
+        if player_pos.distance(self.last_player_pos) > CHUNK_SIZE as f32 * 0.5 {
             self.rebuild_quadtree(player_pos, config);
             self.last_player_pos = player_pos;
         }
@@ -38,7 +40,7 @@ impl SpatialPartition {
         self.spatial_index.clear();
 
         let radius = config.render_distance as i32;
-        let center_chunk = ChunkCoord::from_world_pos(center, config.chunk_size);
+        let center_chunk = ChunkCoord::from_world_pos(center, CHUNK_SIZE as i32);
 
         for x in -radius..=radius {
             for z in -radius..=radius {
@@ -56,14 +58,14 @@ impl SpatialPartition {
 
     fn update_lod(&mut self, center: Vec3, visible: &[ChunkCoord], config: &EngineConfig) {
         for coord in visible {
-            let distance = self.calculate_distance(center, coord, config.chunk_size);
+            let distance = self.calculate_distance(center, coord, CHUNK_SIZE);
             let lod = self.calculate_lod_level(distance, config);
             self.lod_state.insert(*coord, lod);
         }
     }
 
-    fn calculate_distance(&self, pos: Vec3, coord: &ChunkCoord, chunk_size: u32) -> f32 {
-        let chunk_center = coord.to_world_center(chunk_size);
+    fn calculate_distance(&self, pos: Vec3, coord: &ChunkCoord, _chunk_size: u32) -> f32 {
+        let chunk_center = coord.to_world_center(CHUNK_SIZE);
         pos.distance(chunk_center)
     }
 
@@ -98,7 +100,7 @@ impl SpatialPartition {
 struct QuadTree {
     nodes: [Option<Box<QuadTree>>; 4],
     chunks: Vec<ChunkCoord>,
-    bounds: AABB,
+    bounds: MathAABB,
     depth: u8,
 }
 
@@ -109,7 +111,7 @@ impl QuadTree {
         Self {
             nodes: [None, None, None, None],
             chunks: Vec::new(),
-            bounds: AABB {
+            bounds: MathAABB {
                 min: Vec3::new(-size, 0.0, -size),
                 max: Vec3::new(size, 256.0, size),
             },
@@ -147,22 +149,22 @@ impl QuadTree {
         ((coord.x as f32 >= center.x) as usize) + (((coord.z as f32 >= center.z) as usize) * 2)
     }
 
-    fn get_quadrant_bounds(&self, quadrant: usize) -> AABB {
+    fn get_quadrant_bounds(&self, quadrant: usize) -> MathAABB {
         let center = self.bounds.center();
         match quadrant {
-            0 => AABB {
+            0 => MathAABB {
                 min: self.bounds.min,
                 max: center,
             },
-            1 => AABB {
+            1 => MathAABB {
                 min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z),
                 max: Vec3::new(self.bounds.max.x, center.y, center.z),
             },
-            2 => AABB {
+            2 => MathAABB {
                 min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z),
                 max: Vec3::new(center.x, center.y, self.bounds.max.z),
             },
-            3 => AABB {
+            3 => MathAABB {
                 min: center,
                 max: self.bounds.max,
             },
@@ -170,7 +172,7 @@ impl QuadTree {
         }
     }
 
-    pub fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
+    pub fn query(&self, frustum: &MathViewFrustum) -> Vec<ChunkCoord> {
         let mut visible_chunks = Vec::new();
 
         if !self.bounds.intersects_frustum(frustum) {
