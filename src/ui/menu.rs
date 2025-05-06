@@ -1,253 +1,183 @@
-﻿use crate::ui::world::WorldMeta;
+use egui::{Context, CentralPanel, Window, ComboBox, Grid, Spinner};
+use crate::{
+    world::WorldMeta,
+    engine::VoxelEngine,
+};
 
-#[derive(Debug, Clone)]
-pub struct MenuState {
-    pub current_screen: MenuScreen,
-    pub saved_worlds: Vec<WorldMeta>,
-    pub selected_world: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MenuScreen {
     Main,
+    WorldSelect,
     CreateWorld,
-    SelectWorld,
-    Settings,
-    Quit,
+    Loading,
 }
 
-impl Default for MenuState {
-    fn default() -> Self {
-        Self {
-            current_screen: MenuScreen::Main,
-            saved_worlds: load_saved_worlds(),
-            selected_world: None,
-        }
-    }
+#[derive(Debug)]
+pub struct MenuState {
+    current_screen: MenuScreen,
+    create_world_state: CreateWorldState,
+    selected_world: Option<WorldMeta>,
 }
 
 impl MenuState {
-    pub fn show(&mut self, ctx: &egui::Context, engine: &mut VoxelEngine) {
+    pub fn new() -> Self {
+        Self {
+            current_screen: MenuScreen::Main,
+            create_world_state: CreateWorldState::default(),
+            selected_world: None,
+        }
+    }
+
+    pub fn show(&mut self, ctx: &Context, engine: &mut VoxelEngine) {
         match self.current_screen {
-            MenuScreen::Main => self.main_menu(ctx),
-            MenuScreen::CreateWorld => self.create_world(ctx),
-            MenuScreen::SelectWorld => self.worlds_list(ctx),
-            MenuScreen::Settings => {
-                // Open settings window
-            }
-            MenuScreen::Quit => {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
+            MenuScreen::Main => self.show_main_menu(ctx),
+            MenuScreen::WorldSelect => self.show_world_select(ctx),
+            MenuScreen::CreateWorld => self.show_create_world(ctx),
+            MenuScreen::Loading => self.show_loading_screen(ctx),
         }
 
         self.handle_transitions(engine);
     }
 
-    fn main_menu(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn show_main_menu(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.add_space(50.0);
-                logo(ui);
-                ui.add_space(30.0);
+                ui.heading("Bloksel");
+                ui.add_space(20.0);
 
-                if button(ui, "Create New World").clicked() {
-                    self.current_screen = MenuScreen::CreateWorld;
+                if ui.button("Play").clicked() {
+                    self.current_screen = MenuScreen::WorldSelect;
                 }
 
-                if button(ui, "Load World").clicked() {
-                    self.current_screen = MenuScreen::SelectWorld;
+                if ui.button("Settings").clicked() {
+                    // TODO: Show settings
                 }
 
-                if button(ui, "Settings").clicked() {
-                    self.current_screen = MenuScreen::Settings;
-                }
-
-                if button(ui, "Quit Game").clicked() {
-                    self.current_screen = MenuScreen::Quit;
+                if ui.button("Quit").clicked() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
         });
     }
 
-    fn create_world(&mut self, ctx: &egui::Context) {
-        egui::Window::new("Create New World")
+    fn show_world_select(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("Select World");
+                ui.add_space(20.0);
+
+                if ui.button("Create New World").clicked() {
+                    self.current_screen = MenuScreen::CreateWorld;
+                }
+
+                if ui.button("Back").clicked() {
+                    self.current_screen = MenuScreen::Main;
+                }
+            });
+        });
+    }
+
+    fn show_create_world(&mut self, ctx: &Context) {
+        Window::new("Create New World")
             .collapsible(false)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("World Name:");
-                    ui.text_edit_singleline(&mut self.create_state.name);
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Seed:");
-                    ui.text_edit_singleline(&mut self.create_state.seed);
-                });
-
-                egui::Grid::new("world_settings")
+                Grid::new("world_settings")
                     .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
                     .show(ui, |ui| {
+                        ui.label("World Name:");
+                        ui.text_edit_singleline(&mut self.create_world_state.name);
+                        ui.end_row();
+
                         ui.label("World Type:");
-                        egui::ComboBox::new("world_type", "")
-                            .selected_text(format!("{:?}", self.create_state.world_type))
+                        ComboBox::new("world_type", "")
+                            .selected_text(format!("{:?}", self.create_world_state.world_type))
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut self.create_state.world_type,
-                                    WorldType::Default,
-                                    "Default",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.world_type,
-                                    WorldType::Flat,
-                                    "Flat",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.world_type,
-                                    WorldType::Amplified,
-                                    "Amplified",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.world_type,
-                                    WorldType::LargeBiomes,
-                                    "Large Biomes",
-                                );
+                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Normal, "Normal");
+                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Superflat, "Superflat");
+                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Void, "Void");
                             });
                         ui.end_row();
 
                         ui.label("Difficulty:");
-                        egui::ComboBox::new("difficulty", "")
-                            .selected_text(format!("{:?}", self.create_state.difficulty))
+                        ComboBox::new("difficulty", "")
+                            .selected_text(format!("{:?}", self.create_world_state.difficulty))
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut self.create_state.difficulty,
-                                    Difficulty::Peaceful,
-                                    "Peaceful",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.difficulty,
-                                    Difficulty::Easy,
-                                    "Easy",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.difficulty,
-                                    Difficulty::Normal,
-                                    "Normal",
-                                );
-                                ui.selectable_value(
-                                    &mut self.create_state.difficulty,
-                                    Difficulty::Hard,
-                                    "Hard",
-                                );
+                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Peaceful, "Peaceful");
+                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Easy, "Easy");
+                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Normal, "Normal");
+                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Hard, "Hard");
                             });
-                        ui.end_row();
-
-                        ui.label("Options:");
-                        ui.checkbox(&mut self.create_state.bonus_chest, "Bonus Chest");
-                        ui.checkbox(
-                            &mut self.create_state.generate_structures,
-                            "Generate Structures",
-                        );
                         ui.end_row();
                     });
 
-                ui.horizontal(|ui| {
-                    if button(ui, "Cancel").clicked() {
-                        self.current_screen = MenuScreen::Main;
-                    }
+                ui.add_space(20.0);
 
-                    if button(ui, "Create World").clicked() {
+                ui.horizontal(|ui| {
+                    if ui.button("Create").clicked() {
                         self.current_screen = MenuScreen::Loading;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.current_screen = MenuScreen::WorldSelect;
                     }
                 });
             });
     }
 
-    fn worlds_list(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Select World");
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for (idx, world) in self.worlds.iter().enumerate() {
-                    let selected = self.selected_world == Some(idx);
-                    ui.horizontal(|ui| {
-                        // World preview image
-                        if let Some(preview) = &world.preview_image {
-                            // Display image texture
-                        } else {
-                            ui.label("📁");
-                        }
-
-                        // World info
-                        ui.vertical(|ui| {
-                            ui.heading(&world.name);
-                            ui.label(format!("Last played: {}", world.last_played));
-                            ui.label(format!("Play time: {} hours", world.play_time));
-                        });
-
-                        // Selection indicator
-                        if selected {
-                            ui.label("✔");
-                        }
-                    })
-                    .clicked()
-                    .then(|| {
-                        self.selected_world = Some(idx);
-                    });
-                }
-            });
-
-            ui.separator();
-
-            ui.horizontal(|ui| {
-                if button(ui, "Back").clicked() {
-                    self.current_screen = MenuScreen::Main;
-                }
-
-                if button(ui, "Play").clicked() {
-                    if let Some(idx) = self.selected_world {
-                        self.current_screen = MenuScreen::Loading;
-                    }
-                }
-
-                if button(ui, "Delete").clicked() {
-                    if let Some(idx) = self.selected_world {
-                        delete_world(&self.worlds[idx].name);
-                        self.worlds.remove(idx);
-                        self.selected_world = None;
-                    }
-                }
-            });
-        });
-    }
-
-    fn loading_screen(&self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn show_loading_screen(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.add_space(100.0);
-                ui.label("Generating world...");
-                ui.add(egui::Spinner::new().size(50.0));
-                ui.label("This may take a few minutes");
+                ui.heading("Loading...");
+                ui.add_space(20.0);
+                ui.add(Spinner::new().size(50.0));
             });
         });
     }
 
     fn handle_transitions(&mut self, engine: &mut VoxelEngine) {
-        if let MenuScreen::Loading = self.current_screen {
-            if let Some(world_name) = self.get_pending_world() {
-                let config = EngineConfig {
-                    world_seed: self.create_state.seed.parse().unwrap_or(0),
-                    // ... other config ...
-                };
-
-                engine.create_world(config);
+        match self.current_screen {
+            MenuScreen::Loading => {
+                let config = engine.create_world_config(&self.create_world_state);
+                engine.load_world(config);
                 self.current_screen = MenuScreen::Main;
             }
+            _ => {}
         }
     }
+}
 
-    fn get_pending_world(&self) -> Option<String> {
-        match self.current_screen {
-            MenuScreen::Loading => Some(self.create_state.name.clone()),
-            _ => None,
-        }
+#[derive(Debug, Default)]
+pub struct CreateWorldState {
+    pub name: String,
+    pub world_type: WorldType,
+    pub difficulty: Difficulty,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WorldType {
+    Normal,
+    Superflat,
+    Void,
+}
+
+impl Default for WorldType {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Difficulty {
+    Peaceful,
+    Easy,
+    Normal,
+    Hard,
+}
+
+impl Default for Difficulty {
+    fn default() -> Self {
+        Self::Normal
     }
 }
