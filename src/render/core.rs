@@ -1,11 +1,10 @@
-use crate::render::{
-    camera::Camera,
-    mesh::{Mesh, MeshData},
-    pipeline::RenderPipeline,
-    shaders::Shader,
-};
+pub mod camera;
+pub mod mesh;
+pub mod pipeline;
+pub mod shaders;
 
-pub use super::camera::Camera;
-pub use super::mesh::{Mesh, MeshData};
-pub use super::pipeline::RenderPipeline;
-pub use super::shaders::Shader;
+// Remove duplicate imports and re-exports
+pub use camera::Camera;
+pub use mesh::{Mesh, MeshData};
+pub use pipeline::RenderPipeline;
+pub use shaders::Shader;
