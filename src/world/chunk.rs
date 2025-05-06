@@ -259,6 +259,31 @@ impl Chunk {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedChunk {
+    pub coord: ChunkCoord,
+    pub blocks: Vec<Option<Block>>,
+}
+
+impl SerializedChunk {
+    pub fn from_chunk(coord: ChunkCoord, chunk: &Chunk) -> Self {
+        Self {
+            coord,
+            blocks: chunk.blocks.clone(),
+        }
+    }
+}
+
+impl Chunk {
+    pub fn from_serialized(serialized: SerializedChunk) -> Result<Self, std::io::Error> {
+        Ok(Self {
+            position: serialized.coord,
+            blocks: serialized.blocks,
+            mesh: None,
+        })
+    }
+}
+
 pub struct ChunkManager {
     chunks: std::collections::HashMap<ChunkCoord, Arc<Chunk>>,
     renderer: ChunkRenderer,
@@ -292,14 +317,13 @@ impl ChunkManager {
                         let mut sub_blocks = Vec::new();
 
                         for ((sx, sy, sz), sub) in &block.sub_blocks {
-                            if sub.id != BlockId::AIR {
-                                sub_blocks.push(CompressedSubBlock {
-                                    local_pos: (*sx, *sy, *sz),
-                                    id: sub.id,
-                                    metadata: sub.metadata,
-                                    orientation: sub.orientation,
-                                });
-                            }
+                            sub_blocks.push(CompressedSubBlock {
+                                local_pos: (*sx, *sy, *sz),
+                                id: sub.id,
+                                facing: sub.facing,
+                                orientation: sub.orientation,
+                                connections: sub.connections,
+                            });
                         }
 
                         compressed.push(CompressedBlock {
