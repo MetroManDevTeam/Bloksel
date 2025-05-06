@@ -210,101 +210,55 @@ impl ChunkRenderer {
 
     fn upload_chunk_data(&self, chunk: &mut Chunk, mesh: &ChunkMesh) -> Result<(), anyhow::Error> {
         unsafe {
-            // Generate buffers if they don't exist
-            if chunk.mesh.vao == 0 {
-                gl::GenVertexArrays(1, &mut chunk.mesh.vao);
-            }
-            if chunk.mesh.vbo == 0 {
-                gl::GenBuffers(1, &mut chunk.mesh.vbo);
-            }
-            if chunk.mesh.ebo == 0 {
-                gl::GenBuffers(1, &mut chunk.mesh.ebo);
-            }
+            let mut vao: GLuint = 0;
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
 
-            gl::BindVertexArray(chunk.mesh.vao);
-
-            // Upload vertex data
-            gl::BindBuffer(gl::ARRAY_BUFFER, chunk.mesh.vbo);
+            let mut vbo: GLuint = 0;
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (mesh.vertex_data.len() * std::mem::size_of::<f32>()) as isize,
-                mesh.vertex_data.as_ptr() as *const _,
+                (mesh.vertices.len() * std::mem::size_of::<f32>()) as isize,
+                mesh.vertices.as_ptr() as *const _,
                 gl::STATIC_DRAW,
             );
 
-            // Upload index data
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, chunk.mesh.ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.index_data.len() * std::mem::size_of::<u32>()) as isize,
-                mesh.index_data.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            // Vertex attributes (18 floats per vertex)
-            let stride = (18 * std::mem::size_of::<f32>()) as GLsizei;
-
-            // Position (location = 0)
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
+            // Position attribute
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
             gl::EnableVertexAttribArray(0);
 
-            // Normal (location = 1)
+            // Normal attribute
             gl::VertexAttribPointer(
                 1,
                 3,
                 gl::FLOAT,
                 gl::FALSE,
-                stride,
-                (3 * std::mem::size_of::<f32>()) as *const _,
+                0,
+                mesh.normals.as_ptr() as *const _,
             );
             gl::EnableVertexAttribArray(1);
 
-            // Tangent (location = 2)
-            gl::VertexAttribPointer(
-                2,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                stride,
-                (6 * std::mem::size_of::<f32>()) as *const _,
-            );
+            // UV attribute
+            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, 0, mesh.uvs.as_ptr() as *const _);
             gl::EnableVertexAttribArray(2);
 
-            // Bitangent (location = 3)
-            gl::VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                stride,
-                (9 * std::mem::size_of::<f32>()) as *const _,
+            let mut ebo: GLuint = 0;
+            gl::GenBuffers(1, &mut ebo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (mesh.indices.len() * std::mem::size_of::<u32>()) as isize,
+                mesh.indices.as_ptr() as *const _,
+                gl::STATIC_DRAW,
             );
-            gl::EnableVertexAttribArray(3);
 
-            // Texture coordinates (location = 4)
-            gl::VertexAttribPointer(
-                4,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                stride,
-                (12 * std::mem::size_of::<f32>()) as *const _,
-            );
-            gl::EnableVertexAttribArray(4);
-
-            // Material properties (location = 5)
-            gl::VertexAttribPointer(
-                5,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                stride,
-                (14 * std::mem::size_of::<f32>()) as *const _,
-            );
-            gl::EnableVertexAttribArray(5);
-
-            chunk.mesh.index_count = mesh.index_data.len() as i32;
-            chunk.mesh.needs_upload = false;
+            chunk.mesh = Some(ChunkMesh {
+                vertices: mesh.vertices.clone(),
+                indices: mesh.indices.clone(),
+                normals: mesh.normals.clone(),
+                uvs: mesh.uvs.clone(),
+            });
         }
         Ok(())
     }
@@ -508,30 +462,22 @@ impl ChunkRenderer {
         view_matrix: &Mat4,
         projection_matrix: &Mat4,
     ) -> Result<(), anyhow::Error> {
-        unsafe {
-            gl::BindVertexArray(chunk.mesh.vao);
-            if chunk.mesh.needs_upload {
-                self.upload_chunk_data(&mut chunk, &chunk.mesh)?;
+        if let Some(mesh) = &chunk.mesh {
+            unsafe {
+                gl::BindVertexArray(mesh.vao);
+                shader.set_uniform_mat4("model", &chunk.transform());
+                shader.set_uniform_mat4("view", view_matrix);
+                shader.set_uniform_mat4("projection", projection_matrix);
+
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    mesh.indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    std::ptr::null(),
+                );
             }
-
-            shader.set_uniform_mat4("model", &chunk.transform_matrix());
-            shader.set_uniform_mat4("view", view_matrix);
-            shader.set_uniform_mat4("projection", projection_matrix);
-
-            if let Some(texture_id) = self.texture_atlas_id {
-                gl::ActiveTexture(gl::TEXTURE0);
-                gl::BindTexture(gl::TEXTURE_2D, texture_id);
-            }
-
-            gl::DrawElements(
-                gl::TRIANGLES,
-                chunk.mesh.index_count as i32,
-                gl::UNSIGNED_INT,
-                std::ptr::null(),
-            );
-
-            Ok(())
         }
+        Ok(())
     }
 }
 
