@@ -10,6 +10,13 @@ impl ChunkCoord {
         Self(IVec3::new(x, y, z))
     }
 
+    pub fn from_world_pos(world_pos: Vec3, chunk_size: i32) -> Self {
+        let x = (world_pos.x / chunk_size as f32).floor() as i32;
+        let y = (world_pos.y / chunk_size as f32).floor() as i32;
+        let z = (world_pos.z / chunk_size as f32).floor() as i32;
+        Self::new(x, y, z)
+    }
+
     pub fn x(&self) -> i32 {
         self.0.x
     }
@@ -22,6 +29,14 @@ impl ChunkCoord {
         self.0.z
     }
 
+    pub fn to_world_pos(&self, chunk_size: i32) -> Vec3 {
+        Vec3::new(
+            self.x() as f32 * chunk_size as f32,
+            self.y() as f32 * chunk_size as f32,
+            self.z() as f32 * chunk_size as f32,
+        )
+    }
+
     pub fn distance_squared(&self, other: &ChunkCoord) -> i32 {
         let dx = self.x() - other.x();
         let dy = self.y() - other.y();
@@ -29,19 +44,9 @@ impl ChunkCoord {
         dx * dx + dy * dy + dz * dz
     }
 
-    pub fn from_world_pos(world_pos: Vec3, chunk_size: i32) -> Self {
-        let x = (world_pos.x / chunk_size as f32).floor() as i32;
-        let y = (world_pos.y / chunk_size as f32).floor() as i32;
-        let z = (world_pos.z / chunk_size as f32).floor() as i32;
-        Self::new(x, y, z)
-    }
-
     pub fn from_path(path: &Path) -> std::io::Result<Self> {
         let file_name = path.file_name().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid chunk file name",
-            )
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk file name")
         })?;
 
         let file_name = file_name.to_str().ok_or_else(|| {
@@ -88,5 +93,17 @@ impl ChunkCoord {
         })?;
 
         Ok(Self::new(x, y, z))
+    }
+}
+
+impl From<IVec3> for ChunkCoord {
+    fn from(vec: IVec3) -> Self {
+        Self(vec)
+    }
+}
+
+impl From<ChunkCoord> for IVec3 {
+    fn from(coord: ChunkCoord) -> Self {
+        coord.0
     }
 }
