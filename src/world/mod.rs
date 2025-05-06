@@ -28,6 +28,7 @@ pub use block_visual::ConnectedDirections;
 pub use blocks_data::BlockRegistry;
 pub use chunk::{CHUNK_SIZE, CHUNK_VOLUME, ChunkManager};
 pub use chunk::{Chunk, ChunkCoord, ChunkMesh};
+pub use chunk_coord::ChunkCoord;
 pub use core::World;
 pub use generator::WorldGenerator;
 pub use generator::terrain::TerrainGenerator;
