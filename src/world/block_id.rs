@@ -9,7 +9,7 @@ use crate::world::blocks_data::BLOCKS;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
