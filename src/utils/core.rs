@@ -2,21 +2,14 @@
 //! Core utilities used throughout the engine
 
 use crate::BlockError;
-use crate::utils::math::{
-    AABB, ConnectedDirections, Orientation, Plane, Ray, RayIntersection, RaycastResult, ViewFrustum,
-};
+use crate::utils::math;
 use glam::{IVec3, Mat4, Vec3, Vec4};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
 pub mod error;
-/// Math utilities and extensions
-pub mod math;
 
 pub use error::BlockError;
-pub use math::{
-    AABB, ConnectedDirections, Orientation, Plane, Ray, RayIntersection, RaycastResult, ViewFrustum,
-};
 
 /// Error types
 pub enum EngineError {
