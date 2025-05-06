@@ -1,38 +1,39 @@
 pub mod block;
-pub mod block_error;
+pub mod block_coord;
 pub mod block_facing;
 pub mod block_flags;
 pub mod block_id;
 pub mod block_material;
-pub mod block_orientation;
 pub mod block_tech;
 pub mod block_visual;
 pub mod blocks_data;
 pub mod chunk;
 pub mod chunk_coord;
 pub mod generator;
-pub mod pool;
 pub mod spatial;
 pub mod storage;
 
+// Re-export commonly used types
 pub use block::*;
-pub use block_error::BlockError;
-pub use block_facing::BlockFacing;
-pub use block_flags::BlockFlags;
-pub use block_id::*;
+pub use block_coord::*;
+pub use block_facing::*;
+pub use block_flags::*;
+pub use block_id::BlockRegistry;
 pub use block_material::*;
-pub use block_orientation::BlockOrientation;
 pub use block_tech::*;
 pub use block_visual::*;
 pub use blocks_data::*;
 pub use chunk::*;
-pub use chunk_coord::ChunkCoord;
+pub use chunk_coord::*;
 pub use generator::*;
-pub use pool::{ChunkPool, PoolStats};
 pub use spatial::*;
-pub use storage::core::MemoryStorage;
-pub use storage::file::FileChunkStorage;
 pub use storage::*;
+
+// Re-export specific types that need to be public
+pub use block_tech::BlockPhysics;
+pub use chunk::Chunk;
+pub use chunk_coord::ChunkCoord;
+pub use generator::TerrainGenerator;
 
 use serde::{Deserialize, Serialize};
 
