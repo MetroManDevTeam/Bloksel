@@ -4,7 +4,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::{BlockFlags, BlockPhysics};
-use crate::world::block_visual::ConnectedDirections;
+use crate::world::block_visual::{BlockVisual, ConnectedDirections};
 use crate::world::blocks_data::BLOCKS;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
@@ -31,27 +31,27 @@ pub enum BlockCategory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockId(pub(crate) u32);
+pub struct BlockId(pub u16);
 
 impl BlockId {
     pub const fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
-        Self((base_id << 16) | ((variation & 0xFF) << 8) | (color_id & 0xFF))
+        Self((base_id << 16) | ((variation & 0xFF) << 8) | (color_id & 0xFF) as u16)
     }
 
     pub fn base_id(&self) -> u32 {
-        self.0 >> 16
+        (self.0 as u32) >> 16
     }
 
     pub fn variation(&self) -> u32 {
-        (self.0 >> 8) & 0xFF
+        ((self.0 as u32) >> 8) & 0xFF
     }
 
     pub fn color_id(&self) -> u32 {
-        self.0 & 0xFF
+        self.0 as u32 & 0xFF
     }
 
     pub fn get_id(&self) -> u32 {
-        self.0
+        self.0 as u32
     }
 
     pub fn to_block(self) -> Block {
@@ -61,11 +61,11 @@ impl BlockId {
     pub const AIR: BlockId = BlockId(0);
 
     pub fn with_variation(base_id: u32, variation: u16) -> Self {
-        Self(base_id << 16 | variation as u32)
+        Self((base_id << 16 | variation as u32) as u16)
     }
 
     pub fn with_color(base_id: u32, color_id: u16) -> Self {
-        Self(base_id << 16 | color_id as u32)
+        Self((base_id << 16 | color_id as u32) as u16)
     }
 
     pub fn from_str(s: &str) -> Result<Self, BlockError> {
@@ -88,11 +88,11 @@ impl BlockId {
     }
 
     pub fn to_combined(&self) -> u64 {
-        ((self.0 as u64) << 32) | ((self.0 >> 16) as u64)
+        ((self.0 as u64) << 32) | ((self.0 as u64) << 16)
     }
 
     pub fn is_colored(&self) -> bool {
-        self.0 & 0xFFFF != 0
+        self.0 != 0
     }
 }
 
@@ -110,13 +110,13 @@ impl Display for BlockId {
 
 impl From<BlockId> for u32 {
     fn from(id: BlockId) -> Self {
-        id.0
+        id.0 as u32
     }
 }
 
 impl From<u32> for BlockId {
     fn from(id: u32) -> Self {
-        Self(id)
+        Self(id as u16)
     }
 }
 
@@ -128,13 +128,13 @@ impl From<BlockId> for u64 {
 
 impl From<u64> for BlockId {
     fn from(combined: u64) -> Self {
-        Self(combined as u32)
+        Self(combined as u16)
     }
 }
 
 impl From<i32> for BlockId {
     fn from(value: i32) -> Self {
-        Self(value as u32)
+        Self(value as u16)
     }
 }
 
@@ -169,7 +169,7 @@ impl Default for BlockId {
 
 impl From<BlockId> for u16 {
     fn from(id: BlockId) -> u16 {
-        id.0 as u16
+        id.0
     }
 }
 
@@ -218,75 +218,43 @@ pub struct ColorVariant {
     pub material_modifiers: MaterialModifiers,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct BlockRegistry {
-    next_id: u32,
     blocks: HashMap<String, BlockId>,
-    block_names: HashMap<BlockId, String>,
-    block_flags: HashMap<BlockId, BlockFlags>,
-    block_materials: HashMap<BlockId, BlockMaterial>,
-    block_variations: HashMap<BlockId, HashSet<BlockId>>,
-    block_colors: HashMap<BlockId, HashSet<BlockId>>,
+    materials: HashMap<BlockId, BlockMaterial>,
+    physics: HashMap<BlockId, BlockPhysics>,
 }
 
 impl BlockRegistry {
     pub fn new() -> Self {
         Self {
-            next_id: 0,
             blocks: HashMap::new(),
-            block_names: HashMap::new(),
-            block_flags: HashMap::new(),
-            block_materials: HashMap::new(),
-            block_variations: HashMap::new(),
-            block_colors: HashMap::new(),
+            materials: HashMap::new(),
+            physics: HashMap::new(),
         }
     }
 
     pub fn register_block(
         &mut self,
-        name: impl Into<String>,
-        flags: BlockFlags,
+        name: &str,
+        id: BlockId,
         material: BlockMaterial,
-    ) -> BlockId {
-        let name = name.into();
-        if let Some(&id) = self.blocks.get(&name) {
-            return id;
-        }
-
-        let id = BlockId::new(self.next_id, 0, 0);
-        self.next_id += 1;
-
-        self.blocks.insert(name.clone(), id);
-        self.block_names.insert(id, name);
-        self.block_flags.insert(id, flags);
-        self.block_materials.insert(id, material);
-        self.block_variations.insert(id, HashSet::new());
-        self.block_colors.insert(id, HashSet::new());
-
-        id
+        physics: BlockPhysics,
+    ) {
+        self.blocks.insert(name.to_string(), id);
+        self.materials.insert(id, material);
+        self.physics.insert(id, physics);
     }
 
-    pub fn get_block_id(&self, name: &str) -> Option<BlockId> {
+    pub fn get_by_name(&self, name: &str) -> Option<BlockId> {
         self.blocks.get(name).copied()
     }
 
-    pub fn get_block_name(&self, id: BlockId) -> Option<&str> {
-        self.block_names.get(&id).map(|s| s.as_str())
+    pub fn get_material(&self, id: BlockId) -> Option<&BlockMaterial> {
+        self.materials.get(&id)
     }
 
-    pub fn get_block_flags(&self, id: BlockId) -> Option<BlockFlags> {
-        self.block_flags.get(&id).copied()
-    }
-
-    pub fn get_block_material(&self, id: BlockId) -> Option<&BlockMaterial> {
-        self.block_materials.get(&id)
-    }
-
-    pub fn get_block_variations(&self, id: BlockId) -> Option<&HashSet<BlockId>> {
-        self.block_variations.get(&id)
-    }
-
-    pub fn get_block_colors(&self, id: BlockId) -> Option<&HashSet<BlockId>> {
-        self.block_colors.get(&id)
+    pub fn get_physics(&self, id: BlockId) -> Option<&BlockPhysics> {
+        self.physics.get(&id)
     }
 }
