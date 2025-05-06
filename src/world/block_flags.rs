@@ -61,16 +61,17 @@ impl BlockFlags {
     }
 
     pub fn with_light_level(mut self, light_level: u8) -> Self {
-        let bits = self.bits();
-        self.bits = (bits & !Self::LIGHT_LEVEL_MASK.bits()) | ((light_level as u32) << 8);
-        self
+        let current_bits = self.bits();
+        let new_bits =
+            (current_bits & !Self::LIGHT_LEVEL_MASK.bits()) | ((light_level as u32) << 8);
+        Self::from_bits_truncate(new_bits)
     }
 
     pub fn with_break_resistance(mut self, break_resistance: u8) -> Self {
-        let bits = self.bits();
-        self.bits =
-            (bits & !Self::BREAK_RESISTANCE_MASK.bits()) | ((break_resistance as u32) << 16);
-        self
+        let current_bits = self.bits();
+        let new_bits = (current_bits & !Self::BREAK_RESISTANCE_MASK.bits())
+            | ((break_resistance as u32) << 16);
+        Self::from_bits_truncate(new_bits)
     }
 
     pub fn is_solid(&self) -> bool {
