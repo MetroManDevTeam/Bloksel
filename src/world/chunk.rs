@@ -6,6 +6,7 @@ use std::sync::Arc;
 pub const CHUNK_SIZE: usize = 16;
 pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
     pub blocks: [BlockId; CHUNK_VOLUME],
     pub materials: [BlockMaterial; CHUNK_VOLUME],
@@ -27,6 +28,16 @@ impl Chunk {
             coord,
             is_empty: true,
         }
+    }
+
+    pub fn empty(size: usize) -> Self {
+        Self::new(ChunkCoord::new(0, 0, 0))
+    }
+
+    pub fn from_template(template: &Chunk, coord: ChunkCoord) -> Self {
+        let mut chunk = template.clone();
+        chunk.coord = coord;
+        chunk
     }
 
     pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockId {
