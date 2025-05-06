@@ -11,7 +11,7 @@ use crate::world::generator::terrain::{BiomeType, ChaCha12Rng};
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
-use glam::Vec3;
+use glam::{IVec3, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
