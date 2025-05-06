@@ -16,7 +16,7 @@ pub use player::{
     physics::{Player, PlayerState},
 };
 pub use render::{pipeline::RenderPipeline, shaders::ShaderProgram};
-pub use utils::core::Ray;
+pub use utils::math::raycast::Ray;
 pub use utils::{
     error::BlockError,
     math::{Plane, ViewFrustum},
