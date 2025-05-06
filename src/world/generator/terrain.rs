@@ -416,7 +416,7 @@ impl TerrainGenerator {
     }
 
     fn create_block(&self, id: BlockId, biome: BiomeType, rng: &mut ChaCha12Rng) -> Block {
-        let mut block = Block::new(id);
+        let mut block = Block::new(id.into());
 
         // Add biome-specific features
         match biome {
@@ -545,7 +545,7 @@ impl TerrainGenerator {
         // Generate trunk
         for y in 0..height {
             let pos = IVec3::new(base_pos.x, base_pos.y + y, base_pos.z);
-            blocks.insert(pos, Block::new(trunk_id));
+            blocks.insert(pos, Block::new(trunk_id.into()));
         }
 
         // Generate leaves
@@ -555,7 +555,7 @@ impl TerrainGenerator {
                 for dy in -1..=1 {
                     if dx * dx + dz * dz + dy * dy <= 4 {
                         let pos = center + IVec3::new(dx, dy, dz);
-                        blocks.insert(pos, Block::new(leaves_id));
+                        blocks.insert(pos, Block::new(leaves_id.into()));
                     }
                 }
             }
