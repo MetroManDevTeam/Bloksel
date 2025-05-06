@@ -75,13 +75,7 @@ impl World {
     }
 
     pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Chunk> {
-        if let Some(chunk) = self.storage.get_chunk(coord) {
-            let chunk_ref = Arc::into_raw(chunk);
-            let chunk_mut = unsafe { Arc::from_raw(chunk_ref) };
-            Arc::get_mut(&mut chunk_mut)
-        } else {
-            None
-        }
+        self.storage.get_chunk_mut(coord).and_then(Arc::get_mut)
     }
 
     pub fn has_chunk(&self, coord: ChunkCoord) -> bool {
