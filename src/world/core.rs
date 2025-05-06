@@ -26,20 +26,16 @@ pub struct World {
 
 impl World {
     pub fn new(
-        config: &WorldGenConfig,
-        renderer: ChunkRenderer,
+        config: WorldGenConfig,
+        renderer: Arc<Renderer>,
         block_registry: BlockRegistry,
-        generator: Arc<dyn WorldGenerator>,
-        storage: Arc<dyn ChunkStorage>,
-        pool: Arc<ChunkPool>,
     ) -> Self {
+        let block_registry = Arc::new(block_registry);
         Self {
             chunk_manager: ChunkManager::new(config.clone(), renderer, block_registry.clone()),
+            spatial_partition: SpatialPartition::new(&config.engine),
             block_registry,
-            spatial_partition: SpatialPartition::new(config),
-            generator,
-            storage,
-            pool,
+            config,
         }
     }
 
