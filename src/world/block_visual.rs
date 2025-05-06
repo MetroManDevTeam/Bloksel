@@ -1,3 +1,4 @@
+use crate::world::BlockOrientation;
 use crate::world::block_facing::BlockFacing;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
@@ -21,24 +22,24 @@ impl ConnectedDirections {
 
     pub fn set(&mut self, facing: BlockFacing, connected: bool) {
         match facing {
-            BlockFacing::North => self.set(ConnectedDirections::NORTH, connected),
-            BlockFacing::South => self.set(ConnectedDirections::SOUTH, connected),
-            BlockFacing::East => self.set(ConnectedDirections::EAST, connected),
-            BlockFacing::West => self.set(ConnectedDirections::WEST, connected),
-            BlockFacing::Up => self.set(ConnectedDirections::UP, connected),
-            BlockFacing::Down => self.set(ConnectedDirections::DOWN, connected),
+            BlockFacing::PosZ => self.set(ConnectedDirections::NORTH, connected),
+            BlockFacing::NegZ => self.set(ConnectedDirections::SOUTH, connected),
+            BlockFacing::PosX => self.set(ConnectedDirections::EAST, connected),
+            BlockFacing::NegX => self.set(ConnectedDirections::WEST, connected),
+            BlockFacing::PosY => self.set(ConnectedDirections::UP, connected),
+            BlockFacing::NegY => self.set(ConnectedDirections::DOWN, connected),
             BlockFacing::None => (),
         }
     }
 
     pub fn get(&self, facing: BlockFacing) -> bool {
         match facing {
-            BlockFacing::North => self.contains(ConnectedDirections::NORTH),
-            BlockFacing::South => self.contains(ConnectedDirections::SOUTH),
-            BlockFacing::East => self.contains(ConnectedDirections::EAST),
-            BlockFacing::West => self.contains(ConnectedDirections::WEST),
-            BlockFacing::Up => self.contains(ConnectedDirections::UP),
-            BlockFacing::Down => self.contains(ConnectedDirections::DOWN),
+            BlockFacing::PosZ => self.contains(ConnectedDirections::NORTH),
+            BlockFacing::NegZ => self.contains(ConnectedDirections::SOUTH),
+            BlockFacing::PosX => self.contains(ConnectedDirections::EAST),
+            BlockFacing::NegX => self.contains(ConnectedDirections::WEST),
+            BlockFacing::PosY => self.contains(ConnectedDirections::UP),
+            BlockFacing::NegY => self.contains(ConnectedDirections::DOWN),
             BlockFacing::None => false,
         }
     }
