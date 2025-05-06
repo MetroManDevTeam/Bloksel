@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct BlockMaterial {
     pub id: u32,
     pub name: String,
-    pub color: [f32; 4],
+    pub albedo: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
     pub emissive: f32,
@@ -22,7 +22,7 @@ impl Default for BlockMaterial {
         Self {
             id: 0,
             name: String::new(),
-            color: [1.0, 1.0, 1.0, 1.0],
+            albedo: [1.0, 1.0, 1.0, 1.0],
             roughness: 0.5,
             metallic: 0.0,
             emissive: 0.0,
@@ -38,11 +38,11 @@ impl Default for BlockMaterial {
 }
 
 impl BlockMaterial {
-    pub fn new(color: [f32; 4], roughness: f32, metallic: f32, emissive: f32) -> Self {
+    pub fn new(albedo: [f32; 4], roughness: f32, metallic: f32, emissive: f32) -> Self {
         Self {
             id: 0,
             name: String::new(),
-            color,
+            albedo,
             roughness,
             metallic,
             emissive,
@@ -60,10 +60,10 @@ impl BlockMaterial {
         let [r, g, b, a] = color;
         let strength = settings.strength;
 
-        self.color[0] = self.color[0] * (1.0 - strength) + r * strength;
-        self.color[1] = self.color[1] * (1.0 - strength) + g * strength;
-        self.color[2] = self.color[2] * (1.0 - strength) + b * strength;
-        self.color[3] = self.color[3] * (1.0 - strength) + a * strength;
+        self.albedo[0] = self.albedo[0] * (1.0 - strength) + r * strength;
+        self.albedo[1] = self.albedo[1] * (1.0 - strength) + g * strength;
+        self.albedo[2] = self.albedo[2] * (1.0 - strength) + b * strength;
+        self.albedo[3] = self.albedo[3] * (1.0 - strength) + a * strength;
 
         if !settings.preserve_metallic {
             self.metallic *= 1.0 - strength;
