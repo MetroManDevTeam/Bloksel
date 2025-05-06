@@ -1,7 +1,7 @@
 // shader.rs - Complete Shader Management System
 
-use crate::block::{BlockFlags, BlockId, MaterialModifiers};
-use block::BlockMaterial;
+use crate::world::block::{BlockFlags, BlockId, MaterialModifiers};
+use crate::world::block_mat::BlockMaterial;
 use gl::types::*;
 use std::ffi::{CString, NulError};
 use std::fs;
