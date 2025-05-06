@@ -2,11 +2,9 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_visual::ConnectedDirections;
+use crate::world::{BlockMaterial, BlockPhysics, BlockRegistry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::world::{
-    BlockMaterial, BlockPhysics, BlockRegistry
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -86,3 +84,6 @@ impl SubBlock {
     }
 
     pub fn set_orientation(&mut self, orientation: BlockOrientation) {
+        self.orientation = orientation;
+    }
+}
