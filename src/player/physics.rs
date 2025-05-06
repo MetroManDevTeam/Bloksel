@@ -1,6 +1,8 @@
 use crate::PlayerInput;
 use crate::utils::math::{AABB, Plane, ViewFrustum};
-use crate::world::{BlockData, BlockPhysics, Chunk, ChunkCoord, TerrainGenerator};
+use crate::world::block_id::BlockData;
+use crate::world::block_tech::BlockPhysics;
+use crate::world::{Chunk, ChunkCoord, TerrainGenerator};
 use glam::{Mat4, Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI};
