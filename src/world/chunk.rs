@@ -279,7 +279,7 @@ impl ChunkManager {
                         x,
                         y,
                         z,
-                        Some(Block::new(BlockId::new(1))), // Stone block
+                        Some(Block::new(BlockId::new(1, 0, 0))), // Stone block
                     );
                 }
             }
