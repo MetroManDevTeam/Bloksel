@@ -3,8 +3,9 @@ use crate::{
     player::physics::Player,
     render::{pipeline::ChunkRenderer, shaders::ShaderProgram},
     world::{
-        block_id::BlockRegistry, chunk::Chunk, chunk_coord::ChunkCoord,
-        generator::TerrainGenerator, pool::ChunkPool, spatial::SpatialPartition,
+        block_id::BlockRegistry as BlockIdRegistry, blocks_data::BlockRegistry, chunk::Chunk,
+        chunk_coord::ChunkCoord, generator::TerrainGenerator, pool::ChunkPool,
+        spatial::SpatialPartition,
     },
 };
 use anyhow::Result;
@@ -56,9 +57,9 @@ pub struct VoxelEngine {
 impl VoxelEngine {
     pub fn new(config: EngineConfig) -> Result<Self> {
         // Initialize core systems
-        let block_registry = Arc::new(BlockRegistry::new());
+        let block_registry = Arc::new(BlockRegistry::default());
         let terrain_generator = Arc::new(TerrainGenerator::new(
-            config.clone(),
+            config.worldgen.clone(),
             block_registry.clone(),
         ));
 
