@@ -1,3 +1,12 @@
+use serde::{Deserialize, Serialize};
+
+pub type BlockId = u16;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BlockData {
+    pub id: BlockId,
+    pub metadata: u16,
+}
 
 pub use 
 
