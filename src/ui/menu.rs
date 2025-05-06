@@ -165,8 +165,11 @@ impl MenuState {
     fn handle_transitions(&mut self, engine: &mut VoxelEngine) {
         match self.current_screen {
             MenuScreen::Loading => {
-                let config = engine.create_world_config(&self.create_world_state);
-                engine.load_world(config);
+                let config = engine.create_world_config(
+                    self.create_world_state.name.clone(),
+                    self.create_world_state.seed.parse().unwrap_or(0),
+                );
+                engine.load_world(&PathBuf::from("worlds/current"));
                 self.current_screen = MenuScreen::Main;
             }
             _ => {}
@@ -179,6 +182,7 @@ pub struct CreateWorldState {
     pub name: String,
     pub world_type: WorldType,
     pub difficulty: Difficulty,
+    pub seed: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
