@@ -20,15 +20,51 @@ impl ConnectedDirections {
         Self::empty()
     }
 
-    pub fn set(&mut self, facing: BlockFacing, connected: bool) {
+    pub fn set_direction(&mut self, facing: BlockFacing, connected: bool) {
         match facing {
-            BlockFacing::PosZ => self.set(ConnectedDirections::NORTH, connected),
-            BlockFacing::NegZ => self.set(ConnectedDirections::SOUTH, connected),
-            BlockFacing::PosX => self.set(ConnectedDirections::EAST, connected),
-            BlockFacing::NegX => self.set(ConnectedDirections::WEST, connected),
-            BlockFacing::PosY => self.set(ConnectedDirections::UP, connected),
-            BlockFacing::NegY => self.set(ConnectedDirections::DOWN, connected),
-            BlockFacing::None => {}
+            BlockFacing::PosZ => {
+                if connected {
+                    *self |= ConnectedDirections::NORTH
+                } else {
+                    *self &= !ConnectedDirections::NORTH
+                }
+            }
+            BlockFacing::NegZ => {
+                if connected {
+                    *self |= ConnectedDirections::SOUTH
+                } else {
+                    *self &= !ConnectedDirections::SOUTH
+                }
+            }
+            BlockFacing::PosX => {
+                if connected {
+                    *self |= ConnectedDirections::EAST
+                } else {
+                    *self &= !ConnectedDirections::EAST
+                }
+            }
+            BlockFacing::NegX => {
+                if connected {
+                    *self |= ConnectedDirections::WEST
+                } else {
+                    *self &= !ConnectedDirections::WEST
+                }
+            }
+            BlockFacing::PosY => {
+                if connected {
+                    *self |= ConnectedDirections::UP
+                } else {
+                    *self &= !ConnectedDirections::UP
+                }
+            }
+            BlockFacing::NegY => {
+                if connected {
+                    *self |= ConnectedDirections::DOWN
+                } else {
+                    *self &= !ConnectedDirections::DOWN
+                }
+            }
+            _ => {}
         }
     }
 
@@ -40,7 +76,7 @@ impl ConnectedDirections {
             BlockFacing::NegX => self.contains(ConnectedDirections::WEST),
             BlockFacing::PosY => self.contains(ConnectedDirections::UP),
             BlockFacing::NegY => self.contains(ConnectedDirections::DOWN),
-            BlockFacing::None => false,
+            _ => false,
         }
     }
 
