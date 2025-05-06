@@ -1,11 +1,12 @@
 use crate::{
     config::EngineConfig,
-    utils::math::{AABB as MathAABB, ViewFrustum as MathViewFrustum},
+    utils::math::{AABB as MathAABB, Plane, ViewFrustum as MathViewFrustum},
     world::chunk::ChunkCoord,
 };
 use glam::{Mat4, Vec3};
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 pub struct SpatialPartition {
     quadtree: QuadTree,
@@ -20,9 +21,9 @@ impl SpatialPartition {
             quadtree: QuadTree::new(
                 MathAABB {
                     min: Vec3::new(
-                        -config.render_distance as f32 * 32.0,
+                        -(config.render_distance as i32) as f32 * 32.0,
                         0.0,
-                        -config.render_distance as f32 * 32.0,
+                        -(config.render_distance as i32) as f32 * 32.0,
                     ),
                     max: Vec3::new(
                         config.render_distance as f32 * 32.0,
@@ -52,9 +53,9 @@ impl SpatialPartition {
         self.quadtree = QuadTree::new(
             MathAABB {
                 min: Vec3::new(
-                    -config.render_distance as f32 * 32.0,
+                    -(config.render_distance as i32) as f32 * 32.0,
                     0.0,
-                    -config.render_distance as f32 * 32.0,
+                    -(config.render_distance as i32) as f32 * 32.0,
                 ),
                 max: Vec3::new(
                     config.render_distance as f32 * 32.0,
@@ -239,7 +240,7 @@ impl MathAABB {
 
 impl MathViewFrustum {
     fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
-        let vp = proj * view;
+        let vp = proj.clone() * view.clone();
         let mut planes = [Plane::default(); 6];
 
         // Left plane
