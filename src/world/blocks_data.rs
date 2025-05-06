@@ -356,106 +356,43 @@ pub const BLOCKS: &[BlockDefinition] = &[
 ];
 
 pub fn create_default_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::NONE
-        .with_solid(false)
-        .with_transparent(false)
-        .with_liquid(false)
-        .with_flora(false)
-        .with_decorative(false)
-        .with_light_level(0)
-        .with_break_resistance(0);
-
+    let flags = TechBlockFlags::NONE;
     let material = BlockMaterial::default();
-
     (flags, material)
 }
 
 pub fn create_stone_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::SOLID
-        | TechBlockFlags::LIQUID
-            .with_solid(true)
-            .with_transparent(false)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(0)
-            .with_break_resistance(5);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::SOLID;
+    let material = BlockMaterial::new([0.8, 0.8, 0.8, 1.0], 0.7, 0.0, 0.0);
     (flags, material)
 }
 
 pub fn create_grass_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::SOLID
-        | TechBlockFlags::LIQUID
-            .with_solid(true)
-            .with_transparent(false)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(0)
-            .with_break_resistance(2);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::SOLID;
+    let material = BlockMaterial::new([0.4, 0.8, 0.3, 1.0], 0.9, 0.0, 0.0);
     (flags, material)
 }
 
 pub fn create_water_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::LIQUID
-        .with_solid(false)
-        .with_transparent(true)
-        .with_liquid(true)
-        .with_flora(false)
-        .with_decorative(false)
-        .with_light_level(0)
-        .with_break_resistance(0);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::LIQUID;
+    let material = BlockMaterial::new([0.2, 0.4, 0.8, 0.8], 0.1, 0.0, 0.0);
     (flags, material)
 }
 
 pub fn create_lava_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::LIQUID
-        .with_solid(false)
-        .with_transparent(false)
-        .with_liquid(true)
-        .with_flora(false)
-        .with_decorative(false)
-        .with_light_level(15)
-        .with_break_resistance(0);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::LIQUID;
+    let material = BlockMaterial::new([0.8, 0.2, 0.1, 0.8], 0.1, 0.0, 0.5);
     (flags, material)
 }
 
 pub fn create_sand_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::SOLID
-        .with_solid(true)
-        .with_transparent(false)
-        .with_liquid(false)
-        .with_flora(false)
-        .with_decorative(false)
-        .with_light_level(0)
-        .with_break_resistance(1);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::SOLID;
+    let material = BlockMaterial::new([0.9, 0.9, 0.7, 1.0], 0.9, 0.0, 0.0);
     (flags, material)
 }
 
 pub fn create_glass_block() -> (TechBlockFlags, BlockMaterial) {
-    let flags = TechBlockFlags::SOLID
-        .with_solid(true)
-        .with_transparent(true)
-        .with_liquid(false)
-        .with_flora(false)
-        .with_decorative(false)
-        .with_light_level(0)
-        .with_break_resistance(1);
-
-    let material = BlockMaterial::default();
-
+    let flags = TechBlockFlags::SOLID;
+    let material = BlockMaterial::new([0.9, 0.9, 0.9, 0.3], 0.1, 0.0, 0.0);
     (flags, material)
 }
