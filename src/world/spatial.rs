@@ -1,28 +1,10 @@
+use std::collections::HashMap;
 use glam::{Vec3, Mat4};
 use crate::{
+    utils::math::{ViewFrustum as MathViewFrustum, AABB as MathAABB},
+    world::chunk::ChunkCoord,
     config::EngineConfig,
-    utils::math::{ViewFrustum, AABB},
-    world::chunk::ChunkCoord
 };
-
-
-
-struct ViewFrustum {
-    planes: [Plane; 6],
-}
-
-
-
-#[derive(Default, Copy, Clone)]
-struct Plane {
-    normal: Vec3,
-    distance: f32,
-}
-
-struct AABB {
-    min: Vec3,
-    max: Vec3,
-}
 
 struct SpatialPartition {
     quadtree: QuadTree,
@@ -34,14 +16,17 @@ struct SpatialPartition {
 impl SpatialPartition {
     fn new(config: &EngineConfig) -> Self {
         Self {
-            quadtree: QuadTree::new(config.render_distance),
+            quadtree: QuadTree::new(MathAABB {
+                min: Vec3::new(-config.render_distance as f32 * 32.0, 0.0, -config.render_distance as f32 * 32.0),
+                max: Vec3::new(config.render_distance as f32 * 32.0, 256.0, config.render_distance as f32 * 32.0),
+            }, 4),
             lod_state: HashMap::new(),
             spatial_index: BTreeMap::new(),
             last_player_pos: Vec3::ZERO,
         }
     }
 
-    fn update(&mut self, player_pos: Vec3, view_frustum: &ViewFrustum, config: &EngineConfig) {
+    fn update(&mut self, player_pos: Vec3, view_frustum: &MathViewFrustum, config: &EngineConfig) {
         if player_pos.distance(self.last_player_pos) > config.chunk_size as f32 * 0.5 {
             self.rebuild_quadtree(player_pos, config);
             self.last_player_pos = player_pos;
@@ -52,7 +37,10 @@ impl SpatialPartition {
     }
 
     fn rebuild_quadtree(&mut self, center: Vec3, config: &EngineConfig) {
-        self.quadtree = QuadTree::new(config.render_distance);
+        self.quadtree = QuadTree::new(MathAABB {
+            min: Vec3::new(-config.render_distance as f32 * 32.0, 0.0, -config.render_distance as f32 * 32.0),
+            max: Vec3::new(config.render_distance as f32 * 32.0, 256.0, config.render_distance as f32 * 32.0),
+        }, 4);
         self.spatial_index.clear();
         
         let radius = config.render_distance as i32;
@@ -67,7 +55,7 @@ impl SpatialPartition {
                 };
                 let key = self.spatial_key(coord);
                 self.spatial_index.insert(key, coord);
-                self.quadtree.insert(coord);
+                self.quadtree.add_chunk(coord);
             }
         }
     }
@@ -113,91 +101,85 @@ impl SpatialPartition {
     }
 }
 
-struct QuadTree {
-    nodes: [Option<Box<QuadTree>>; 4],
+pub struct QuadTree {
+    bounds: MathAABB,
+    children: Option<Box<[QuadTree; 4]>>,
+    depth: u32,
     chunks: Vec<ChunkCoord>,
-    bounds: AABB,
-    depth: u8,
 }
 
 impl QuadTree {
-    pub fn new(render_distance: u32) -> Self {
-        let size = render_distance as f32 * 32.0; // Assuming 32 blocks per chunk
+    pub fn new(bounds: MathAABB, max_depth: u32) -> Self {
         Self {
-            nodes: [None, None, None, None],
+            bounds,
+            children: None,
+            depth: max_depth,
             chunks: Vec::new(),
-            bounds: AABB {
-                min: Vec3::new(-size, 0.0, -size),
-                max: Vec3::new(size, 256.0, size),
-            },
-            depth: 0,
         }
     }
 
-    pub fn insert(&mut self, coord: ChunkCoord) {
-        if !self.bounds.contains(coord) {
+    pub fn subdivide(&mut self) {
+        if self.depth == 0 {
             return;
         }
 
-        if self.depth < 4 {
-            let quadrant = self.get_quadrant(coord);
-            match &mut self.nodes[quadrant] {
-                Some(node) => node.insert(coord),
-                None => {
-                    let mut new_node = QuadTree {
-                        nodes: [None, None, None, None],
-                        chunks: Vec::new(),
-                        bounds: self.get_quadrant_bounds(quadrant),
-                        depth: self.depth + 1,
-                    };
-                    new_node.insert(coord);
-                    self.nodes[quadrant] = Some(Box::new(new_node));
-                }
-            }
-        } else {
-            self.chunks.push(coord);
+        let center = (self.bounds.min + self.bounds.max) * 0.5;
+        let mut children = Vec::with_capacity(4);
+
+        for i in 0..4 {
+            children.push(QuadTree::new(
+                self.get_quadrant_bounds(i),
+                self.depth - 1
+            ));
         }
+
+        self.children = Some(Box::new([
+            children.remove(0),
+            children.remove(0),
+            children.remove(0),
+            children.remove(0),
+        ]));
     }
 
-    fn get_quadrant(&self, coord: ChunkCoord) -> usize {
-        let center = self.bounds.center();
-        ((coord.x as f32 >= center.x) as usize) + 
-        (((coord.z as f32 >= center.z) as usize) * 2)
-    }
-
-    fn get_quadrant_bounds(&self, quadrant: usize) -> AABB {
-        let center = self.bounds.center();
+    fn get_quadrant_bounds(&self, quadrant: usize) -> MathAABB {
+        let center = (self.bounds.min + self.bounds.max) * 0.5;
         match quadrant {
-            0 => AABB { min: self.bounds.min, max: center },
-            1 => AABB { min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z), max: Vec3::new(self.bounds.max.x, center.y, center.z) },
-            2 => AABB { min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z), max: Vec3::new(center.x, center.y, self.bounds.max.z) },
-            3 => AABB { min: center, max: self.bounds.max },
-            _ => panic!("Invalid quadrant"),
+            0 => MathAABB { min: self.bounds.min, max: center },
+            1 => MathAABB { min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z), max: Vec3::new(self.bounds.max.x, center.y, center.z) },
+            2 => MathAABB { min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z), max: Vec3::new(center.x, center.y, self.bounds.max.z) },
+            3 => MathAABB { min: center, max: self.bounds.max },
+            _ => panic!("Invalid quadrant index"),
         }
     }
 
-    pub fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
-        let mut visible_chunks = Vec::new();
-        
+    pub fn query(&self, frustum: &MathViewFrustum) -> Vec<ChunkCoord> {
+        let mut result = Vec::new();
         if !self.bounds.intersects_frustum(frustum) {
-            return visible_chunks;
+            return result;
         }
 
-        visible_chunks.extend(&self.chunks);
+        result.extend(self.chunks.iter().cloned());
 
-        for node in &self.nodes {
-            if let Some(child) = node {
-                visible_chunks.extend(child.query(frustum));
+        if let Some(children) = &self.children {
+            for child in children.iter() {
+                result.extend(child.query(frustum));
             }
         }
 
-        visible_chunks
+        result
+    }
+
+    pub fn add_chunk(&mut self, coord: ChunkCoord) {
+        self.chunks.push(coord);
+    }
+
+    pub fn get_chunks(&self) -> &[ChunkCoord] {
+        &self.chunks
     }
 }
 
-// Supporting AABB intersection implementation
-impl AABB {
-    fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
+impl MathAABB {
+    fn intersects_frustum(&self, frustum: &MathViewFrustum) -> bool {
         for plane in &frustum.planes {
             let mut min_point = Vec3::new(self.min.x, self.min.y, self.min.z);
             let mut max_point = Vec3::new(self.max.x, self.max.y, self.max.z);
@@ -223,9 +205,7 @@ impl AABB {
     }
 }
 
-
-// Supporting ViewFrustum plane extraction
-impl ViewFrustum {
+impl MathViewFrustum {
     fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
         let vp = proj * view;
         let mut planes = [Plane::default(); 6];
@@ -275,4 +255,10 @@ impl ViewFrustum {
         
         Self { planes }
     }
+}
+
+#[derive(Default, Copy, Clone)]
+struct Plane {
+    normal: Vec3,
+    distance: f32,
 }
