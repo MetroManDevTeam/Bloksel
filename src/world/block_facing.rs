@@ -35,4 +35,16 @@ impl BlockFacing {
             Self::None => glam::Vec3::ZERO,
         }
     }
+
+    pub fn opposite(&self) -> Self {
+        match self {
+            Self::Wall => Self::Wall,
+            Self::Floor => Self::Ceiling,
+            Self::Ceiling => Self::Floor,
+            Self::Corner => Self::Corner,
+            Self::Edge => Self::Edge,
+            Self::Custom(n) => Self::Custom(n),
+            Self::None => Self::None,
+        }
+    }
 }
