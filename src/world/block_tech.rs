@@ -1,19 +1,21 @@
+use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BlockFlags {
-    pub transparent: bool,
-    pub emissive: bool,
-    pub flammable: bool,
-    pub conductive: bool,
-    pub magnetic: bool,
-    pub liquid: bool,
-    pub climbable: bool,
-    pub occludes: bool,
-    pub solid: bool,
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+    pub struct BlockFlags: u32 {
+        const NONE = 0;
+        const SOLID = 1 << 0;
+        const LIQUID = 1 << 1;
+        const GAS = 1 << 2;
+        const SLIPPERY = 1 << 3;
+        const BOUNCY = 1 << 4;
+        const HEAVY = 1 << 5;
+        const LIGHT = 1 << 6;
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BlockPhysics {
     pub solid: bool,
     pub liquid: bool,
