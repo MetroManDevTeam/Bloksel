@@ -184,33 +184,16 @@ pub const BLOCKS: &[BlockDefinition] = &[
     // 1: Stone
     BlockDefinition {
         id: BlockId::new(1, 0, 0),
-        name: "stone".into(),
-        category: crate::world::block_id::BlockCategory::Solid,
+        name: String::new(), // Will be initialized at runtime
+        category: BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::None,
-        connects_to: HashSet::new(),
-        texture_faces: HashMap::from([
-            (BlockFacing::PosZ, "stone_side.png".into()),
-            (BlockFacing::NegZ, "stone_side.png".into()),
-            (BlockFacing::PosX, "stone_side.png".into()),
-            (BlockFacing::NegX, "stone_side.png".into()),
-            (BlockFacing::PosY, "stone_top.png".into()),
-            (BlockFacing::NegY, "stone_bottom.png".into()),
-        ]),
+        connects_to: HashSet::new(),   // Will be initialized at runtime
+        texture_faces: HashMap::new(), // Will be initialized at runtime
         material: BlockMaterial::new([0.8, 0.8, 0.8, 1.0], 0.7, 0.0, 0.0),
         flags: TechBlockFlags::SOLID,
-        variations: vec![BlockVariant {
-            id: 1,
-            name: "cracked".into(),
-            texture_overrides: HashMap::from([(BlockFacing::None, "stone_cracked.png".into())]),
-            material_modifiers: MaterialModifiers::default(),
-        }],
-        color_variations: vec![ColorVariant {
-            id: 1,
-            name: "mossy".into(),
-            color: [0.4, 0.5, 0.3, 1.0],
-            material_modifiers: MaterialModifiers::default(),
-        }],
+        variations: Vec::new(),       // Will be initialized at runtime
+        color_variations: Vec::new(), // Will be initialized at runtime
         tint_settings: TintSettings {
             strength: 0.5,
             preserve_metallic: true,
