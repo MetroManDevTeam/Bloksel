@@ -88,7 +88,7 @@ fn default_material() -> BlockMaterial {
         albedo: [1.0, 1.0, 1.0, 1.0], // Using [f32; 4] instead of Vec4 for serialization
         roughness: 0.5,
         metallic: 0.0,
-        emissive: [0.0, 0.0, 0.0],
+        emission: [0.0, 0.0, 0.0],
         texture_path: None,
         normal_map_path: None,
         occlusion_map_path: None,
@@ -349,7 +349,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             let mut mat = default_material();
             mat.albedo = [1.0, 0.5, 0.1, 0.9];
             mat.roughness = 0.8;
-            mat.emissive = [1.0, 0.6, 0.2];
+            mat.emission = [1.0, 0.6, 0.2];
             mat
         },
         flags: BlockFlags {
