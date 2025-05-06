@@ -1,9 +1,10 @@
-use glam::{Vec3, Vec2, Mat4};
-use std::f32::consts::{PI, FRAC_PI_2};
-use winit::event::{ElementState, KeyCode, MouseScrollDelta};
-use crate::terrain_generator::{ChunkCoord, BlockData, terrain_generator::Chunk, TerrainGenerator};
-use crate::block::BlockPhysics;
+use crate::world::block::BlockPhysics;
+use crate::world::{BlockData, Chunk, ChunkCoord, TerrainGenerator};
+use glam::{Mat4, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
+use std::f32::consts::{FRAC_PI_2, PI};
+use winit::event::{ElementState, MouseScrollDelta};
+use winit::keyboard::KeyCode;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum PlayerState {
@@ -19,23 +20,23 @@ pub struct Player {
     pub velocity: Vec3,
     pub rotation: Vec2,
     pub size: Vec3,
-    
+
     // State management
     pub state: PlayerState,
     pub on_ground: bool,
-    
+
     // Movement parameters
     pub base_speed: f32,
     pub speed_multiplier: f32,
     pub jump_force: f32,
     pub gravity: f32,
-    
+
     // Camera controls
     pub sensitivity: f32,
     pub zoom_level: f32,
     pub max_zoom: f32,
     pub min_zoom: f32,
-    
+
     // World interaction
     pub chunk_size: i32,
     pub collision_enabled: bool,
@@ -67,12 +68,7 @@ impl Default for Player {
 }
 
 impl Player {
-    pub fn update(
-        &mut self,
-        dt: f32,
-        terrain: &TerrainGenerator,
-        input: &PlayerInput,
-    ) {
+    pub fn update(&mut self, dt: f32, terrain: &TerrainGenerator, input: &PlayerInput) {
         self.handle_rotation(input);
         self.handle_movement(dt, input);
         self.handle_zoom(input);
@@ -85,9 +81,9 @@ impl Player {
     fn handle_rotation(&mut self, input: &PlayerInput) {
         // Smooth rotation with edge case protection
         let mouse_delta = input.mouse_delta * self.sensitivity * self.zoom_level;
-        self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euclid(2.0*PI);
-        self.rotation.y = (self.rotation.y + mouse_delta.y)
-            .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
+        self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euclid(2.0 * PI);
+        self.rotation.y =
+            (self.rotation.y + mouse_delta.y).clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 
     fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
@@ -120,7 +116,7 @@ impl Player {
                 let acceleration = if self.on_ground { 15.0 } else { 3.0 };
                 self.velocity.x += movement.x * acceleration * dt;
                 self.velocity.z += movement.z * acceleration * dt;
-                
+
                 let friction = if self.on_ground { 0.7 } else { 0.98 };
                 self.velocity.x *= friction;
                 self.velocity.z *= friction;
@@ -129,23 +125,28 @@ impl Player {
     }
 
     fn calculate_movement_vector(&self, input: &PlayerInput) -> Vec3 {
-        let forward = Vec3::new(
-            self.rotation.x.sin(),
-            0.0,
-            self.rotation.x.cos(),
-        ).normalize();
+        let forward = Vec3::new(self.rotation.x.sin(), 0.0, self.rotation.x.cos()).normalize();
 
         let right = Vec3::new(
             (self.rotation.x + FRAC_PI_2).sin(),
             0.0,
             (self.rotation.x + FRAC_PI_2).cos(),
-        ).normalize();
+        )
+        .normalize();
 
         let mut move_vec = Vec3::ZERO;
-        if input.forward { move_vec += forward; }
-        if input.backward { move_vec -= forward; }
-        if input.left { move_vec -= right; }
-        if input.right { move_vec += right; }
+        if input.forward {
+            move_vec += forward;
+        }
+        if input.backward {
+            move_vec -= forward;
+        }
+        if input.left {
+            move_vec -= right;
+        }
+        if input.right {
+            move_vec += right;
+        }
 
         if move_vec.length_squared() > 0.0 {
             move_vec.normalize()
@@ -159,12 +160,8 @@ impl Player {
             PlayerState::Spectator => self.base_speed * 3.0,
             _ => self.base_speed,
         };
-        
-        if input.sprint {
-            base * 2.0
-        } else {
-            base
-        }
+
+        if input.sprint { base * 2.0 } else { base }
     }
 
     fn apply_physics(&mut self, dt: f32) {
@@ -202,7 +199,7 @@ impl Player {
         for axis in 0..3 {
             let mut test_position = new_position;
             test_position[axis] = self.position[axis];
-            
+
             if self.check_collision(test_position, terrain) {
                 self.velocity[axis] = 0.0;
                 new_position[axis] = self.position[axis];
@@ -228,9 +225,6 @@ impl Player {
         }
     }
 
-
-    
-        
     fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
         let chunk_coord = ChunkCoord::from_world(position);
         if let Some(chunk) = terrain.get_chunk(chunk_coord) {
@@ -241,9 +235,6 @@ impl Player {
         false
     }
 
-        
-    
-
     fn update_safe_position(&mut self) {
         if self.on_ground && self.velocity.length() < 0.1 {
             self.last_safe_position = self.position;
@@ -251,7 +242,7 @@ impl Player {
     }
 
     fn clamp_rotation(&mut self) {
-        self.rotation.x = self.rotation.x.rem_euclid(2.0*PI);
+        self.rotation.x = self.rotation.x.rem_euclid(2.0 * PI);
         self.rotation.y = self.rotation.y.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 
@@ -263,12 +254,12 @@ impl Player {
         let zoom_speed = 0.1;
         match input.zoom_delta {
             Some(MouseScrollDelta::LineDelta(_, y)) => {
-                self.zoom_level = (self.zoom_level - y * zoom_speed)
-                    .clamp(self.min_zoom, self.max_zoom);
+                self.zoom_level =
+                    (self.zoom_level - y * zoom_speed).clamp(self.min_zoom, self.max_zoom);
             }
             Some(MouseScrollDelta::PixelDelta(pos)) => {
-                self.zoom_level = (self.zoom_level - pos.y as f32 * 0.01)
-                    .clamp(self.min_zoom, self.max_zoom);
+                self.zoom_level =
+                    (self.zoom_level - pos.y as f32 * 0.01).clamp(self.min_zoom, self.max_zoom);
             }
             None => {} // Handle None case
         }
@@ -278,10 +269,10 @@ impl Player {
         let rotation_x = Mat4::from_rotation_x(-self.rotation.y);
         let rotation_y = Mat4::from_rotation_y(-self.rotation.x);
         let translation = Mat4::from_translation(-self.position);
-        
+
         // Apply zoom for spectator mode
         let zoom = Mat4::from_scale(Vec3::splat(self.zoom_level));
-        
+
         rotation_x * rotation_y * translation * zoom
     }
 
@@ -318,7 +309,7 @@ impl Player {
         }
     }
 
-        pub fn save_state(&self) -> PlayerState {
+    pub fn save_state(&self) -> PlayerState {
         self.state.clone()
     }
 
