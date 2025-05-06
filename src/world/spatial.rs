@@ -332,3 +332,44 @@ impl ViewFrustum {
         true
     }
 }
+
+pub struct SpatialIndex {
+    chunks: std::collections::BTreeMap<ChunkCoord, u32>,
+    chunk_size: i32,
+}
+
+impl SpatialIndex {
+    pub fn new(chunk_size: i32) -> Self {
+        Self {
+            chunks: std::collections::BTreeMap::new(),
+            chunk_size,
+        }
+    }
+
+    pub fn insert(&mut self, coord: ChunkCoord, key: u32) {
+        self.chunks.insert(coord, key);
+    }
+
+    pub fn remove(&mut self, coord: &ChunkCoord) {
+        self.chunks.remove(coord);
+    }
+
+    pub fn get(&self, coord: &ChunkCoord) -> Option<&u32> {
+        self.chunks.get(coord)
+    }
+
+    pub fn get_chunk_center(&self, coord: &ChunkCoord) -> Vec3 {
+        coord.to_world_center(self.chunk_size)
+    }
+
+    pub fn get_chunk_key(&self, coord: &ChunkCoord) -> u32 {
+        ((coord.x() as u32) << 16) | (coord.z() as u32)
+    }
+
+    pub fn get_chunk_centers(&self) -> Vec<Vec3> {
+        self.chunks
+            .keys()
+            .map(|c| c.to_world_center(self.chunk_size))
+            .collect()
+    }
+}
