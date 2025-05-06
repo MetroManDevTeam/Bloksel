@@ -1,20 +1,38 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockMaterial {
+    pub id: u32,
+    pub name: String,
     pub color: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
     pub emissive: f32,
+    pub texture_path: Option<String>,
+    pub normal_map_path: Option<String>,
+    pub occlusion_map_path: Option<String>,
+    pub tintable: bool,
+    pub grayscale_base: bool,
+    pub tint_mask_path: Option<String>,
+    pub vertex_colored: bool,
 }
 
 impl Default for BlockMaterial {
     fn default() -> Self {
         Self {
+            id: 0,
+            name: String::new(),
             color: [1.0, 1.0, 1.0, 1.0],
             roughness: 0.5,
             metallic: 0.0,
             emissive: 0.0,
+            texture_path: None,
+            normal_map_path: None,
+            occlusion_map_path: None,
+            tintable: true,
+            grayscale_base: false,
+            tint_mask_path: None,
+            vertex_colored: false,
         }
     }
 }
@@ -22,10 +40,19 @@ impl Default for BlockMaterial {
 impl BlockMaterial {
     pub fn new(color: [f32; 4], roughness: f32, metallic: f32, emissive: f32) -> Self {
         Self {
+            id: 0,
+            name: String::new(),
             color,
             roughness,
             metallic,
             emissive,
+            texture_path: None,
+            normal_map_path: None,
+            occlusion_map_path: None,
+            tintable: true,
+            grayscale_base: false,
+            tint_mask_path: None,
+            vertex_colored: false,
         }
     }
 
