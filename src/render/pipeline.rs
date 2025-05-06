@@ -497,29 +497,27 @@ impl ChunkRenderer {
         mesh.index_data.push(base_index as u32);
     }
 
-    pub fn render_chunk(
-        &self,
-        chunk: &Chunk,
-        camera: &Camera,
-        view_matrix: &Mat4,
-        projection_matrix: &Mat4,
-    ) {
+    pub fn render_chunk(&self, chunk: &Chunk, camera: &Camera) {
         if let Some(mesh) = &chunk.mesh {
             unsafe {
                 self.shader.use_program();
-                gl::BindVertexArray(mesh.vao);
-
                 self.shader.set_uniform("model", &chunk.transform());
-                self.shader.set_uniform("view", view_matrix);
-                self.shader.set_uniform("projection", projection_matrix);
+                self.shader.set_uniform("view", &camera.view());
+                self.shader.set_uniform("projection", &camera.projection());
 
+                // Bind texture atlas
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, self.texture_atlas);
+                self.shader.set_uniform("texture_atlas", 0);
+
+                // Bind VAO and draw
+                gl::BindVertexArray(mesh.vao);
                 gl::DrawElements(
                     gl::TRIANGLES,
                     mesh.indices.len() as i32,
                     gl::UNSIGNED_INT,
                     std::ptr::null(),
                 );
-
                 gl::BindVertexArray(0);
             }
         }
