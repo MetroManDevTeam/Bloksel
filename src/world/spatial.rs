@@ -334,42 +334,61 @@ impl ViewFrustum {
 }
 
 pub struct SpatialIndex {
-    chunks: std::collections::BTreeMap<ChunkCoord, u32>,
-    chunk_size: i32,
+    chunks: Vec<ChunkCoord>,
+    center: Vec3,
+    radius: f32,
+    chunk_size: u32,
 }
 
 impl SpatialIndex {
-    pub fn new(chunk_size: i32) -> Self {
-        Self {
-            chunks: std::collections::BTreeMap::new(),
-            chunk_size,
+    pub fn new(center: Vec3, radius: f32, chunk_size: u32) -> Self {
+        let chunk_size = chunk_size as i32;
+        let center_chunk = ChunkCoord::from_world_pos(center, chunk_size);
+        let radius_chunks = (radius / chunk_size as f32).ceil() as i32;
+
+        let mut chunks = Vec::new();
+        for x in -radius_chunks..=radius_chunks {
+            for y in -radius_chunks..=radius_chunks {
+                for z in -radius_chunks..=radius_chunks {
+                    let coord = ChunkCoord::new(
+                        center_chunk.x() + x,
+                        center_chunk.y() + y,
+                        center_chunk.z() + z,
+                    );
+                    let chunk_center = coord.to_world_center(chunk_size);
+                    let distance = (chunk_center - center).length();
+                    if distance <= radius {
+                        chunks.push(coord);
+                    }
+                }
+            }
         }
-    }
 
-    pub fn insert(&mut self, coord: ChunkCoord, key: u32) {
-        self.chunks.insert(coord, key);
-    }
-
-    pub fn remove(&mut self, coord: &ChunkCoord) {
-        self.chunks.remove(coord);
-    }
-
-    pub fn get(&self, coord: &ChunkCoord) -> Option<&u32> {
-        self.chunks.get(coord)
-    }
-
-    pub fn get_chunk_center(&self, coord: &ChunkCoord) -> Vec3 {
-        coord.to_world_center(self.chunk_size)
+        Self {
+            chunks,
+            center,
+            radius,
+            chunk_size: chunk_size as u32,
+        }
     }
 
     pub fn get_chunk_key(&self, coord: &ChunkCoord) -> u32 {
         ((coord.x() as u32) << 16) | (coord.z() as u32)
     }
 
-    pub fn get_chunk_centers(&self) -> Vec<Vec3> {
+    pub fn get_chunks_in_frustum(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
         self.chunks
-            .keys()
-            .map(|c| c.to_world_center(self.chunk_size))
+            .iter()
+            .filter(|c| {
+                let center = c.to_world_center(self.chunk_size as i32);
+                let half_size = self.chunk_size as f32 * 0.5;
+                let aabb = MathAABB {
+                    min: center - Vec3::splat(half_size),
+                    max: center + Vec3::splat(half_size),
+                };
+                frustum.intersects_aabb(&aabb)
+            })
+            .copied()
             .collect()
     }
 }
