@@ -19,7 +19,7 @@ use std::{
 
 pub trait ChunkStorage: Send + Sync {
     fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>>;
-    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<Arc<Chunk>>;
+    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Arc<Chunk>>;
     fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>);
     fn remove_chunk(&mut self, coord: ChunkCoord);
 }
@@ -41,8 +41,8 @@ impl ChunkStorage for MemoryStorage {
         self.chunks.get(&coord).cloned()
     }
 
-    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.get_mut(&coord).map(|chunk| chunk.clone())
+    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Arc<Chunk>> {
+        self.chunks.get_mut(&coord)
     }
 
     fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>) {
