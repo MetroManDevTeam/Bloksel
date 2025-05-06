@@ -48,6 +48,7 @@ use crate::{
 
 // Re-exports for cleaner usage
 pub use crate::{render::pipeline::RenderPipeline, utils::Orientation};
+pub use VoxelEngine;
 
 fn main() -> Result<()> {
     // Initialize logging
