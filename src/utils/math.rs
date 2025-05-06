@@ -101,12 +101,12 @@ impl ViewFrustum {
     pub fn new() -> Self {
         Self {
             planes: [
-                Plane::new(Vec3::ZERO, 0.0),
-                Plane::new(Vec3::ZERO, 0.0),
-                Plane::new(Vec3::ZERO, 0.0),
-                Plane::new(Vec3::ZERO, 0.0),
-                Plane::new(Vec3::ZERO, 0.0),
-                Plane::new(Vec3::ZERO, 0.0),
+                Plane::default(),
+                Plane::default(),
+                Plane::default(),
+                Plane::default(),
+                Plane::default(),
+                Plane::default(),
             ],
         }
     }
@@ -115,12 +115,12 @@ impl ViewFrustum {
         let vp = *proj * *view;
 
         let mut planes = [
-            Plane::new(Vec3::ZERO, 0.0),
-            Plane::new(Vec3::ZERO, 0.0),
-            Plane::new(Vec3::ZERO, 0.0),
-            Plane::new(Vec3::ZERO, 0.0),
-            Plane::new(Vec3::ZERO, 0.0),
-            Plane::new(Vec3::ZERO, 0.0),
+            Plane::default(),
+            Plane::default(),
+            Plane::default(),
+            Plane::default(),
+            Plane::default(),
+            Plane::default(),
         ];
 
         // Right plane
@@ -239,6 +239,15 @@ impl Plane {
 
     pub fn distance(&self, point: Vec3) -> f32 {
         self.normal.dot(point) + self.distance
+    }
+}
+
+impl Default for Plane {
+    fn default() -> Self {
+        Self {
+            normal: Vec3::ZERO,
+            distance: 0.0,
+        }
     }
 }
 
