@@ -153,21 +153,21 @@ impl TerrainGenerator {
                             x as u32,
                             y as u32,
                             z as u32,
-                            Some(Block::new(BlockId::new(1))),
+                            Some(Block::new(BlockId::new(1, 0, 0))),
                         ); // Stone
                     } else if world_y == height {
                         chunk.set_block(
                             x as u32,
                             y as u32,
                             z as u32,
-                            Some(Block::new(BlockId::new(2))),
+                            Some(Block::new(BlockId::new(2, 0, 0))),
                         ); // Grass
                     } else {
                         chunk.set_block(
                             x as u32,
                             y as u32,
                             z as u32,
-                            Some(Block::new(BlockId::new(0))),
+                            Some(Block::new(BlockId::new(0, 0, 0))),
                         ); // Air
                     }
                 }
