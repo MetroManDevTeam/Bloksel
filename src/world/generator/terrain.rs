@@ -65,6 +65,43 @@ impl Default for TerrainConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorldGenConfig {
+    pub seed: u64,
+    pub scale: f64,
+    pub octaves: u32,
+    pub persistence: f64,
+    pub lacunarity: f64,
+    pub height_multiplier: f64,
+    pub water_level: i32,
+    pub stone_level: i32,
+    pub dirt_depth: i32,
+    pub base_block: BlockId,
+    pub stone_block: BlockId,
+    pub dirt_block: BlockId,
+    pub water_block: BlockId,
+}
+
+impl Default for WorldGenConfig {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            scale: 100.0,
+            octaves: 4,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            height_multiplier: 32.0,
+            water_level: 32,
+            stone_level: 0,
+            dirt_depth: 4,
+            base_block: BlockId::new(0),
+            stone_block: BlockId::new(1),
+            dirt_block: BlockId::new(2),
+            water_block: BlockId::new(3),
+        }
+    }
+}
+
 pub struct TerrainGenerator {
     config: TerrainConfig,
     block_registry: Arc<BlockRegistry>,
