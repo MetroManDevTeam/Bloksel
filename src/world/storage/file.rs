@@ -24,8 +24,8 @@ impl ChunkStorage for FileChunkStorage {
         self.chunks.get(&coord).cloned()
     }
 
-    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.get_mut(&coord).map(|chunk| chunk.clone())
+    fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Arc<Chunk>> {
+        self.chunks.get_mut(&coord)
     }
 
     fn set_chunk(&mut self, coord: ChunkCoord, chunk: Arc<Chunk>) {
