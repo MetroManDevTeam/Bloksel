@@ -77,10 +77,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [0.5, 0.5, 0.5, 1.0],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([0.5, 0.5, 0.5, 1.0], 0.8, 0.0, 0.0),
             flags: BlockFlags::default().with_solid(true),
             variations: Vec::new(),
             color_variations: Vec::new(),
@@ -96,10 +93,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [0.3, 0.8, 0.3, 1.0],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([0.3, 0.8, 0.3, 1.0], 0.6, 0.0, 0.0),
             flags: BlockFlags::default().with_solid(true),
             variations: Vec::new(),
             color_variations: Vec::new(),
@@ -115,10 +109,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [0.2, 0.3, 0.9, 0.8],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([0.2, 0.3, 0.9, 0.8], 0.1, 0.0, 0.0),
             flags: BlockFlags::default()
                 .with_liquid(true)
                 .with_transparent(true),
@@ -136,11 +127,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [1.0, 0.5, 0.0, 1.0],
-                emissive: [1.0, 0.5, 0.0],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([1.0, 0.5, 0.0, 1.0], 0.3, 0.0, 1.0),
             flags: BlockFlags::default().with_liquid(true).with_light_level(15),
             variations: Vec::new(),
             color_variations: Vec::new(),
@@ -156,10 +143,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [0.9, 0.9, 0.7, 1.0],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([0.9, 0.9, 0.7, 1.0], 0.9, 0.0, 0.0),
             flags: BlockFlags::default().with_solid(true),
             variations: Vec::new(),
             color_variations: Vec::new(),
@@ -175,10 +159,7 @@ impl Default for BlockRegistry {
             default_orientation: BlockOrientation::default(),
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
-            material: BlockMaterial {
-                color: [0.9, 0.9, 0.9, 0.5],
-                ..Default::default()
-            },
+            material: BlockMaterial::new([0.9, 0.9, 0.9, 0.5], 0.1, 0.0, 0.0),
             flags: BlockFlags::default()
                 .with_solid(true)
                 .with_transparent(true),
