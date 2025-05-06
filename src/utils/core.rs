@@ -1,26 +1,31 @@
 //! src/utils/mod.rs
 //! Core utilities used throughout the engine
 
-use std::time::{Instant, Duration};
-use glam::{Vec3, Mat4, Vec4};
+use glam::{Mat4, Vec3, Vec4};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
+pub mod error;
 /// Math utilities and extensions
 pub mod math;
-pub mod error
 
-pub use error::{BlockError}
-pub use math::{ViewFrustum, Orientation, Ray, Plane, RayIntersection, RaycastResult. AABB, ConnectedDirections}
+pub use error::BlockError;
+pub use math::{
+    AABB, ConnectedDirections, Orientation, Plane, Ray, RayIntersection, RaycastResult, ViewFrustum,
+};
+
+/// Error types
+pub mod error_types;
 
 /// Error types
 #[derive(Error, Debug)]
 pub enum EngineError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     #[error("Resource loading error: {0}")]
     ResourceError(String),
-    
+
     #[error("Threading error: {0}")]
     ThreadError(String),
 }
