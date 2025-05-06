@@ -363,7 +363,9 @@ impl UniformValue for f32 {
 
 impl UniformValue for i32 {
     fn set_uniform(&self, location: GLint) {
-        unsafe { gl::Uniform1i(location, *self) };
+        unsafe {
+            gl::Uniform1i(location, *self);
+        }
     }
 }
 
