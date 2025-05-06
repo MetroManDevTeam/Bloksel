@@ -8,13 +8,12 @@ use crate::world::block_material::BlockMaterial;
 use crate::world::block_material::MaterialModifiers;
 use crate::world::blocks_data::BlockRegistry;
 use crate::world::chunk::{Chunk, ChunkCoord};
-use crate::world::generator::TerrainGenerator;
+use crate::world::generator::terrain::TerrainGenerator;
 use crate::world::pool::ChunkPool;
 use crate::world::pool::PoolStats;
 use crate::world::spatial::QuadTree;
 use crate::world::spatial::SpatialPartition;
-use crate::world::storage::core::{ChunkStorage, MemoryStorage};
-use crate::world::storage::file::FileChunkStorage;
+use crate::world::storage::core::{ChunkStorage, FileChunkStorage};
 use glam::Vec3;
 use std::path::Path;
 use std::sync::Arc;
@@ -27,12 +26,12 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(config: EngineConfig, world_config: WorldGenConfig) -> Self {
+    pub fn new(engine_config: EngineConfig, world_config: WorldGenConfig) -> Self {
         Self {
             storage: Box::new(FileChunkStorage::new("world")),
             pool: ChunkPool::new(1000), // Maximum 1000 chunks in pool
             generator: TerrainGenerator::new(world_config, Arc::new(Default::default())),
-            config,
+            config: engine_config,
         }
     }
 
@@ -64,16 +63,16 @@ impl World {
         (local_x, local_y, local_z)
     }
 
-    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+    pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<Arc<Chunk>> {
         self.storage.get_chunk(coord)
     }
 
-    pub fn get_chunk_mut(&mut self, coord: ChunkCoord) -> Option<&mut Arc<Chunk>> {
+    pub fn get_chunk_mut(&mut self, coord: &ChunkCoord) -> Option<&mut Arc<Chunk>> {
         self.storage.get_chunk_mut(coord)
     }
 
-    pub fn has_chunk(&self, coord: ChunkCoord) -> bool {
-        self.storage.get_chunk(coord).is_some()
+    pub fn has_chunk(&self, coord: &ChunkCoord) -> bool {
+        self.storage.has_chunk(coord)
     }
 
     pub fn set_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
