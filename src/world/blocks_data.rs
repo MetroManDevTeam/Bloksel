@@ -164,44 +164,61 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_roughness: true,
         },
     },
-    // 2: Grass Block
+    // 2: Grass
     BlockDefinition {
         id: BlockId::new(2),
         name: "grass".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
-        default_orientation: BlockOrientation::Wall,
+        default_orientation: BlockOrientation::None,
         connects_to: HashSet::new(),
         texture_faces: HashMap::from([
-            (BlockFacing::Up, "grass_top.png".into()),
-            (BlockFacing::Down, "dirt.png".into()),
-            (BlockFacing::North, "grass_side.png".into()),
-            (BlockFacing::South, "grass_side.png".into()),
-            (BlockFacing::East, "grass_side.png".into()),
-            (BlockFacing::West, "grass_side.png".into()),
+            (BlockFacing::PosZ, "grass_side.png".into()),
+            (BlockFacing::NegZ, "grass_side.png".into()),
+            (BlockFacing::PosX, "grass_side.png".into()),
+            (BlockFacing::NegX, "grass_side.png".into()),
+            (BlockFacing::PosY, "grass_top.png".into()),
+            (BlockFacing::NegY, "dirt.png".into()),
         ]),
-        material: {
-            let mut mat = default_material();
-            mat.albedo = [0.4, 0.8, 0.3, 1.0];
-            mat.roughness = 0.7;
-            mat
+        material: BlockMaterial::new([0.4, 0.8, 0.3, 1.0], 0.9, 0.0, 0.0),
+        flags: BlockFlags::SOLID,
+        variations: vec![],
+        color_variations: vec![],
+        tint_settings: TintSettings {
+            strength: 0.5,
+            preserve_metallic: true,
+            preserve_roughness: true,
         },
-        flags: BlockFlags {
-            is_solid: true,
-            is_transparent: false,
-            is_liquid: false,
-            is_flora: true,
-            is_decorative: false,
-            light_level: 0,
-            break_resistance: 1,
-        },
-        variations: Vec::new(),
-        color_variations: Vec::new(),
-        tint_settings: Default::default(),
     },
-    // 3: Dirt
+    // 3: Water
     BlockDefinition {
         id: BlockId::new(3),
+        name: "water".into(),
+        category: crate::world::block_id::BlockCategory::Liquid,
+        default_facing: BlockFacing::None,
+        default_orientation: BlockOrientation::None,
+        connects_to: HashSet::from([crate::world::block_id::BlockCategory::Liquid]),
+        texture_faces: HashMap::from([
+            (BlockFacing::PosZ, "water.png".into()),
+            (BlockFacing::NegZ, "water.png".into()),
+            (BlockFacing::PosX, "water.png".into()),
+            (BlockFacing::NegX, "water.png".into()),
+            (BlockFacing::PosY, "water.png".into()),
+            (BlockFacing::NegY, "water.png".into()),
+        ]),
+        material: BlockMaterial::new([0.2, 0.4, 0.8, 0.8], 0.1, 0.0, 0.0),
+        flags: BlockFlags::LIQUID,
+        variations: vec![],
+        color_variations: vec![],
+        tint_settings: TintSettings {
+            strength: 0.5,
+            preserve_metallic: true,
+            preserve_roughness: true,
+        },
+    },
+    // 4: Dirt
+    BlockDefinition {
+        id: BlockId::new(4),
         name: "dirt".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -227,9 +244,9 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-    // 4: Cobblestone
+    // 5: Cobblestone
     BlockDefinition {
-        id: BlockId::new(4),
+        id: BlockId::new(5),
         name: "cobblestone".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -254,9 +271,9 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-    // 5: Oak Log
+    // 6: Oak Log
     BlockDefinition {
-        id: BlockId::new(5),
+        id: BlockId::new(6),
         name: "oak_log".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::Up,
@@ -289,9 +306,9 @@ pub const BLOCKS: &[BlockDefinition] = &[
         color_variations: Vec::new(),
         tint_settings: Default::default(),
     },
-    // 6: Oak Planks
+    // 7: Oak Planks
     BlockDefinition {
-        id: BlockId::new(6),
+        id: BlockId::new(7),
         name: "oak_planks".into(),
         category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
@@ -327,35 +344,6 @@ pub const BLOCKS: &[BlockDefinition] = &[
             blend_mode: TintBlendMode::Multiply,
             ..Default::default()
         },
-    },
-    // 7: Water
-    BlockDefinition {
-        id: BlockId::new(7),
-        name: "water".into(),
-        category: crate::world::block_id::BlockCategory::Liquid,
-        default_facing: BlockFacing::None,
-        default_orientation: BlockOrientation::Wall,
-        connects_to: HashSet::from([crate::world::block_id::BlockCategory::Liquid]),
-        texture_faces: HashMap::from([(BlockFacing::All, "water.png".into())]),
-        material: {
-            let mut mat = default_material();
-            mat.albedo = [0.2, 0.4, 0.8, 0.7];
-            mat.roughness = 0.1;
-            mat.metallic = 0.3;
-            mat
-        },
-        flags: BlockFlags {
-            is_solid: false,
-            is_transparent: true,
-            is_liquid: true,
-            is_flora: false,
-            is_decorative: false,
-            light_level: 0,
-            break_resistance: 1,
-        },
-        variations: Vec::new(),
-        color_variations: Vec::new(),
-        tint_settings: Default::default(),
     },
     // 8: Lava
     BlockDefinition {
