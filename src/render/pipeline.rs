@@ -2,13 +2,27 @@
 use crate::render::{Camera, Mesh, Shader};
 use crate::world::block_mat::BlockMaterial;
 use crate::world::{BlockRegistry, Chunk};
+use anyhow::Context;
 use glam::{Vec2, Vec4};
+use image::DynamicImage;
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
+use thiserror::Error;
 
 const ATLAS_START_SIZE: u32 = 1024;
 const TEXTURE_PADDING: u32 = 2;
+
+#[derive(Debug, thiserror::Error)]
+pub enum RenderError {
+    #[error("Texture atlas is full")]
+    AtlasFull,
+    #[error("Failed to load texture: {0}")]
+    TextureLoadError(String),
+    #[error("OpenGL error: {0}")]
+    OpenGLError(String),
+}
 
 pub struct ChunkRenderer {
     materials: HashMap<u16, BlockMaterial>,
