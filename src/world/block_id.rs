@@ -11,6 +11,8 @@ use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
+use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockData {
@@ -31,11 +33,29 @@ pub enum BlockCategory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockId(u32);
+pub struct BlockId(pub(crate) u32);
+
+#[derive(Debug, Error)]
+pub enum BlockError {
+    #[error("Invalid block ID format")]
+    InvalidIdFormat,
+}
 
 impl BlockId {
-    pub fn new(id: u32) -> Self {
-        Self(id)
+    pub fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
+        Self((base_id << 16) | ((variation & 0xFF) << 8) | (color_id & 0xFF))
+    }
+
+    pub fn base_id(&self) -> u32 {
+        self.0 >> 16
+    }
+
+    pub fn variation(&self) -> u32 {
+        (self.0 >> 8) & 0xFF
+    }
+
+    pub fn color_id(&self) -> u32 {
+        self.0 & 0xFF
     }
 
     pub fn get_id(&self) -> u32 {
@@ -58,22 +78,21 @@ impl BlockId {
 
     pub fn from_str(s: &str) -> Result<Self, BlockError> {
         let parts: Vec<&str> = s.split(':').collect();
-        let base_id = parts[0].parse().map_err(|_| BlockError::InvalidIdFormat)?;
-
-        let mut variation = 0;
-        let mut color_id = 0;
-
-        if parts.len() > 1 {
-            for part in &parts[1..] {
-                if part.starts_with('C') {
-                    color_id = part[1..].parse().map_err(|_| BlockError::InvalidIdFormat)?;
-                } else {
-                    variation = part.parse().map_err(|_| BlockError::InvalidIdFormat)?;
-                }
-            }
+        if parts.len() != 3 {
+            return Err(BlockError::InvalidIdFormat);
         }
 
-        Ok(Self(base_id << 16 | (variation << 16 | color_id as u32)))
+        let base_id = parts[0]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+        let variation = parts[1]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+        let color_id = parts[2]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+
+        Ok(Self::new(base_id, variation, color_id))
     }
 
     pub fn to_combined(&self) -> u64 {
@@ -124,6 +143,35 @@ impl From<u64> for BlockId {
 impl From<i32> for BlockId {
     fn from(value: i32) -> Self {
         Self(value as u32)
+    }
+}
+
+impl FromStr for BlockId {
+    type Err = BlockError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 3 {
+            return Err(BlockError::InvalidIdFormat);
+        }
+
+        let base_id = parts[0]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+        let variation = parts[1]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+        let color_id = parts[2]
+            .parse::<u32>()
+            .map_err(|_| BlockError::InvalidIdFormat)?;
+
+        Ok(Self::new(base_id, variation, color_id))
+    }
+}
+
+impl Default for BlockId {
+    fn default() -> Self {
+        Self(0)
     }
 }
 
@@ -202,7 +250,7 @@ impl BlockRegistry {
             return Err(BlockError::DuplicateName(name));
         }
 
-        let id = BlockId::new(self.next_id);
+        let id = BlockId::new(self.next_id, 0, 0);
         self.next_id += 1;
 
         let block = Block::new(id);
