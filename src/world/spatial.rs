@@ -247,7 +247,7 @@ impl ViewFrustum {
     }
 
     pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
-        let view_proj = proj * view;
+        let view_proj = proj.mul_mat4(view);
         let mut planes = [MathPlane::default(); 6];
 
         // Left plane
