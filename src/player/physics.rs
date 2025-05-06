@@ -316,7 +316,7 @@ impl Player {
     fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
         let chunk_coord = ChunkCoord::from_world_pos(position, self.chunk_size);
         if let Some(chunk) = terrain.get_chunk(chunk_coord) {
-            let local_pos = position - chunk_coord.to_world_pos();
+            let local_pos = position - chunk_coord.to_world_pos(self.chunk_size);
             return chunk.is_solid_at(local_pos);
         }
         false
