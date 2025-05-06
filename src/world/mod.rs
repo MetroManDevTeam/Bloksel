@@ -1,8 +1,10 @@
 pub mod block;
+pub mod block_error;
 pub mod block_facing;
 pub mod block_flags;
 pub mod block_id;
 pub mod block_material;
+pub mod block_orientation;
 pub mod block_tech;
 pub mod block_visual;
 pub mod blocks_data;
@@ -14,12 +16,14 @@ pub mod storage;
 
 // Re-export commonly used types
 pub use block::Block;
+pub use block_error::BlockError;
 pub use block_facing::BlockFacing;
 pub use block_flags::BlockFlags;
-pub use block_id::BlockRegistry;
+pub use block_id::{BlockCategory, BlockData, BlockDefinition, BlockId, BlockRegistry};
 pub use block_material::BlockMaterial;
+pub use block_orientation::BlockOrientation;
 pub use block_tech::BlockPhysics;
-pub use block_visual::BlockVisual;
+pub use block_visual::{BlockVisual, ConnectedDirections};
 pub use blocks_data::BLOCKS;
 pub use chunk::{Chunk, SerializedChunk};
 pub use chunk_coord::ChunkCoord;
