@@ -1,7 +1,8 @@
 use crate::world::BlockOrientation;
 use crate::world::block::{Block, SubBlock};
+use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
-use crate::world::block_visual::{BlockFacing, ConnectedDirections};
+use crate::world::block_visual::ConnectedDirections;
 use crate::world::blocks_data::BlockRegistry;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
