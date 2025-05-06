@@ -11,13 +11,8 @@ use crate::world::generator::terrain::{BiomeType, ChaCha12Rng};
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
-<<<<<<< Updated upstream
-use glam::{IVec3, Vec3};
-use rand_chacha::ChaCha12Rng;
-=======
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
->>>>>>> Stashed changes
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -50,41 +45,19 @@ impl ChunkMesh {
 pub struct Chunk {
     pub coord: ChunkCoord,
     pub blocks: Vec<Option<Block>>,
-<<<<<<< Updated upstream
-    pub mesh: ChunkMesh,
-=======
     pub mesh: Option<ChunkMesh>,
->>>>>>> Stashed changes
 }
 
 impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
-<<<<<<< Updated upstream
-            blocks: vec![None; CHUNK_VOLUME],
-            mesh: ChunkMesh::new(),
-=======
             blocks: vec![None; 16 * 16 * 16], // Assuming 16x16x16 chunks
             mesh: None,
->>>>>>> Stashed changes
         }
     }
 
     pub fn get_block(&self, x: u8, y: u8, z: u8) -> Option<&Block> {
-<<<<<<< Updated upstream
-        let index = (x as usize)
-            + (y as usize) * CHUNK_SIZE as usize
-            + (z as usize) * (CHUNK_SIZE as usize).pow(2);
-        self.blocks[index].as_ref()
-    }
-
-    pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Option<Block>) {
-        let index = (x as usize)
-            + (y as usize) * CHUNK_SIZE as usize
-            + (z as usize) * (CHUNK_SIZE as usize).pow(2);
-        self.blocks[index] = block;
-=======
         let index = (x as usize + y as usize * 16 + z as usize * 16 * 16) as usize;
         self.blocks.get(index).and_then(|b| b.as_ref())
     }
@@ -108,23 +81,6 @@ impl Chunk {
             blocks: vec![None; (size * size * size) as usize],
             mesh: None,
         }
->>>>>>> Stashed changes
-    }
-
-    pub fn empty(size: u8) -> Self {
-        Self {
-            coord: ChunkCoord::new(0, 0, 0),
-            blocks: vec![None; (size as usize).pow(3)],
-            mesh: ChunkMesh::new(),
-        }
-    }
-
-    pub fn from_template(template: &Self, coord: ChunkCoord) -> Self {
-        Self {
-            coord,
-            blocks: template.blocks.clone(),
-            mesh: ChunkMesh::new(),
-        }
     }
 }
 
@@ -133,7 +89,7 @@ pub struct ChunkManager {
     renderer: ChunkRenderer,
     world_config: WorldGenConfig,
     compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>>,
-    block_registry: Arc<BlockRegistry>, // Added missing field
+    block_registry: Arc<BlockRegistry>,
 }
 
 impl ChunkManager {
@@ -190,10 +146,10 @@ impl ChunkManager {
             let chunk = self.generate_chunk(coord);
             self.add_chunk(coord, chunk);
         }
-        self.chunks.get(&coord).unwrap().as_ref().unwrap()
+        self.chunks.get(&coord).unwrap().as_ref()
     }
 
-    pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
+    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
         let mut chunk = Chunk::new(coord);
 
         // Simple terrain generation
@@ -205,13 +161,13 @@ impl ChunkManager {
                         x,
                         y,
                         z,
-                        Some(Block::new(1)), // Stone block
+                        Block::new(BlockId::new(1)), // Stone block
                     );
                 }
             }
         }
 
-        Arc::new(chunk)
+        chunk
     }
 
     pub fn generate_merged_mesh(&self) -> ChunkMesh {
