@@ -272,6 +272,11 @@ impl Chunk {
         );
         block
     }
+
+    pub fn is_solid_at(&self, world_x: i32, world_y: i32, world_z: i32) -> bool {
+        self.get_block_at(world_x, world_y, world_z)
+            .map_or(false, |block| block.is_solid())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
