@@ -1,6 +1,6 @@
 use glam::{IVec3, Vec3};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChunkCoord(pub IVec3);
@@ -35,9 +35,9 @@ impl ChunkCoord {
 
     pub fn to_world_pos(&self, chunk_size: i32) -> Vec3 {
         Vec3::new(
-            self.x() as f32 * chunk_size as f32,
-            self.y() as f32 * chunk_size as f32,
-            self.z() as f32 * chunk_size as f32,
+            self.0.x as f32 * chunk_size as f32,
+            self.0.y as f32 * chunk_size as f32,
+            self.0.z as f32 * chunk_size as f32,
         )
     }
 
@@ -45,15 +45,39 @@ impl ChunkCoord {
         PathBuf::from(format!("{}_{}_{}.chunk", self.0.x, self.0.y, self.0.z))
     }
 
-    pub fn from_path(path: &str) -> Option<Self> {
-        let filename = path.split('/').last()?.strip_suffix(".chunk")?;
-        let coords: Vec<i32> = filename.split('_').filter_map(|s| s.parse().ok()).collect();
+    pub fn from_path(path: &Path) -> std::io::Result<Self> {
+        let file_name = path
+            .file_stem()
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk file name")
+            })?
+            .to_str()
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Invalid UTF-8 in chunk file name",
+                )
+            })?;
 
-        if coords.len() == 3 {
-            Some(Self(IVec3::new(coords[0], coords[1], coords[2])))
-        } else {
-            None
+        let parts: Vec<&str> = file_name.split('_').collect();
+        if parts.len() != 3 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid chunk file name format",
+            ));
         }
+
+        let x = parts[0].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid x coordinate")
+        })?;
+        let y = parts[1].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid y coordinate")
+        })?;
+        let z = parts[2].parse::<i32>().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid z coordinate")
+        })?;
+
+        Ok(Self::new(x, y, z))
     }
 
     pub fn get_neighbors(&self) -> Vec<Self> {
