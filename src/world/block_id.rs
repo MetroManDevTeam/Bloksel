@@ -165,6 +165,16 @@ impl From<u64> for BlockId {
     }
 }
 
+impl From<i32> for BlockId {
+    fn from(value: i32) -> Self {
+        BlockId {
+            base_id: value as u16,
+            variation: 0,
+            color_id: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: BlockId,
@@ -479,5 +489,13 @@ impl BlockRegistry {
             self.material_cache.insert(def.id, def.material.clone());
             self.physics_cache.insert(def.id, def.flags.into());
         }
+    }
+}
+
+impl BlockMaterial {
+    pub fn apply_tint(&mut self, color: [f32; 4], settings: &TintSettings) {
+        let [r, g, b, a] = color;
+        let color = [r, g, b];
+        // ... rest of the method ...
     }
 }
