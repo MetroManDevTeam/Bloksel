@@ -4,7 +4,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::{BlockFlags, BlockPhysics};
-use crate::world::block_visual::{BlockVisual, ConnectedDirections};
+use crate::world::block_visual::ConnectedDirections;
 use crate::world::blocks_data::BLOCKS;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
