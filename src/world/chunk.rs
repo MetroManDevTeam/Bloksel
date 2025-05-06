@@ -1,13 +1,14 @@
 use crate::ChunkCoord;
+use crate::config::WorldGenConfig;
 use crate::render::pipeline::ChunkRenderer;
 use crate::world::BlockOrientation;
+use crate::world::BlockRegistry;
 use crate::world::block::{Block, SubBlock};
 use crate::world::block_id::BlockId;
 use crate::world::block_mat::BlockMaterial;
 use crate::world::block_visual::{BlockFacing, ConnectedDirections};
 use crate::world::generator::terrain::{BiomeType, ChaCha12Rng};
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
-use crate::world::{BlockRegistry, WorldConfig};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
 use glam::{IVec3, Vec3};
