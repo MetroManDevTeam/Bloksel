@@ -1,22 +1,22 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockError {
     InvalidIdFormat,
-    DuplicateId(u32),
     DuplicateName(String),
-    SerializationFailed,
-    DeserializationFailed,
+    InvalidBlockId,
+    InvalidBlockData,
+    BlockNotFound,
 }
 
 impl std::fmt::Display for BlockError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidIdFormat => write!(f, "Invalid block ID format"),
-            Self::DuplicateId(id) => write!(f, "Duplicate block ID: {}", id),
             Self::DuplicateName(name) => write!(f, "Duplicate block name: {}", name),
-            Self::SerializationFailed => write!(f, "Failed to serialize block data"),
-            Self::DeserializationFailed => write!(f, "Failed to deserialize block data"),
+            Self::InvalidBlockId => write!(f, "Invalid block ID"),
+            Self::InvalidBlockData => write!(f, "Invalid block data"),
+            Self::BlockNotFound => write!(f, "Block not found"),
         }
     }
 }
