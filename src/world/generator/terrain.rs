@@ -127,6 +127,15 @@ impl TerrainGenerator {
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
         let mut chunk = Chunk::new(coord);
+        match self.config.world_type {
+            WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
+            WorldType::Flat => self.generate_flat_chunk(&mut chunk, coord),
+            WorldType::Superflat => self.generate_superflat_chunk(&mut chunk, coord),
+        }
+        chunk
+    }
+
+    fn generate_normal_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
         let base_x = coord.x() * 32;
         let base_y = coord.y() * 32;
         let base_z = coord.z() * 32;
@@ -164,8 +173,80 @@ impl TerrainGenerator {
                 }
             }
         }
+    }
 
-        chunk
+    fn generate_flat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
+        let base_y = coord.y() * 32;
+        for x in 0..32 {
+            for y in 0..32 {
+                for z in 0..32 {
+                    let world_y = base_y + y as i32;
+                    if world_y < self.config.terrain_height {
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(1))),
+                        ); // Stone
+                    } else if world_y == self.config.terrain_height {
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(2))),
+                        ); // Grass
+                    } else {
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(0))),
+                        ); // Air
+                    }
+                }
+            }
+        }
+    }
+
+    fn generate_superflat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
+        let base_y = coord.y() * 32;
+        let mut current_height = 0;
+
+        for (block_id, thickness) in &self.config.flat_world_layers {
+            for y in 0..32 {
+                let world_y = base_y + y as i32;
+                if world_y >= current_height && world_y < current_height + thickness {
+                    for x in 0..32 {
+                        for z in 0..32 {
+                            chunk.set_block(
+                                x as u32,
+                                y as u32,
+                                z as u32,
+                                Some(Block::new(*block_id)),
+                            );
+                        }
+                    }
+                }
+            }
+            current_height += thickness;
+        }
+
+        // Fill remaining space with air
+        for x in 0..32 {
+            for y in 0..32 {
+                for z in 0..32 {
+                    let world_y = base_y + y as i32;
+                    if world_y >= current_height {
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(0))),
+                        ); // Air
+                    }
+                }
+            }
+        }
     }
 
     fn get_height(&self, x: i32, z: i32) -> i32 {
@@ -187,128 +268,6 @@ impl TerrainGenerator {
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
         let chunk = self.generate_chunk(coord);
         Some(Arc::new(chunk))
-    }
-
-    pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
-        let mut chunk = Chunk::new(coord);
-
-        match self.config.world_type {
-            WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
-            WorldType::Flat => self.generate_flat_chunk(&mut chunk, coord),
-            WorldType::Superflat => self.generate_superflat_chunk(&mut chunk, coord),
-        }
-
-        Arc::new(chunk)
-    }
-
-    fn generate_normal_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
-        let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.world_seed as u64
-                + coord.x() as u64 * 341873128712
-                + coord.z() as u64 * 132897987541,
-        );
-
-        for x in 0..CHUNK_SIZE {
-            for z in 0..CHUNK_SIZE {
-                let world_x = coord.x() * CHUNK_SIZE as i32 + x as i32;
-                let world_z = coord.z() * CHUNK_SIZE as i32 + z as i32;
-
-                let biome = self.calculate_biome(world_x, world_z);
-                let height = self.calculate_height(world_x, world_z, biome);
-                let (base_block, top_block) = self.get_biome_blocks(biome);
-
-                for y in 0..CHUNK_SIZE {
-                    let world_y = coord.y() * CHUNK_SIZE as i32 + y as i32;
-                    let mut block_id = BlockId::new(0);
-
-                    if world_y <= height {
-                        block_id =
-                            self.get_block_for_depth(world_y, height, base_block, top_block, biome);
-
-                        if self.should_add_cave(world_x, world_y, world_z) {
-                            block_id = BlockId::new(0);
-                        }
-                    }
-
-                    if biome == BiomeType::Ocean
-                        && world_y <= SEA_LEVEL
-                        && block_id == BlockId::new(0)
-                    {
-                        block_id = BlockId::new(10);
-                    }
-
-                    if block_id != BlockId::new(0) {
-                        let mut block = self.create_block(block_id, biome, &mut rng);
-                        self.add_strata_details(&mut block, world_y, &mut rng);
-                        chunk.set_block(
-                            x.try_into().unwrap(),
-                            y.try_into().unwrap(),
-                            z.try_into().unwrap(),
-                            block,
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    fn generate_flat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
-        let mut rng = ChaCha12Rng::seed_from_u64(
-            self.config.world_seed as u64
-                + coord.x() as u64 * 341873128712
-                + coord.z() as u64 * 132897987541,
-        );
-
-        let mut current_height = FLAT_WORLD_HEIGHT;
-
-        // Generate layers from top to bottom
-        for (block_id, thickness) in &self.config.flat_world_layers {
-            for _ in 0..*thickness {
-                for x in 0..CHUNK_SIZE {
-                    for z in 0..CHUNK_SIZE {
-                        let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
-                        if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
-                            let block = self.create_block(*block_id, BiomeType::Plains, &mut rng);
-                            chunk.set_block(
-                                x.try_into().unwrap(),
-                                chunk_y.try_into().unwrap(),
-                                z.try_into().unwrap(),
-                                block,
-                            );
-                        }
-                    }
-                }
-                current_height -= 1;
-            }
-        }
-
-        // Fill with bedrock at the bottom
-        if current_height > 0 {
-            let bedrock_id = self
-                .block_registry
-                .get_by_name("bedrock")
-                .map(|def| def.id)
-                .unwrap_or(BlockId::from(10));
-            for x in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
-                    let chunk_y = current_height - coord.y() * CHUNK_SIZE as i32;
-                    if chunk_y >= 0 && chunk_y < CHUNK_SIZE as i32 {
-                        let block = self.create_block(bedrock_id, BiomeType::Plains, &mut rng);
-                        chunk.set_block(
-                            x.try_into().unwrap(),
-                            chunk_y.try_into().unwrap(),
-                            z.try_into().unwrap(),
-                            block,
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    fn generate_superflat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
-        // Implementation for Superflat world type
-        self.generate_normal_chunk(chunk, coord)
     }
 
     fn calculate_height(&self, x: i32, z: i32, biome: BiomeType) -> i32 {
