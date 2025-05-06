@@ -59,6 +59,10 @@ impl Block {
     pub fn has_sub_blocks(&self) -> bool {
         !self.sub_blocks.is_empty()
     }
+
+    pub fn get_primary_id(&self) -> BlockId {
+        self.id
+    }
 }
 
 impl SubBlock {
