@@ -1,8 +1,8 @@
 pub struct TerrainConfig {
-    pub seed: u32,
-    pub world_scale: f64,
-    pub terrain_amplitude: f64,
-    pub cave_threshold: f64,
-    pub world_type: WorldType,
-    pub flat_world_layers: Vec<(BlockId, i32)>, // For flat world generation
+    pub world_seed: u64,
+    pub terrain_height: u32,
+    pub water_level: u32,
+    pub biome_scale: f32,
+    pub noise_scale: f32,
+    pub cave_density: f32,
 }
