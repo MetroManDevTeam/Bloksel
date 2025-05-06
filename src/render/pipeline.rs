@@ -1,7 +1,7 @@
 // In render/pipeline.rs
 use crate::render::mesh::Mesh;
-use crate::render::{Camera, Shader};
-use crate::world::block_mat::BlockMaterial;
+use crate::render::{Camera, Shader, ShaderProgram};
+use crate::world::block_material::BlockMaterial;
 use crate::world::chunk::ChunkMesh;
 use crate::world::{BlockRegistry, Chunk};
 use anyhow::Context;
@@ -16,6 +16,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 const ATLAS_START_SIZE: u32 = 1024;
+const MAX_ATLAS_SIZE: u32 = 4096;
 const TEXTURE_PADDING: u32 = 2;
 
 #[derive(Debug, thiserror::Error)]
