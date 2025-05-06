@@ -1,7 +1,7 @@
 // In render/pipeline.rs
+use crate::render::core::{Camera, Shader};
 use crate::render::mesh::Mesh;
 use crate::render::shaders::ShaderProgram;
-use crate::render::{Camera, Shader};
 use crate::world::block::Block;
 use crate::world::block_material::BlockMaterial;
 use crate::world::blocks_data::BlockRegistry;
@@ -261,41 +261,49 @@ impl ChunkRenderer {
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
         let mut mesh = ChunkMesh::new();
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
 
-        for x in 0..CHUNK_SIZE {
-            for y in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
+        for y in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
                     if let Some(block) = chunk.get_block(x, y, z) {
                         let material = block.get_material(&self.block_registry);
                         let position = Vec3::new(x as f32, y as f32, z as f32);
 
                         // Add vertices
-                        mesh.vertices.push(position.x);
-                        mesh.vertices.push(position.y);
-                        mesh.vertices.push(position.z);
+                        vertices.push(position.x);
+                        vertices.push(position.y);
+                        vertices.push(position.z);
 
                         // Add normals
-                        mesh.normals.push(0.0);
-                        mesh.normals.push(1.0);
-                        mesh.normals.push(0.0);
+                        normals.push(0.0);
+                        normals.push(1.0);
+                        normals.push(0.0);
 
                         // Add UVs
-                        mesh.uvs.push(0.0);
-                        mesh.uvs.push(0.0);
+                        uvs.push(0.0);
+                        uvs.push(0.0);
 
                         // Add indices
-                        let base_index = (mesh.vertices.len() / 3) as u32 - 1;
-                        mesh.indices.push(base_index);
-                        mesh.indices.push(base_index + 1);
-                        mesh.indices.push(base_index + 2);
-                        mesh.indices.push(base_index + 2);
-                        mesh.indices.push(base_index + 3);
-                        mesh.indices.push(base_index);
+                        let base_index = (vertices.len() / 3) as u32 - 1;
+                        indices.push(base_index);
+                        indices.push(base_index + 1);
+                        indices.push(base_index + 2);
+                        indices.push(base_index + 2);
+                        indices.push(base_index + 3);
+                        indices.push(base_index);
                     }
                 }
             }
         }
 
+        mesh.vertices = vertices;
+        mesh.indices = indices;
+        mesh.normals = normals;
+        mesh.uvs = uvs;
         mesh
     }
 
