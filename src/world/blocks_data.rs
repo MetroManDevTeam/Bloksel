@@ -338,3 +338,108 @@ pub const BLOCKS: &[BlockDefinition] = &[
         },
     },
 ];
+
+pub fn create_default_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(false)
+        .with_transparent(false)
+        .with_liquid(false)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(0);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_stone_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(true)
+        .with_transparent(false)
+        .with_liquid(false)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(5);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_grass_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(true)
+        .with_transparent(false)
+        .with_liquid(false)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(2);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_water_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(false)
+        .with_transparent(true)
+        .with_liquid(true)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(0);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_lava_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(false)
+        .with_transparent(false)
+        .with_liquid(true)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(15)
+        .with_break_resistance(0);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_sand_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(true)
+        .with_transparent(false)
+        .with_liquid(false)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(1);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
+
+pub fn create_glass_block() -> (BlockFlags, BlockMaterial) {
+    let flags = BlockFlags::empty()
+        .with_solid(true)
+        .with_transparent(true)
+        .with_liquid(false)
+        .with_flora(false)
+        .with_decorative(false)
+        .with_light_level(0)
+        .with_break_resistance(1);
+
+    let material = BlockMaterial::default();
+
+    (flags, material)
+}
