@@ -23,11 +23,7 @@ pub enum BlockCategory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockId {
-    pub base_id: u32,
-    pub variation: u16,
-    pub color_id: u16,
-}
+pub struct BlockId(pub u16);
 
 impl BlockId {
     pub fn new(base_id: u32) -> Self {
