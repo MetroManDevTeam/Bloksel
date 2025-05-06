@@ -15,6 +15,12 @@ bitflags! {
     }
 }
 
+impl Default for BlockFlags {
+    fn default() -> Self {
+        BlockFlags::NONE
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BlockPhysics {
     pub solid: bool,
