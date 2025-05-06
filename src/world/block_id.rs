@@ -1,6 +1,7 @@
-use crate::world::BlockFacing;
-use crate::world::BlockOrientation;
 use crate::world::block::Block;
+use crate::world::block_error::BlockError;
+use crate::world::block_facing::BlockFacing;
+use crate::world::block_orientation::BlockOrientation;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
