@@ -121,7 +121,9 @@ impl BlockRegistry {
     }
 
     pub fn get_by_id(&self, id: BlockId) -> Option<&BlockDefinition> {
-        self.id_to_name.get(&id).and_then(|name| self.blocks.get(name))
+        self.id_to_name
+            .get(&id)
+            .and_then(|name| self.blocks.get(name))
     }
 
     pub fn get_block_material(&self, id: BlockId) -> Option<&BlockMaterial> {
@@ -226,9 +228,7 @@ impl Default for BlockRegistry {
                 emissive: [1.0, 0.5, 0.0],
                 ..Default::default()
             },
-            flags: BlockFlags::default()
-                .with_liquid(true)
-                .with_light_level(15),
+            flags: BlockFlags::default().with_liquid(true).with_light_level(15),
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
