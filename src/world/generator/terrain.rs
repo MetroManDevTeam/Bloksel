@@ -441,7 +441,7 @@ impl TerrainGenerator {
                                 .unwrap_or(BlockId::from(10)),
                             metadata: 0,
                             facing: BlockFacing::None,
-                            orientation: BlockOrientation::Wall,
+                            orientation: BlockOrientation::None,
                             connections: ConnectedDirections::empty(),
                         },
                     );
@@ -467,7 +467,7 @@ impl TerrainGenerator {
                             .unwrap_or(BlockId::from(10)),
                         metadata: 0,
                         facing: BlockFacing::None,
-                        orientation: BlockOrientation::Wall,
+                        orientation: BlockOrientation::None,
                         connections: ConnectedDirections::empty(),
                     },
                 );
@@ -501,7 +501,7 @@ impl TerrainGenerator {
                             .unwrap_or(BlockId::from(10)),
                         metadata: 0,
                         facing: BlockFacing::None,
-                        orientation: BlockOrientation::Wall,
+                        orientation: BlockOrientation::None,
                         connections: ConnectedDirections::empty(),
                     },
                 );
