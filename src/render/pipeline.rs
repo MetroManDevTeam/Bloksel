@@ -307,29 +307,42 @@ impl ChunkRenderer {
     }
 
     pub fn generate_mesh(&self, chunk: &Chunk) -> ChunkMesh {
-        match self.lod_level {
-            0 => self.generate_greedy_mesh(chunk),
-            1 => self.generate_simplified_mesh(chunk, 2),
-            2 => self.generate_simplified_mesh(chunk, 4),
-            _ => self.generate_bounding_box_mesh(chunk),
+        let mut mesh = ChunkMesh::new();
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    if let Some(block) = chunk.get_block(x, y, z) {
+                        let material = block.get_material(&self.block_registry);
+                        let position = Vec3::new(x as f32, y as f32, z as f32);
+
+                        // Add vertices
+                        vertices.push(position);
+                        normals.push(Vec3::new(0.0, 1.0, 0.0)); // Up normal
+                        uvs.push(Vec2::new(0.0, 0.0));
+
+                        // Add indices
+                        let base_index = vertices.len() as u32 - 1;
+                        indices.push(base_index);
+                        indices.push(base_index + 1);
+                        indices.push(base_index + 2);
+                        indices.push(base_index + 2);
+                        indices.push(base_index + 3);
+                        indices.push(base_index);
+                    }
+                }
+            }
         }
-    }
 
-    fn generate_greedy_mesh(&self, _chunk: &Chunk) -> ChunkMesh {
-        let mesh = ChunkMesh::new();
-        // TODO: Implement greedy meshing
-        mesh
-    }
+        mesh.vertices = vertices;
+        mesh.normals = normals;
+        mesh.uvs = uvs;
+        mesh.indices = indices;
 
-    fn generate_simplified_mesh(&self, _chunk: &Chunk, _factor: u8) -> ChunkMesh {
-        let mesh = ChunkMesh::new();
-        // TODO: Implement simplified meshing
-        mesh
-    }
-
-    fn generate_bounding_box_mesh(&self, _chunk: &Chunk) -> ChunkMesh {
-        let mesh = ChunkMesh::new();
-        // TODO: Implement bounding box meshing
         mesh
     }
 
