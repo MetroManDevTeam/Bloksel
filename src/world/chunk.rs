@@ -54,18 +54,22 @@ impl Chunk {
     pub fn new(coord: ChunkCoord) -> Self {
         Self {
             coord,
-            blocks: vec![None; 16 * 16 * 16], // Assuming 16x16x16 chunks
+            blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
         }
     }
 
     pub fn get_block(&self, x: u8, y: u8, z: u8) -> Option<&Block> {
-        let index = (x as usize + y as usize * 16 + z as usize * 16 * 16) as usize;
+        let index = (x as usize
+            + y as usize * CHUNK_SIZE as usize
+            + z as usize * CHUNK_SIZE as usize * CHUNK_SIZE as usize) as usize;
         self.blocks.get(index).and_then(|b| b.as_ref())
     }
 
     pub fn set_block(&mut self, x: u8, y: u8, z: u8, block: Block) {
-        let index = (x as usize + y as usize * 16 + z as usize * 16 * 16) as usize;
+        let index = (x as usize
+            + y as usize * CHUNK_SIZE as usize
+            + z as usize * CHUNK_SIZE as usize * CHUNK_SIZE as usize) as usize;
         if let Some(block_ref) = self.blocks.get_mut(index) {
             *block_ref = Some(block);
         }
@@ -77,10 +81,10 @@ impl Chunk {
         chunk
     }
 
-    pub fn empty(size: u8) -> Self {
+    pub fn empty() -> Self {
         Self {
             coord: ChunkCoord::new(0, 0, 0),
-            blocks: vec![None; (size * size * size) as usize],
+            blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
         }
     }
@@ -199,107 +203,80 @@ impl ChunkManager {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
-        bincode::serialize_into(&mut writer, &self.compressed_cache)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        for (coord, chunk) in &self.chunks {
+            serialize_into(&mut writer, &(coord, chunk))?;
+        }
+
+        Ok(())
     }
 
     pub fn load_world(&mut self) -> std::io::Result<()> {
-        let path = format!("worlds/{}/world.dat", self.world_config.world_name);
+        let world_dir = format!("worlds/{}", self.world_config.world_name);
+        let path = Path::new(&world_dir).join("world.dat");
+
+        if !path.exists() {
+            return Ok(());
+        }
+
         let file = File::open(path)?;
-        let compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>> =
-            bincode::deserialize_from(file)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let mut reader = std::io::BufReader::new(file);
 
-        for (coord, blocks) in compressed_cache {
-            let mut chunk = Chunk::new(
-                self.world_config.chunk_size,
-                self.world_config.sub_resolution,
-                coord,
-            );
-
-            for compressed in blocks {
-                let (x, y, z) = compressed.position;
-                let mut block = Block::new(
-                    BlockId::new(compressed.id as u32),
-                    self.world_config.sub_resolution as u8,
-                );
-
-                for sub in compressed.sub_blocks {
-                    block.place_sub_block(
-                        sub.local_pos.0,
-                        sub.local_pos.1,
-                        sub.local_pos.2,
-                        SubBlock {
-                            id: sub.id,
-                            metadata: sub.metadata,
-                            facing: BlockFacing::None, // Default facing
-                            orientation: sub.orientation,
-                            connections: ConnectedDirections::empty(), // Default connections
-                        },
-                    );
-                }
-
-                chunk.blocks[x][y][z] = Some(block);
-            }
-
-            self.chunks.insert(coord, Arc::new(chunk));
-            self.compressed_cache.insert(coord, blocks);
+        while let Ok((coord, chunk)) = deserialize_from(&mut reader) {
+            self.add_chunk(coord, chunk);
         }
 
         Ok(())
     }
 
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
-        let chunk_size = self.world_config.chunk_size as f32;
-        let chunk_coord = ChunkCoord::from_world(world_pos, chunk_size);
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as u32);
+        let chunk = self.chunks.get(&chunk_coord)?;
 
-        if let Some(chunk) = self.chunks.get(&chunk_coord) {
-            let local_x = (world_pos.x % chunk_size).floor() as usize;
-            let local_y = (world_pos.y % chunk_size).floor() as usize;
-            let local_z = (world_pos.z % chunk_size).floor() as usize;
+        let local_x = (world_pos.x as i32 % CHUNK_SIZE as i32) as u8;
+        let local_y = (world_pos.y as i32 % CHUNK_SIZE as i32) as u8;
+        let local_z = (world_pos.z as i32 % CHUNK_SIZE as i32) as u8;
 
-            chunk.blocks[local_x][local_y][local_z]
-                .as_ref()
-                .map(|block| (block, chunk_coord.into()))
-        } else {
-            None
-        }
+        chunk.get_block(local_x, local_y, local_z).map(|block| {
+            (
+                block,
+                IVec3::new(
+                    chunk_coord.x() * CHUNK_SIZE as i32 + local_x as i32,
+                    chunk_coord.y() * CHUNK_SIZE as i32 + local_y as i32,
+                    chunk_coord.z() * CHUNK_SIZE as i32 + local_z as i32,
+                ),
+            )
+        })
     }
 
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
-        let (block, chunk_coord) = self.get_block_at(world_pos)?;
-        let sub_size = 1.0 / self.world_config.sub_resolution as f32;
+        let (block, block_pos) = self.get_block_at(world_pos)?;
 
-        let local_pos = world_pos
-            - Vec3::new(
-                chunk_coord.x as f32 * self.world_config.chunk_size as f32,
-                chunk_coord.y as f32 * self.world_config.chunk_size as f32,
-                chunk_coord.z as f32 * self.world_config.chunk_size as f32,
-            );
+        let local_x = (world_pos.x as i32 % CHUNK_SIZE as i32) as u8;
+        let local_y = (world_pos.y as i32 % CHUNK_SIZE as i32) as u8;
+        let local_z = (world_pos.z as i32 % CHUNK_SIZE as i32) as u8;
 
-        let sx = (local_pos.x / sub_size).floor() as u8;
-        let sy = (local_pos.y / sub_size).floor() as u8;
-        let sz = (local_pos.z / sub_size).floor() as u8;
-
-        block
-            .sub_blocks
-            .get(&(sx, sy, sz))
-            .map(|sub| (sub, chunk_coord))
+        block.get_sub_block(local_x, local_y, local_z).map(|sub| {
+            (
+                sub,
+                IVec3::new(
+                    block_pos.x * CHUNK_SIZE as i32 + local_x as i32,
+                    block_pos.y * CHUNK_SIZE as i32 + local_y as i32,
+                    block_pos.z * CHUNK_SIZE as i32 + local_z as i32,
+                ),
+            )
+        })
     }
 
     fn get_block_id_safe(&self, name: &str) -> BlockId {
         self.block_registry
             .get_by_name(name)
             .map(|def| def.id)
-            .unwrap_or_else(|| {
-                log::warn!("Block {} not found in registry", name);
-                BlockId::AIR
-            })
+            .unwrap_or(BlockId::AIR)
     }
 
     fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
         match biome {
-            BiomeType::Forest => {
+            BiomeType::Grassland => {
                 if rng.gen_ratio(1, 10) {
                     self.add_grass_features(block, rng);
                 }
