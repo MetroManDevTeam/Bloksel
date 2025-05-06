@@ -143,6 +143,28 @@ impl From<BlockId> for u16 {
     }
 }
 
+impl From<BlockId> for u32 {
+    fn from(id: BlockId) -> Self {
+        id.base_id
+    }
+}
+
+impl From<BlockId> for u64 {
+    fn from(id: BlockId) -> Self {
+        id.to_combined()
+    }
+}
+
+impl From<u64> for BlockId {
+    fn from(combined: u64) -> Self {
+        Self {
+            base_id: (combined >> 32) as u32,
+            variation: ((combined >> 16) & 0xFFFF) as u16,
+            color_id: (combined & 0xFFFF) as u16,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: BlockId,
@@ -198,26 +220,12 @@ pub struct ColorVariant {
 impl Block {
     pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
         let primary_id = self.get_primary_id();
-        let mut material = registry
-            .get_material(primary_id)
-            .unwrap_or_else(BlockMaterial::default);
+        registry.get_material(primary_id).unwrap_or_default()
+    }
 
-        if let Some(def) = registry.get(primary_id) {
-            // Apply variant modifiers
-            if let Some(variant) = registry.get_variant(primary_id) {
-                material.apply_modifiers(&variant.material_modifiers);
-            }
-
-            // Apply color tint
-            if primary_id.is_colored() {
-                if let Some(color_variant) = registry.get_color_variant(primary_id) {
-                    material.apply_tint(color_variant.color, &def.tint_settings);
-                    material.apply_modifiers(&color_variant.material_modifiers);
-                }
-            }
-        }
-
-        material
+    pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
+        let primary_id = self.get_primary_id();
+        registry.get_physics(primary_id)
     }
 
     pub fn place_sub_block(&mut self, pos: (u8, u8, u8), sub: SubBlock) -> Option<SubBlock> {
@@ -235,8 +243,8 @@ impl SubBlock {
             id,
             metadata: 0,
             facing: BlockFacing::None,
-            orientation: BlockOrientation::Wall,
-            connections: ConnectedDirections::empty(),
+            orientation: BlockOrientation::None,
+            connections: ConnectedDirections::default(),
         }
     }
 
@@ -257,7 +265,6 @@ impl SubBlock {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BlockRegistry {
     // Primary storage
     blocks: HashMap<BlockId, BlockDefinition>,
@@ -277,11 +284,10 @@ pub struct BlockRegistry {
 }
 
 impl BlockRegistry {
-    // ========================
-    // Initialization
-    // ========================
+    pub fn get_block_id(&self, name: &str) -> Option<BlockId> {
+        self.name_to_id.get(name).copied()
+    }
 
-    /// Creates an empty registry
     pub fn new() -> Self {
         Self {
             blocks: HashMap::new(),
@@ -295,54 +301,31 @@ impl BlockRegistry {
         }
     }
 
-    /// Pre-populates with default blocks
     pub fn initialize_default() -> Self {
         let mut registry = Self::new();
-
-        // Load from generated blocks data
-        for def in BLOCKS.iter().cloned() {
-            registry.add_block(def);
+        for block in BLOCKS {
+            registry.add_block(block.clone()).unwrap();
         }
-
-        // Build texture atlas
-        registry.rebuild_texture_atlas();
-
         registry
     }
 
-    // ========================
-    // Core Block Management
-    // ========================
-
-    /// Adds a block definition to the registry
     pub fn add_block(&mut self, def: BlockDefinition) -> Result<(), BlockError> {
-        // Validate ID uniqueness
         if self.blocks.contains_key(&def.id) {
             return Err(BlockError::DuplicateId(def.id));
         }
 
-        // Validate name uniqueness
         if self.name_to_id.contains_key(&def.name) {
-            return Err(BlockError::DuplicateName(def.name.clone()));
+            return Err(BlockError::DuplicateName(def.name));
         }
 
-        let id = def.id;
-
-        // Main storage
-        self.blocks.insert(id, def.clone());
-        self.name_to_id.insert(def.name.clone(), id);
+        self.blocks.insert(def.id, def.clone());
+        self.name_to_id.insert(def.name.clone(), def.id);
 
         // Add to category index
         self.category_index
             .entry(def.category)
-            .or_default()
-            .insert(id);
-
-        // Handle base ID mapping
-        self.base_id_to_variants
-            .entry(id.base_id)
-            .or_default()
-            .push(id);
+            .or_insert_with(HashSet::new)
+            .insert(def.id);
 
         // Process variants
         self.process_variants(&def)?;
@@ -350,146 +333,93 @@ impl BlockRegistry {
         // Process color variations
         self.process_color_variations(&def)?;
 
-        // Cache physics
-        self.physics_cache.insert(id, def.physics.clone());
+        // Add to base_id index
+        self.base_id_to_variants
+            .entry(def.id.base_id)
+            .or_insert_with(Vec::new)
+            .push(def.id);
+
+        // Cache material and physics
+        self.material_cache.insert(def.id, def.material.clone());
+        self.physics_cache.insert(def.id, def.flags.into());
 
         Ok(())
     }
 
-    /// Processes all block variants
     fn process_variants(&mut self, base_def: &BlockDefinition) -> Result<(), BlockError> {
         for variant in &base_def.variations {
-            let variant_id = BlockId {
-                base_id: base_def.id.base_id,
-                variation: variant.id,
-                color_id: 0,
-            };
-
-            // Create variant definition
+            let variant_id = BlockId::with_variation(base_def.id.base_id, variant.id);
             let mut variant_def = base_def.clone();
             variant_def.id = variant_id;
-            variant_def.name = format!("{} {}", base_def.name, variant.name);
+            variant_def.name = format!("{}:{}", base_def.name, variant.name);
 
             // Apply texture overrides
-            for (face, tex) in &variant.texture_overrides {
-                variant_def.texture_faces.insert(*face, tex.clone());
+            for (face, texture) in &variant.texture_overrides {
+                variant_def.texture_faces.insert(*face, texture.clone());
             }
 
-            // Process material
-            let mut variant_material = base_def.material.clone();
-            variant_material.apply_modifiers(&variant.material_modifiers);
+            // Apply material modifiers
+            variant_def
+                .material
+                .apply_modifiers(&variant.material_modifiers);
 
-            // Store
-            self.blocks.insert(variant_id, variant_def);
-            self.material_cache.insert(variant_id, variant_material);
-
-            // Add to name mapping
-            self.name_to_id
-                .insert(format!("{}:{}", base_def.name, variant.id), variant_id);
+            self.add_block(variant_def)?;
         }
-
         Ok(())
     }
 
-    /// Processes all color variations
     fn process_color_variations(&mut self, base_def: &BlockDefinition) -> Result<(), BlockError> {
-        for color_variant in &base_def.color_variations {
-            let color_id = BlockId {
-                base_id: base_def.id.base_id,
-                variation: 0,
-                color_id: color_variant.id,
-            };
-
-            // Create color variant definition
+        for color in &base_def.color_variations {
+            let color_id = BlockId::with_color(base_def.id.base_id, color.id);
             let mut color_def = base_def.clone();
             color_def.id = color_id;
-            color_def.name = format!("{} {}", base_def.name, color_variant.name);
+            color_def.name = format!("{}:C{}", base_def.name, color.name);
 
-            // Process material with tint
-            let mut color_material = base_def.material.clone();
-            color_material.apply_tint(color_variant.color, &base_def.tint_settings);
-            color_material.apply_modifiers(&color_variant.material_modifiers);
+            // Apply color tint
+            color_def
+                .material
+                .apply_tint(color.color, &base_def.tint_settings);
 
-            // Store
-            self.blocks.insert(color_id, color_def);
-            self.material_cache.insert(color_id, color_material);
+            // Apply material modifiers
+            color_def
+                .material
+                .apply_modifiers(&color.material_modifiers);
 
-            // Add to name mapping
-            self.name_to_id
-                .insert(format!("{}:C{}", base_def.name, color_variant.id), color_id);
+            self.add_block(color_def)?;
         }
-
         Ok(())
     }
 
-    // ========================
-    // Query Methods
-    // ========================
-
-    /// Gets a block definition by ID
     pub fn get(&self, id: BlockId) -> Option<&BlockDefinition> {
         self.blocks.get(&id)
     }
 
-    /// Gets a block definition by name
     pub fn get_by_name(&self, name: &str) -> Option<&BlockDefinition> {
         self.name_to_id.get(name).and_then(|id| self.get(*id))
     }
 
-    /// Gets the base definition (ignoring variants/colors)
     pub fn get_base(&self, base_id: u32) -> Option<&BlockDefinition> {
-        self.get(BlockId::new(base_id as u16))
+        self.get(BlockId::from(base_id))
     }
 
-    /// Gets a specific variant
     pub fn get_variant(&self, id: BlockId) -> Option<&BlockVariant> {
-        self.get(id)?
-            .variations
-            .iter()
-            .find(|v| v.id == id.variation)
+        self.get(id)
+            .and_then(|def| def.variations.iter().find(|v| v.id == id.variation))
     }
 
-    /// Gets a specific color variant
     pub fn get_color_variant(&self, id: BlockId) -> Option<&ColorVariant> {
-        self.get(id)?
-            .color_variations
-            .iter()
-            .find(|v| v.id == id.color_id)
+        self.get(id)
+            .and_then(|def| def.color_variations.iter().find(|c| c.id == id.color_id))
     }
 
-    /// Gets the material for a block (with all modifications applied)
     pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
-        self.material_cache.get(&id).cloned().or_else(|| {
-            // Fallback for uncached materials
-            let mut material = self.get(id)?.material.clone();
-
-            if let Some(variant) = self.get_variant(id) {
-                material.apply_modifiers(&variant.material_modifiers);
-            }
-
-            if id.color_id != 0 {
-                if let Some(color_variant) = self.get_color_variant(id) {
-                    if let Some(def) = self.get(id) {
-                        material.apply_tint(color_variant.color, &def.tint_settings);
-                        material.apply_modifiers(&color_variant.material_modifiers);
-                    }
-                }
-            }
-
-            Some(material)
-        })
+        self.material_cache.get(&id).cloned()
     }
 
-    /// Gets physics properties for a block
     pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
-        self.physics_cache.get(&id).cloned().unwrap_or_default()
+        self.physics_cache.get(&id).copied().unwrap_or_default()
     }
 
-    // ========================
-    // Bulk Operations
-    // ========================
-
-    /// Gets all variants of a base block
     pub fn get_all_variants(&self, base_id: u32) -> Vec<BlockId> {
         self.base_id_to_variants
             .get(&base_id)
@@ -497,126 +427,57 @@ impl BlockRegistry {
             .unwrap_or_default()
     }
 
-    /// Gets all color variants with their colors
     pub fn get_all_colors(&self, base_id: u32) -> Vec<(BlockId, Vec4)> {
-        self.base_id_to_variants
-            .get(&base_id)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| {
-                        if id.color_id != 0 {
-                            self.get_color_variant(*id).map(|v| (*id, v.color))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
+        self.get_all_variants(base_id)
+            .into_iter()
+            .filter_map(|id| {
+                self.get_color_variant(id)
+                    .map(|color| (id, Vec4::from_slice(&color.color)))
             })
-            .unwrap_or_default()
+            .collect()
     }
 
-    /// Gets all blocks in a category
     pub fn get_by_category(&self, category: BlockCategory) -> Vec<BlockId> {
         self.category_index
             .get(&category)
-            .map(|set| set.iter().cloned().collect())
+            .cloned()
             .unwrap_or_default()
+            .into_iter()
+            .collect()
     }
 
-    // ========================
-    // Texture Management
-    // ========================
-
-    /// Rebuilds the texture atlas index
     pub fn rebuild_texture_atlas(&mut self) {
-        let mut texture_paths = HashSet::new();
+        self.texture_atlas_indices.clear();
+        self.pending_texture_loads.clear();
 
-        // Collect all unique texture paths
         for def in self.blocks.values() {
-            for path in def.texture_faces.values() {
-                texture_paths.insert(path.clone());
-            }
-
-            for variant in &def.variations {
-                for path in variant.texture_overrides.values() {
-                    texture_paths.insert(path.clone());
+            for texture in def.texture_faces.values() {
+                if !self.texture_atlas_indices.contains_key(texture) {
+                    self.pending_texture_loads.insert(texture.clone());
                 }
             }
         }
-
-        // Assign indices
-        self.texture_atlas_indices.clear();
-        for (idx, path) in texture_paths.into_iter().enumerate() {
-            self.texture_atlas_indices.insert(path, idx as u32);
-        }
     }
 
-    /// Gets the atlas index for a texture path
     pub fn get_texture_index(&self, path: &str) -> Option<u32> {
         self.texture_atlas_indices.get(path).copied()
     }
 
-    // ========================
-    // Serialization
-    // ========================
-
-    /// Serializes the registry for saving
     pub fn serialize(&self) -> Result<Vec<u8>, BlockError> {
-        bincode::serialize(self).map_err(|_| BlockError::SerializationFailed)
+        bincode::serialize(self).map_err(|_| BlockError::SerializationError)
     }
 
-    /// Deserializes the registry
     pub fn deserialize(data: &[u8]) -> Result<Self, BlockError> {
-        let mut registry: Self =
-            bincode::deserialize(data).map_err(|_| BlockError::DeserializationFailed)?;
-
-        // Rebuild caches and indexes
-        registry.rebuild_caches();
-
-        Ok(registry)
+        bincode::deserialize(data).map_err(|_| BlockError::DeserializationError)
     }
 
-    /// Rebuilds all internal caches
     fn rebuild_caches(&mut self) {
         self.material_cache.clear();
         self.physics_cache.clear();
-        self.base_id_to_variants.clear();
-        self.category_index.clear();
 
-        for (id, def) in &self.blocks {
-            // Rebuild material cache
-            let mut material = def.material.clone();
-
-            if id.variation != 0 {
-                if let Some(variant) = self.get_variant(*id) {
-                    material.apply_modifiers(&variant.material_modifiers);
-                }
-            }
-
-            if id.color_id != 0 {
-                if let Some(color_variant) = self.get_color_variant(*id) {
-                    material.apply_tint(color_variant.color, &def.tint_settings);
-                    material.apply_modifiers(&color_variant.material_modifiers);
-                }
-            }
-
-            self.material_cache.insert(*id, material);
-
-            // Rebuild physics cache
-            self.physics_cache.insert(*id, def.physics.clone());
-
-            // Rebuild indexes
-            self.base_id_to_variants
-                .entry(id.base_id)
-                .or_default()
-                .push(*id);
-
-            self.category_index
-                .entry(def.category)
-                .or_default()
-                .insert(*id);
+        for def in self.blocks.values() {
+            self.material_cache.insert(def.id, def.material.clone());
+            self.physics_cache.insert(def.id, def.flags.into());
         }
-
-        self.rebuild_texture_atlas();
     }
 }
