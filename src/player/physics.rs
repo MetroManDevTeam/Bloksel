@@ -1,20 +1,11 @@
 use crate::PlayerInput;
-use crate::utils::math::AABB;
-use crate::utils::math::Mat4;
-use crate::utils::math::Plane;
-use crate::utils::math::Quat;
-use crate::utils::math::Vec3;
-use crate::utils::math::ViewFrustum;
-use crate::world::block::BlockPhysics;
-use crate::world::block_id::BlockData;
-use crate::world::block_tech::BlockPhysics;
-use crate::world::chunk_coord::ChunkCoord;
-use crate::world::{Chunk, TerrainGenerator};
-use glam::{Mat4 as GlamMat4, Quat as GlamQuat, Vec2, Vec3};
+use crate::utils::math::{AABB, Plane, ViewFrustum};
+use crate::world::{BlockData, BlockPhysics, Chunk, ChunkCoord, TerrainGenerator};
+use glam::{Mat4, Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::sync::Arc;
-use winit::event::{ElementState, MouseScrollDelta, VirtualKeyCode};
+use winit::event::{ElementState, MouseScrollDelta};
 use winit::keyboard::KeyCode;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -77,7 +68,7 @@ impl Default for Player {
             zoom_level: 1.0,
             max_zoom: 2.5,
             min_zoom: 0.4,
-            chunk_size: 30,
+            chunk_size: 16, // Standard chunk size
             collision_enabled: true,
             last_safe_position: Vec3::new(0.0, 70.0, 0.0),
             physics: BlockPhysics::default(),
@@ -108,7 +99,7 @@ impl Player {
     fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
         match self.state {
             PlayerState::Walking => {
-                let speed = self.physics.speed;
+                let speed = self.base_speed * self.speed_multiplier;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -127,7 +118,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Crouching => {
-                let speed = self.physics.speed * 0.5;
+                let speed = self.base_speed * self.speed_multiplier * 0.5;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -146,7 +137,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Flying => {
-                let speed = self.physics.speed * 2.0;
+                let speed = self.base_speed * self.speed_multiplier * 2.0;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -171,7 +162,7 @@ impl Player {
                 self.velocity = velocity;
             }
             PlayerState::Sprinting => {
-                let speed = self.physics.speed * 1.5;
+                let speed = self.base_speed * self.speed_multiplier * 1.5;
                 let mut velocity = Vec3::ZERO;
 
                 if input.forward {
@@ -323,11 +314,10 @@ impl Player {
     }
 
     fn check_collision(&self, position: Vec3, terrain: &TerrainGenerator) -> bool {
-        let chunk_coord = ChunkCoord::from_world_pos(position);
+        let chunk_coord = ChunkCoord::from_world_pos(position, self.chunk_size);
         if let Some(chunk) = terrain.get_chunk(chunk_coord) {
-            let local_pos = position - chunk_coord.to_world_pos(self.chunk_size);
-            // Perform the actual collision check using the chunk data
-            return chunk.read().is_solid_at(local_pos);
+            let local_pos = position - chunk_coord.to_world_pos();
+            return chunk.is_solid_at(local_pos);
         }
         false
     }
@@ -362,13 +352,13 @@ impl Player {
         }
     }
 
-    pub fn get_view_matrix(&self) -> GlamMat4 {
-        let rotation_x = GlamMat4::from_rotation_x(-self.rotation.y);
-        let rotation_y = GlamMat4::from_rotation_y(-self.rotation.x);
-        let translation = GlamMat4::from_translation(-self.position);
+    pub fn get_view_matrix(&self) -> glam::Mat4 {
+        let rotation_x = glam::Mat4::from_rotation_x(-self.rotation.y);
+        let rotation_y = glam::Mat4::from_rotation_y(-self.rotation.x);
+        let translation = glam::Mat4::from_translation(-self.position);
 
         // Apply zoom for spectator mode
-        let zoom = GlamMat4::from_scale(Vec3::splat(self.zoom_level));
+        let zoom = glam::Mat4::from_scale(Vec3::splat(self.zoom_level));
 
         rotation_x * rotation_y * translation * zoom
     }
