@@ -9,4 +9,9 @@ pub struct WorldGenConfig {
     pub biome_scale: f32,
     pub noise_scale: f32,
     pub cave_density: f32,
+
+    // World Settings
+    pub world_name: String,
+    pub chunk_size: u32,
+    pub sub_resolution: u32,
 }
