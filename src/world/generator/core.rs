@@ -2,11 +2,11 @@ pub mod terrain;
 
 pub use terrain::{BiomeType, Generator, Terrain, WorldType};
 
+use super::terrain::TerrainGenerator;
 use crate::world::block::Block;
 use crate::world::block_id::BlockId;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
-use crate::world::generator::terrain::TerrainGenerator;
 use glam::Vec3;
 use rand::Rng;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ impl ChunkGenerator {
         Self { terrain_generator }
     }
 
-    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
+    pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
         self.terrain_generator.generate_chunk(coord)
     }
 
