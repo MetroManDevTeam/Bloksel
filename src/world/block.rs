@@ -3,7 +3,8 @@ use crate::world::block_id::BlockId;
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::BlockPhysics;
 use crate::world::block_visual::ConnectedDirections;
-use crate::world::{BlockMaterial, BlockRegistry};
+use crate::world::blocks_data::BlockRegistry;
+use crate::world::BlockMaterial;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -63,14 +64,14 @@ impl Block {
         self.id.color_id() as u8
     }
 
-    pub fn get_material(&self, registry: &Arc<BlockRegistry>) -> BlockMaterial {
+    pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
         registry
             .get_block_material(self.id)
             .cloned()
             .unwrap_or_default()
     }
 
-    pub fn get_physics(&self, registry: &Arc<BlockRegistry>) -> BlockPhysics {
+    pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
         registry.get_block_flags(self.id).map_or_else(
             || BlockPhysics::default(),
             |flags| BlockPhysics::from(flags),
@@ -102,7 +103,7 @@ impl Block {
     }
 
     pub fn is_solid(&self) -> bool {
-        self.get_physics(&Arc::new(BlockRegistry::default()))
+        self.get_physics(&BlockRegistry::default())
             .is_solid()
     }
 }
