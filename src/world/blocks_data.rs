@@ -1,7 +1,7 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
 use crate::world::block_facing::BlockFacing;
-use crate::world::block_id::{BlockCategory, BlockDefinition, BlockId, BlockVariant, ColorVariant};
+use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_tech::{BlockFlags, BlockPhysics};
@@ -101,7 +101,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(1),
         name: "stone".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::None,
         connects_to: HashSet::new(),
@@ -137,7 +137,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(2),
         name: "grass".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -172,7 +172,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(3),
         name: "dirt".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -200,7 +200,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(4),
         name: "cobblestone".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -227,7 +227,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(5),
         name: "oak_log".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::Up,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -262,7 +262,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(6),
         name: "oak_planks".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -301,10 +301,10 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(7),
         name: "water".into(),
-        category: BlockCategory::Liquid,
+        category: crate::world::block_id::BlockCategory::Liquid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
-        connects_to: HashSet::from([BlockCategory::Liquid]),
+        connects_to: HashSet::from([crate::world::block_id::BlockCategory::Liquid]),
         texture_faces: HashMap::from([(BlockFacing::All, "water.png".into())]),
         material: {
             let mut mat = default_material();
@@ -330,10 +330,10 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(8),
         name: "lava".into(),
-        category: BlockCategory::Liquid,
+        category: crate::world::block_id::BlockCategory::Liquid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
-        connects_to: HashSet::from([BlockCategory::Liquid]),
+        connects_to: HashSet::from([crate::world::block_id::BlockCategory::Liquid]),
         texture_faces: HashMap::from([(BlockFacing::All, "lava.png".into())]),
         material: {
             let mut mat = default_material();
@@ -359,7 +359,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(9),
         name: "sand".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -387,7 +387,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(10),
         name: "glass".into(),
-        category: BlockCategory::Transparent,
+        category: crate::world::block_id::BlockCategory::Transparent,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -428,7 +428,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(11),
         name: "brick".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -456,7 +456,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(12),
         name: "stone_slab".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Floor,
         connects_to: HashSet::new(),
@@ -486,7 +486,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(13),
         name: "wooden_slab".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Floor,
         connects_to: HashSet::new(),
@@ -521,7 +521,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(14),
         name: "stone_brick".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -569,7 +569,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(15),
         name: "bedrock".into(),
-        category: BlockCategory::Solid,
+        category: crate::world::block_id::BlockCategory::Solid,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -592,7 +592,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(16),
         name: "snow".into(),
-        category: BlockCategory::Flora,
+        category: crate::world::block_id::BlockCategory::Flora,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -620,7 +620,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(17),
         name: "cactus".into(),
-        category: BlockCategory::Flora,
+        category: crate::world::block_id::BlockCategory::Flora,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -655,7 +655,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(18),
         name: "tall_grass".into(),
-        category: BlockCategory::Flora,
+        category: crate::world::block_id::BlockCategory::Flora,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -691,7 +691,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(19),
         name: "poppy".into(),
-        category: BlockCategory::Flora,
+        category: crate::world::block_id::BlockCategory::Flora,
         default_facing: BlockFacing::None,
         default_orientation: BlockOrientation::Wall,
         connects_to: HashSet::new(),
@@ -730,10 +730,13 @@ pub const BLOCKS: &[BlockDefinition] = &[
     BlockDefinition {
         id: BlockId::new(20),
         name: "glass_pane".into(),
-        category: BlockCategory::Decorative,
+        category: crate::world::block_id::BlockCategory::Decorative,
         default_facing: BlockFacing::North,
         default_orientation: BlockOrientation::Wall,
-        connects_to: HashSet::from([BlockCategory::Solid, BlockCategory::Decorative]),
+        connects_to: HashSet::from([
+            crate::world::block_id::BlockCategory::Solid,
+            crate::world::block_id::BlockCategory::Decorative,
+        ]),
         texture_faces: HashMap::from([
             (BlockFacing::North, "glass_pane.png".into()),
             (BlockFacing::South, "glass_pane.png".into()),
