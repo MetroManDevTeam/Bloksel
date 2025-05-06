@@ -1,4 +1,4 @@
-use crate::world::chunk::Chunk;
+use crate::world::chunk::{CHUNK_VOLUME, Chunk};
 use crate::world::chunk_coord::ChunkCoord;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -46,7 +46,7 @@ impl ChunkPool {
     }
 
     /// Acquires a chunk from the pool or creates a new one
-    pub fn acquire(&self, coord: ChunkCoord) -> Result<Arc<Chunk>> {
+    pub fn acquire(&self, coord: ChunkCoord) -> Result<Arc<Chunk>, &'static str> {
         let chunks = self.chunks.read().unwrap();
 
         if let Some(chunk) = chunks.get(&coord).cloned() {
@@ -63,7 +63,7 @@ impl ChunkPool {
         if chunks.remove(&coord).is_some() {
             Ok(())
         } else {
-            Err("Chunk not in use at {:?}")
+            Err("Chunk not in use")
         }
     }
 
