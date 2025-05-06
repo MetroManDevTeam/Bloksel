@@ -1,4 +1,7 @@
-use crate::world::block::{Block, BlockFacing, BlockOrientation, SubBlock};
+use crate::world::BlockFacing;
+use crate::world::BlockOrientation;
+use crate::world::block::Block;
+use crate::world::block::SubBlock;
 use crate::world::block_id::BlockId;
 use crate::world::block_registry::BlockRegistry;
 use crate::world::block_visual::ConnectedDirections;
