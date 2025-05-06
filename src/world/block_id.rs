@@ -158,13 +158,6 @@ pub struct SubBlock {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Block {
-    pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
-    pub resolution: u8,
-    pub current_connections: ConnectedDirections,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockVariant {
     pub id: u16,
     pub name: String,
