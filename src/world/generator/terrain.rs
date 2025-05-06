@@ -34,12 +34,11 @@ pub enum BiomeType {
     Swamp,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorldType {
     Normal,
     Flat,
-    Amplified,
-    LargeBiomes,
+    Superflat,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,20 +75,33 @@ pub struct WorldGenConfig {
     pub persistence: f64,
     pub lacunarity: f64,
     pub height_multiplier: f64,
+    pub world_type: WorldType,
+    pub terrain_amplitude: f64,
+    pub cave_threshold: f64,
+    pub flat_world_layers: Vec<(BlockId, i32)>,
 }
 
 impl Default for WorldGenConfig {
     fn default() -> Self {
         Self {
             world_seed: 0,
-            terrain_height: 64,
-            water_level: 32,
-            biome_scale: 100.0,
-            noise_scale: 50.0,
+            terrain_height: 128,
+            water_level: 62,
+            biome_scale: 0.01,
+            noise_scale: 0.01,
             octaves: 4,
             persistence: 0.5,
             lacunarity: 2.0,
-            height_multiplier: 32.0,
+            height_multiplier: 1.0,
+            world_type: WorldType::Normal,
+            terrain_amplitude: 1.0,
+            cave_threshold: 0.5,
+            flat_world_layers: vec![
+                (BlockId::new(1), 1), // Bedrock
+                (BlockId::new(2), 3), // Stone
+                (BlockId::new(3), 1), // Dirt
+                (BlockId::new(4), 1), // Grass
+            ],
         }
     }
 }
@@ -97,43 +109,57 @@ impl Default for WorldGenConfig {
 pub struct TerrainGenerator {
     config: WorldGenConfig,
     block_registry: Arc<BlockRegistry>,
-    rng: ChaCha12Rng,
     noise: Perlin,
+    rng: ChaCha12Rng,
 }
 
 impl TerrainGenerator {
     pub fn new(config: WorldGenConfig, block_registry: Arc<BlockRegistry>) -> Self {
+        let noise = Perlin::new(config.world_seed as u32);
+        let rng = ChaCha12Rng::seed_from_u64(config.world_seed);
         Self {
             config,
             block_registry,
-            rng: ChaCha12Rng::seed_from_u64(config.world_seed),
-            noise: Perlin::new(config.world_seed as u32),
+            noise,
+            rng,
         }
     }
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
-        let mut chunk = Chunk::new();
-        let base_x = coord.x * 32;
-        let base_y = coord.y * 32;
-        let base_z = coord.z * 32;
+        let mut chunk = Chunk::new(coord);
+        let base_x = coord.x() * 32;
+        let base_y = coord.y() * 32;
+        let base_z = coord.z() * 32;
 
         for x in 0..32 {
-            for z in 0..32 {
-                let world_x = base_x + x as i32;
-                let world_z = base_z + z as i32;
-                let height = self.get_height(world_x as f64, world_z as f64) as i32;
-
-                for y in 0..32 {
+            for y in 0..32 {
+                for z in 0..32 {
+                    let world_x = base_x + x as i32;
                     let world_y = base_y + y as i32;
+                    let world_z = base_z + z as i32;
+
+                    let height = self.get_height(world_x, world_z);
                     if world_y < height {
-                        let block = if world_y < height - 4 {
-                            Block::new(BlockId::new(1)) // Stone
-                        } else {
-                            Block::new(BlockId::new(2)) // Grass
-                        };
-                        chunk.set_block(x, y as u32, z, Some(block));
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(1))),
+                        ); // Stone
+                    } else if world_y == height {
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(2))),
+                        ); // Grass
                     } else {
-                        chunk.set_block(x, y as u32, z, Some(Block::new(BlockId::new(0)))); // Air
+                        chunk.set_block(
+                            x as u32,
+                            y as u32,
+                            z as u32,
+                            Some(Block::new(BlockId::new(0))),
+                        ); // Air
                     }
                 }
             }
@@ -142,26 +168,20 @@ impl TerrainGenerator {
         chunk
     }
 
-    fn get_height(&self, x: f64, z: f64) -> f64 {
+    fn get_height(&self, x: i32, z: i32) -> i32 {
         let mut amplitude = 1.0;
-        let mut frequency = 1.0;
+        let mut frequency = self.config.noise_scale;
         let mut height = 0.0;
-        let mut max_amplitude = 0.0;
 
         for _ in 0..self.config.octaves {
-            let sample_x = x / self.config.noise_scale * frequency;
-            let sample_z = z / self.config.noise_scale * frequency;
-
-            let noise_value = (self.noise.get([sample_x, sample_z]) + 1.0) * 0.5;
-            height += noise_value * amplitude;
-            max_amplitude += amplitude;
-
+            let nx = x as f64 * frequency;
+            let nz = z as f64 * frequency;
+            height += self.noise.get([nx, nz]) * amplitude;
             amplitude *= self.config.persistence;
             frequency *= self.config.lacunarity;
         }
 
-        height /= max_amplitude;
-        height * self.config.height_multiplier + self.config.terrain_height as f64
+        (height * self.config.height_multiplier) as i32 + self.config.terrain_height
     }
 
     pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
@@ -175,8 +195,7 @@ impl TerrainGenerator {
         match self.config.world_type {
             WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
             WorldType::Flat => self.generate_flat_chunk(&mut chunk, coord),
-            WorldType::Amplified => self.generate_amplified_chunk(&mut chunk, coord),
-            WorldType::LargeBiomes => self.generate_large_biomes_chunk(&mut chunk, coord),
+            WorldType::Superflat => self.generate_superflat_chunk(&mut chunk, coord),
         }
 
         Arc::new(chunk)
@@ -287,13 +306,8 @@ impl TerrainGenerator {
         }
     }
 
-    fn generate_amplified_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
-        // Similar to normal but with more extreme terrain
-        self.generate_normal_chunk(chunk, coord)
-    }
-
-    fn generate_large_biomes_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
-        // Similar to normal but with larger biome areas
+    fn generate_superflat_chunk(&self, chunk: &mut Chunk, coord: ChunkCoord) {
+        // Implementation for Superflat world type
         self.generate_normal_chunk(chunk, coord)
     }
 
@@ -303,7 +317,7 @@ impl TerrainGenerator {
         let biome_mod = self.biome_height_modifier(biome);
 
         let height = match self.config.world_type {
-            WorldType::Amplified => {
+            WorldType::Superflat => {
                 BASE_TERRAIN_HEIGHT
                     + (base_noise * self.config.terrain_amplitude * 2.0).abs()
                     + (detail_noise * 12.0)
