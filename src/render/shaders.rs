@@ -1,13 +1,14 @@
 // shader.rs - Complete Shader Management System
 
+use crate::block::{BlockFlags, BlockId, MaterialModifiers};
+use block::BlockMaterial;
 use gl::types::*;
 use std::ffi::{CString, NulError};
 use std::fs;
 use std::ptr;
 use std::str;
+use std::sync::Arc;
 use thiserror::Error;
-use crate::block::{BlockId, BlockFlags, MaterialModifiers};
- use block::BlockMaterial;
 
 #[derive(Debug, Error)]
 pub enum ShaderError {
@@ -209,7 +210,7 @@ impl ShaderProgram {
     pub fn with_geometry(
         vertex_path: &str,
         geometry_path: &str,
-        fragment_path: &str
+        fragment_path: &str,
     ) -> Result<Self, ShaderError> {
         let vertex_shader = Self::compile_shader(vertex_path, gl::VERTEX_SHADER)?;
         let geometry_shader = Self::compile_shader(geometry_path, gl::GEOMETRY_SHADER)?;
@@ -238,10 +239,36 @@ impl ShaderProgram {
     }
 }
 
-
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
         unsafe { gl::DeleteProgram(self.id) };
     }
 }
 
+pub struct Shader {
+    pub vertex_source: String,
+    pub fragment_source: String,
+    pub geometry_source: Option<String>,
+}
+
+impl Shader {
+    pub fn new(vertex_source: String, fragment_source: String) -> Self {
+        Self {
+            vertex_source,
+            fragment_source,
+            geometry_source: None,
+        }
+    }
+
+    pub fn with_geometry(
+        vertex_source: String,
+        fragment_source: String,
+        geometry_source: String,
+    ) -> Self {
+        Self {
+            vertex_source,
+            fragment_source,
+            geometry_source: Some(geometry_source),
+        }
+    }
+}
