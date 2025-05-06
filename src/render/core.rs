@@ -5,7 +5,7 @@ use crate::render::{
     shaders::Shader,
 };
 
-pub use camera::Camera;
-pub use mesh::{Mesh, MeshData};
-pub use pipeline::RenderPipeline;
-pub use shaders::Shader;
+pub use super::camera::Camera;
+pub use super::mesh::{Mesh, MeshData};
+pub use super::pipeline::RenderPipeline;
+pub use super::shaders::Shader;
