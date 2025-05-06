@@ -4,7 +4,7 @@ use crate::world::block_id::BlockId;
 use crate::world::block_registry::BlockRegistry;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
-use noise::{Fbm, NoiseFn, Perlin};
+use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 use parking_lot::RwLock;
 use rand::{Rng, rngs::ChaCha12Rng};
 use serde::{Deserialize, Serialize};
@@ -147,7 +147,7 @@ impl TerrainGenerator {
     }
 
     pub fn generate_chunk(&self, coord: ChunkCoord) -> Arc<Chunk> {
-        let mut chunk = Chunk::new(CHUNK_SIZE, SUB_RESOLUTION, coord);
+        let mut chunk = Chunk::new(coord);
 
         match self.config.world_type {
             WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
@@ -436,6 +436,7 @@ impl TerrainGenerator {
                             metadata: 0,
                             facing: BlockFacing::None,
                             orientation: BlockOrientation::Wall,
+                            connections: Vec::new(),
                         },
                     );
                 }
@@ -461,6 +462,7 @@ impl TerrainGenerator {
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
+                        connections: Vec::new(),
                     },
                 );
             }
@@ -494,6 +496,7 @@ impl TerrainGenerator {
                         metadata: 0,
                         facing: BlockFacing::None,
                         orientation: BlockOrientation::Wall,
+                        connections: Vec::new(),
                     },
                 );
             }
