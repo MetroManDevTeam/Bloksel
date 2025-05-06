@@ -72,10 +72,19 @@ impl ChunkRenderer {
         self.load_material(
             1,
             BlockMaterial {
-                albedo: Vec3::new(1.0, 1.0, 1.0),
+                id: 1,
+                name: "Stone".into(),
+                albedo: [0.5, 0.5, 0.5, 1.0],
+                roughness: 0.8,
                 metallic: 0.0,
-                roughness: 1.0,
-                emissive: Vec3::new(0.0, 0.0, 0.0),
+                emissive: 0.0,
+                texture_path: Some("textures/stone.png".into()),
+                normal_map_path: None,
+                occlusion_map_path: None,
+                tintable: true,
+                grayscale_base: false,
+                tint_mask_path: None,
+                vertex_colored: false,
             },
         )?;
 
