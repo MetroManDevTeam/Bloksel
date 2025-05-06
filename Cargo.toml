@@ -14,6 +14,7 @@ egui-winit = "0.26.2"
 gl = "0.14.0"
 glam = { version = "0.30.3", features = ["serde"] }
 image = "0.25.6"
+lazy_static = "1.4.0"
 log = "0.4.27"
 noise = "0.9.0"
 parking_lot = "0.12.3"
