@@ -1,43 +1,26 @@
 use crate::{
-    config::{
-        chunksys::ChunkSysConfig, core::EngineConfig, gameplay::GameplayConfig,
-        worldgen::WorldGenConfig,
-    },
-    player::{
-        input::PlayerInput,
-        physics::{Player, PlayerState},
-    },
-    render::{
-        pipeline::{ChunkRenderer, RenderPipeline},
-        shaders::ShaderProgram,
-    },
-    utils::{
-        error::BlockError,
-        math::{Plane, ViewFrustum},
-    },
+    config::core::EngineConfig,
+    player::physics::Player,
+    render::{pipeline::ChunkRenderer, shaders::ShaderProgram},
     world::{
-        block_id::BlockRegistry,
-        chunk::{Chunk, SerializedChunk},
-        chunk_coord::ChunkCoord,
-        generator::terrain::TerrainGenerator,
-        pool::ChunkPool,
-        spatial::SpatialPartition,
+        block_id::BlockRegistry, chunk::Chunk, chunk_coord::ChunkCoord,
+        generator::TerrainGenerator, pool::ChunkPool, spatial::SpatialPartition,
     },
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, bounded};
-use glam::{Mat4, Vec2, Vec3};
-use log::{LevelFilter, info};
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use glam::Vec3;
+use log::warn;
+use parking_lot::Mutex;
+use rayon::ThreadPool;
 use std::{
     collections::HashMap,
-    ops::ControlFlow,
     path::Path,
     sync::{
-        Arc, Mutex, RwLock,
-        atomic::{AtomicBool, Ordering},
+        Arc,
+        atomic::{AtomicBool, AtomicU64},
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 pub struct VoxelEngine {
@@ -48,7 +31,7 @@ pub struct VoxelEngine {
     pub player: Arc<Mutex<Player>>,
 
     // Chunk management
-    active_chunks: Arc<RwLock<HashMap<ChunkCoord, Arc<Chunk>>>>,
+    active_chunks: Arc<parking_lot::RwLock<HashMap<ChunkCoord, Arc<Chunk>>>>,
     chunk_pool: Arc<ChunkPool>,
     spatial_partition: Arc<Mutex<SpatialPartition>>,
 
@@ -62,86 +45,68 @@ pub struct VoxelEngine {
 
     // State
     running: Arc<AtomicBool>,
-    frame_counter: Arc<Mutex<u64>>,
+    frame_counter: Arc<AtomicU64>,
     last_tick: Instant,
     last_save: Instant,
 
     // Configuration
     pub config: EngineConfig,
-    pub shader: Arc<ShaderProgram>,
 }
 
 impl VoxelEngine {
     pub fn new(config: EngineConfig) -> Result<Self> {
         // Initialize core systems
-        let block_registry = Arc::new(BlockRegistry::initialize_default());
+        let block_registry = Arc::new(BlockRegistry::new());
         let terrain_generator = Arc::new(TerrainGenerator::new(
-            config.world_seed as u32,
+            config.clone(),
             block_registry.clone(),
         ));
 
-        let chunk_renderer = Arc::new(ChunkRenderer::new()?);
+        let chunk_renderer = Arc::new(ChunkRenderer::new(
+            ShaderProgram::new()?,
+            0, // texture_atlas
+            block_registry.clone(),
+        )?);
+
         let player = Arc::new(Mutex::new(Player::default()));
 
         // Setup threading
-        let generation_pool = Arc::new(
-            ThreadPoolBuilder::new()
-                .num_threads(4)
-                .build()
-                .context("Failed to create generation pool")?,
-        );
-
-        let io_pool = Arc::new(
-            ThreadPoolBuilder::new()
-                .num_threads(2)
-                .build()
-                .context("Failed to create IO pool")?,
-        );
-
-        // Create communication channels
-        let (load_send, load_recv) = bounded(1024);
-        let (unload_send, unload_recv) = bounded(1024);
+        let generation_pool = Arc::new(ThreadPool::new()?);
+        let io_pool = Arc::new(ThreadPool::new()?);
+        let (load_sender, load_receiver) = bounded(100);
+        let (unload_sender, unload_receiver) = bounded(100);
 
         // Initialize chunk systems
-        let base_chunk = Arc::new(Chunk::empty(config.chunk_size as usize));
-        let chunk_pool = Arc::new(ChunkPool::new(base_chunk, config.max_chunk_pool_size));
+        let base_chunk = Arc::new(Chunk::empty());
+        let chunk_pool = Arc::new(ChunkPool::new(config.max_chunk_pool_size));
         let spatial_partition = Arc::new(Mutex::new(SpatialPartition::new(&config)));
 
-        // Load shader
-        let shader = Arc::new(ShaderProgram::new(
-            "shaders/voxel.vert",
-            "shaders/voxel.frag",
-        )?);
-
-        let engine = Self {
+        Ok(Self {
             block_registry,
             terrain_generator,
             chunk_renderer,
             player,
-            active_chunks: Arc::new(RwLock::new(HashMap::new())),
+            active_chunks: Arc::new(parking_lot::RwLock::new(HashMap::new())),
             chunk_pool,
             spatial_partition,
             generation_pool,
             io_pool,
-            load_queue: load_send,
-            unload_queue: unload_send,
-            load_receiver: load_recv,
-            unload_receiver: unload_recv,
+            load_queue: load_sender,
+            unload_queue: unload_sender,
+            load_receiver,
+            unload_receiver,
             running: Arc::new(AtomicBool::new(true)),
-            frame_counter: Arc::new(Mutex::new(0)),
+            frame_counter: Arc::new(AtomicU64::new(0)),
             last_tick: Instant::now(),
             last_save: Instant::now(),
             config,
-            shader,
-        };
-
-        Ok(engine)
+        })
     }
 
     pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
         EngineConfig {
-            world_name: name,
-            world_seed: seed,
+            name,
+            seed,
             render_distance: 8,
             lod_levels: [4, 8, 16],
             chunk_size: 32,
@@ -160,30 +125,29 @@ impl VoxelEngine {
         }
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        // ... existing implementation ...
+    pub fn save_world(&self, _path: &Path) -> Result<()> {
+        // TODO: Implement world saving
         Ok(())
     }
 
-    pub fn save_world(&self, path: &Path) -> Result<()> {
-        // ... existing implementation ...
-        Ok(())
-    }
-
-    pub fn load_world(&mut self, path: &Path) -> Result<()> {
-        // ... existing implementation ...
+    pub fn load_world(&mut self, _path: &Path) -> Result<()> {
+        // TODO: Implement world loading
         Ok(())
     }
 
     pub fn get_stats(&self) -> EngineStats {
-        // ... existing implementation ...
-        EngineStats::default()
-    }
-}
-
-impl Drop for VoxelEngine {
-    fn drop(&mut self) {
-        // ... existing implementation ...
+        EngineStats {
+            frame_count: self
+                .frame_counter
+                .load(std::sync::atomic::Ordering::Relaxed),
+            active_chunks: self.active_chunks.read().len(),
+            render_stats: RenderStats::default(),
+            memory_usage: 0,
+            thread_stats: ThreadPoolStats {
+                active_threads: 0,
+                queued_tasks: 0,
+            },
+        }
     }
 }
 
@@ -204,5 +168,5 @@ pub struct ThreadPoolStats {
 
 #[derive(Debug, Default)]
 pub struct RenderStats {
-    // ... existing implementation ...
+    // TODO: Add render statistics
 }
