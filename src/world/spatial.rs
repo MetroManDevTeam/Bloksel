@@ -1,6 +1,6 @@
 use crate::{
     config::EngineConfig,
-    utils::math::{AABB as MathAABB, Plane, ViewFrustum as MathViewFrustum},
+    utils::math::{AABB as MathAABB, Plane as MathPlane, ViewFrustum as MathViewFrustum},
     world::chunk::ChunkCoord,
 };
 use glam::{Mat4, Vec3};
@@ -16,7 +16,7 @@ pub struct SpatialPartition {
 }
 
 impl SpatialPartition {
-    fn new(config: &EngineConfig) -> Self {
+    pub fn new(config: &EngineConfig) -> Self {
         Self {
             quadtree: QuadTree::new(
                 MathAABB {
@@ -241,7 +241,7 @@ impl MathAABB {
 impl MathViewFrustum {
     fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
         let vp = proj.clone() * view.clone();
-        let mut planes = [Plane::default(); 6];
+        let mut planes = [MathPlane::default(); 6];
 
         // Left plane
         planes[0].normal = Vec3::new(
@@ -300,10 +300,4 @@ impl MathViewFrustum {
 
         Self { planes }
     }
-}
-
-#[derive(Default, Copy, Clone)]
-struct Plane {
-    normal: Vec3,
-    distance: f32,
 }
