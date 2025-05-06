@@ -1,7 +1,7 @@
 //! src/utils/mod.rs
 //! Core utilities used throughout the engine
 
-use crate::BlockError;
+use crate::utils::core::error::CoreError;
 use crate::utils::math;
 use glam::{IVec3, Mat4, Vec3, Vec4};
 use std::time::{Duration, Instant};
