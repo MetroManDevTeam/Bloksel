@@ -16,13 +16,15 @@ use std::sync::Arc;
 pub const CHUNK_SIZE: usize = 16;
 pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChunkMesh {
-    pub vao: u32,
-    pub vbo: u32,
-    pub ebo: u32,
+    pub vao: GLuint,
+    pub vbo: GLuint,
+    pub ebo: GLuint,
     pub index_count: i32,
     pub needs_upload: bool,
+    pub vertex_data: Vec<f32>,
+    pub index_data: Vec<u32>,
 }
 
 impl ChunkMesh {
@@ -33,6 +35,8 @@ impl ChunkMesh {
             ebo: 0,
             index_count: 0,
             needs_upload: true,
+            vertex_data: Vec::new(),
+            index_data: Vec::new(),
         }
     }
 }
