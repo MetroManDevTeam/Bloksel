@@ -96,14 +96,14 @@ impl Chunk {
 pub struct ChunkManager {
     chunks: std::collections::HashMap<ChunkCoord, Arc<Chunk>>,
     renderer: ChunkRenderer,
-    world_config: WorldConfig,
+    world_config: WorldGenConfig,
     compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>>,
     block_registry: Arc<BlockRegistry>, // Added missing field
 }
 
 impl ChunkManager {
     pub fn new(
-        world_config: WorldConfig,
+        world_config: WorldGenConfig,
         renderer: ChunkRenderer,
         block_registry: Arc<BlockRegistry>,
     ) -> Self {
