@@ -9,9 +9,7 @@ use thiserror::Error;
 
 pub mod error;
 
-pub use error::BlockError;
-
-/// Error types
+#[derive(Debug, Error)]
 pub enum EngineError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
@@ -36,6 +34,7 @@ pub struct Profiler {
     start_time: Instant,
     last_frame: Instant,
     frame_count: u64,
+    frustum: math::ViewFrustum,
 }
 
 impl Profiler {
@@ -44,6 +43,7 @@ impl Profiler {
             start_time: Instant::now(),
             last_frame: Instant::now(),
             frame_count: 0,
+            frustum: math::ViewFrustum::new(Mat4::IDENTITY),
         }
     }
 
@@ -62,6 +62,14 @@ impl Profiler {
             fps: 1.0 / delta_time,
             frame_count: self.frame_count,
         }
+    }
+
+    pub fn projection_matrix(&self) -> Mat4 {
+        Mat4::perspective_rh(45.0f32.to_radians(), 16.0 / 9.0, 0.1, 1000.0)
+    }
+
+    pub fn view_matrix(&self) -> Mat4 {
+        Mat4::look_at_rh(Vec3::new(0.0, 0.0, 5.0), Vec3::ZERO, Vec3::Y)
     }
 
     pub fn update_frustum(&mut self) {
