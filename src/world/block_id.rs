@@ -179,54 +179,6 @@ pub struct ColorVariant {
     pub material_modifiers: MaterialModifiers,
 }
 
-impl Block {
-    pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
-        let primary_id = self.get_primary_id();
-        registry.get_material(primary_id).unwrap_or_default()
-    }
-
-    pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
-        let primary_id = self.get_primary_id();
-        registry.get_physics(primary_id)
-    }
-
-    pub fn place_sub_block(&mut self, pos: (u8, u8, u8), sub: SubBlock) -> Option<SubBlock> {
-        self.sub_blocks.insert(pos, sub)
-    }
-
-    pub fn get_sub_block(&self, pos: (u8, u8, u8)) -> Option<&SubBlock> {
-        self.sub_blocks.get(&pos)
-    }
-}
-
-impl SubBlock {
-    pub fn new(id: BlockId) -> Self {
-        Self {
-            id,
-            metadata: 0,
-            facing: BlockFacing::None,
-            orientation: BlockOrientation::None,
-            connections: ConnectedDirections::default(),
-        }
-    }
-
-    pub fn update_connections(&mut self, directions: ConnectedDirections) {
-        self.connections = directions;
-    }
-
-    pub fn has_connection(&self, direction: ConnectedDirections) -> bool {
-        self.connections.contains(direction)
-    }
-
-    pub fn set_facing(&mut self, facing: BlockFacing) {
-        self.facing = facing;
-    }
-
-    pub fn set_orientation(&mut self, orientation: BlockOrientation) {
-        self.orientation = orientation;
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockRegistry {
     blocks: HashMap<BlockId, Block>,
