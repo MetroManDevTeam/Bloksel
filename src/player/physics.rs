@@ -304,11 +304,19 @@ impl Player {
         }
     }
 
-    pub fn handle_key_input(&mut self, key: VirtualKeyCode, state: ElementState) {
-        let pressed = state == ElementState::Pressed;
-        match key {
-            KeyCode::Tab if pressed => self.toggle_state(),
-            _ => {}
+    pub fn handle_key_input(&mut self, key: KeyCode, state: ElementState) {
+        match state {
+            ElementState::Pressed => match key {
+                KeyCode::Space => self.jump(),
+                KeyCode::LShift => self.crouch(),
+                KeyCode::LControl => self.sprint(),
+                _ => {}
+            },
+            ElementState::Released => match key {
+                KeyCode::LShift => self.stand(),
+                KeyCode::LControl => self.walk(),
+                _ => {}
+            },
         }
     }
 
