@@ -2,9 +2,10 @@ use crate::config::GameConfig;
 use crate::render::MeshBuilder;
 use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
-use crate::world::ChunkCoord;
 use crate::world::block::Block;
-use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME, Chunk};
+use crate::world::chunk::Chunk;
+use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME};
+use crate::world::chunk_coord::ChunkCoord;
 use anyhow::{Result, anyhow};
 use glam::f32::sse2::mat4::Mat4;
 use glam::f32::vec3::Vec3;
@@ -22,12 +23,20 @@ pub struct ChunkPool {
 
 impl ChunkPool {
     /// Creates a new pool with base template and maximum size
-    pub fn new(config: GameConfig) -> Self {
-        Self {
+    pub fn new(capacity: usize) -> Self {
+        let mut pool = Self {
             chunks: RwLock::new(HashMap::new()),
-            max_size: 0,
-            config,
+            max_size: capacity,
+            config: GameConfig::default(),
+        };
+        for _ in 0..capacity {
+            let coord = ChunkCoord::new(0, 0, 0); // Temporary coord
+            pool.chunks
+                .write()
+                .unwrap()
+                .insert(coord, Arc::new(Chunk::empty()));
         }
+        pool
     }
 
     /// Acquires a chunk from the pool or creates a new one
@@ -59,10 +68,7 @@ impl ChunkPool {
 
         for _ in 0..target {
             let coord = ChunkCoord::new(0, 0, 0); // Temporary coord
-            chunks.insert(
-                coord,
-                Arc::new(Chunk::from_template(&Chunk::empty(16), coord)),
-            );
+            chunks.insert(coord, Arc::new(Chunk::empty()));
         }
     }
 
