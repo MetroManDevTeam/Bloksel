@@ -5,7 +5,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
 use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_visual::ConnectedDirections;
-use crate::world::chunk::Chunk;
+use crate::world::chunk::{Chunk, SerializedChunk};
 use crate::world::chunk_coord::ChunkCoord;
 use anyhow::Result;
 use log;
@@ -52,7 +52,7 @@ impl ChunkStorage for MemoryStorage {
 #[derive(Serialize, Deserialize)]
 pub struct WorldSave {
     pub config: EngineConfig,
-    pub chunks: Vec<Chunk>,
+    pub chunks: Vec<SerializedChunk>,
     pub player_state: PlayerState,
 }
 
