@@ -260,6 +260,9 @@ impl ChunkRenderer {
                 indices: mesh.indices.clone(),
                 normals: mesh.normals.clone(),
                 uvs: mesh.uvs.clone(),
+                vao,
+                vbo,
+                ebo,
             });
         }
         Ok(())
