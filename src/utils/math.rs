@@ -1,7 +1,8 @@
 //! src/utils/math.rs
 //! Mathematical utilities and geometric types
 use bitflags::bitflags;
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Quat, Vec3, Vec4};
+use serde::{Serialize, Deserialize};
 
 /// Axis-aligned bounding box
 #[derive(Debug, Clone, Copy)]
@@ -19,6 +20,10 @@ impl AABB {
         (self.min + self.max) * 0.5
     }
 
+    pub fn size(&self) -> Vec3 {
+        self.max - self.min
+    }
+
     pub fn intersects(&self, other: &AABB) -> bool {
         self.min.x <= other.max.x
             && self.max.x >= other.min.x
@@ -27,9 +32,40 @@ impl AABB {
             && self.min.z <= other.max.z
             && self.max.z >= other.min.z
     }
+
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        point.x >= self.min.x && point.x <= self.max.x &&
+        point.y >= self.min.y && point.y <= self.max.y &&
+        point.z >= self.min.z && point.z <= self.max.z
+    }
+
+    pub fn transform(&self, transform: Mat4) -> Self {
+        let corners = [
+            Vec3::new(self.min.x, self.min.y, self.min.z),
+            Vec3::new(self.min.x, self.min.y, self.max.z),
+            Vec3::new(self.min.x, self.max.y, self.min.z),
+            Vec3::new(self.min.x, self.max.y, self.max.z),
+            Vec3::new(self.max.x, self.min.y, self.min.z),
+            Vec3::new(self.max.x, self.min.y, self.max.z),
+            Vec3::new(self.max.x, self.max.y, self.min.z),
+            Vec3::new(self.max.x, self.max.y, self.max.z),
+        ];
+
+        let mut new_min = Vec3::splat(f32::MAX);
+        let mut new_max = Vec3::splat(f32::MIN);
+
+        for corner in corners {
+            let transformed = transform.transform_point3(corner);
+            new_min = new_min.min(transformed);
+            new_max = new_max.max(transformed);
+        }
+
+        AABB::new(new_min, new_max)
+    }
 }
 
 /// View frustum for culling
+#[derive(Debug, Clone)]
 pub struct ViewFrustum {
     pub planes: [Plane; 6],
 }
@@ -39,8 +75,69 @@ impl ViewFrustum {
         let vp = proj * view;
         let mut planes = [Plane::default(); 6];
 
-        // Plane extraction logic...
-        planes
+        // Left plane
+        planes[0] = Plane::new(
+            Vec3::new(vp.x_axis.w + vp.x_axis.x, vp.y_axis.w + vp.y_axis.x, vp.z_axis.w + vp.z_axis.x),
+            vp.w_axis.w + vp.w_axis.x,
+        );
+        
+        // Right plane
+        planes[1] = Plane::new(
+            Vec3::new(vp.x_axis.w - vp.x_axis.x, vp.y_axis.w - vp.y_axis.x, vp.z_axis.w - vp.z_axis.x),
+            vp.w_axis.w - vp.w_axis.x,
+        );
+        
+        // Bottom plane
+        planes[2] = Plane::new(
+            Vec3::new(vp.x_axis.w + vp.x_axis.y, vp.y_axis.w + vp.y_axis.y, vp.z_axis.w + vp.z_axis.y),
+            vp.w_axis.w + vp.w_axis.y,
+        );
+        
+        // Top plane
+        planes[3] = Plane::new(
+            Vec3::new(vp.x_axis.w - vp.x_axis.y, vp.y_axis.w - vp.y_axis.y, vp.z_axis.w - vp.z_axis.y),
+            vp.w_axis.w - vp.w_axis.y,
+        );
+        
+        // Near plane
+        planes[4] = Plane::new(
+            Vec3::new(vp.x_axis.w + vp.x_axis.z, vp.y_axis.w + vp.y_axis.z, vp.z_axis.w + vp.z_axis.z),
+            vp.w_axis.w + vp.w_axis.z,
+        );
+        
+        // Far plane
+        planes[5] = Plane::new(
+            Vec3::new(vp.x_axis.w - vp.x_axis.z, vp.y_axis.w - vp.y_axis.z, vp.z_axis.w - vp.z_axis.z),
+            vp.w_axis.w - vp.w_axis.z,
+        );
+
+        // Normalize all planes
+        for plane in &mut planes {
+            plane.normalize();
+        }
+
+        Self { planes }
+    }
+
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        self.planes.iter().all(|plane| {
+            plane.signed_distance(point) >= 0.0
+        })
+    }
+
+    pub fn intersects_aabb(&self, aabb: &AABB) -> bool {
+        for plane in &self.planes {
+            let p = Vec3::new(
+                if plane.normal.x >= 0.0 { aabb.max.x } else { aabb.min.x },
+                if plane.normal.y >= 0.0 { aabb.max.y } else { aabb.min.y },
+                if plane.normal.z >= 0.0 { aabb.max.z } else { aabb.min.z },
+            );
+
+            if plane.signed_distance(p) < 0.0 {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -56,10 +153,20 @@ impl Plane {
         Self { normal, distance }
     }
 
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        let normal = (b - a).cross(c - a).normalize();
+        let distance = -normal.dot(a);
+        Self { normal, distance }
+    }
+
     pub fn normalize(&mut self) {
         let length = self.normal.length();
         self.normal /= length;
         self.distance /= length;
+    }
+
+    pub fn signed_distance(&self, point: Vec3) -> f32 {
+        self.normal.dot(point) + self.distance
     }
 }
 
@@ -81,7 +188,44 @@ pub mod raycast {
         }
 
         pub fn intersect_aabb(&self, aabb: &super::AABB) -> Option<f32> {
-            // Ray-AABB intersection implementation...
+            let mut tmin = f32::MIN;
+            let mut tmax = f32::MAX;
+
+            for i in 0..3 {
+                if self.direction[i].abs() < f32::EPSILON {
+                    // Ray is parallel to slab. No hit if origin not within slab
+                    if self.origin[i] < aabb.min[i] || self.origin[i] > aabb.max[i] {
+                        return None;
+                    }
+                } else {
+                    let inv_d = 1.0 / self.direction[i];
+                    let mut t1 = (aabb.min[i] - self.origin[i]) * inv_d;
+                    let mut t2 = (aabb.max[i] - self.origin[i]) * inv_d;
+
+                    if t1 > t2 {
+                        std::mem::swap(&mut t1, &mut t2);
+                    }
+
+                    tmin = tmin.max(t1);
+                    tmax = tmax.min(t2);
+
+                    if tmin > tmax {
+                        return None;
+                    }
+                }
+            }
+
+            Some(tmin)
+        }
+
+        pub fn intersect_plane(&self, plane: &super::Plane) -> Option<f32> {
+            let denom = plane.normal.dot(self.direction);
+            if denom.abs() > f32::EPSILON {
+                let t = (-plane.distance - plane.normal.dot(self.origin)) / denom;
+                if t >= 0.0 {
+                    return Some(t);
+                }
+            }
             None
         }
     }
@@ -101,7 +245,7 @@ pub enum Orientation {
 
 impl Default for Orientation {
     fn default() -> Self {
-        Self::Wall
+        Self::North
     }
 }
 
@@ -138,7 +282,48 @@ impl Orientation {
     }
 
     pub fn from_quat(quat: Quat) -> Self {
-        // ... existing code ...
+        // Compare with standard orientations first
+        let angles = quat.to_euler(glam::EulerRot::YXZ);
+        
+        // Check for cardinal directions
+        if (angles.0 - 0.0).abs() < f32::EPSILON 
+            && (angles.1 - 0.0).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::North;
+        }
+        
+        if (angles.0 - std::f32::consts::PI).abs() < f32::EPSILON 
+            && (angles.1 - 0.0).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::South;
+        }
+        
+        if (angles.0 - std::f32::consts::FRAC_PI_2).abs() < f32::EPSILON 
+            && (angles.1 - 0.0).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::East;
+        }
+        
+        if (angles.0 - (-std::f32::consts::FRAC_PI_2)).abs() < f32::EPSILON 
+            && (angles.1 - 0.0).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::West;
+        }
+        
+        if (angles.0 - 0.0).abs() < f32::EPSILON 
+            && (angles.1 - (-std::f32::consts::FRAC_PI_2)).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::Up;
+        }
+        
+        if (angles.0 - 0.0).abs() < f32::EPSILON 
+            && (angles.1 - std::f32::consts::FRAC_PI_2).abs() < f32::EPSILON 
+            && (angles.2 - 0.0).abs() < f32::EPSILON {
+            return Orientation::Down;
+        }
+        
+        // If not a standard orientation, return custom
+        Orientation::Custom(quat.x, quat.y, quat.z, quat.w)
     }
 }
 
@@ -153,3 +338,30 @@ bitflags! {
         const DOWN = 0b00100000;
     }
 }
+
+impl ConnectedDirections {
+    pub fn to_direction(&self) -> Vec3 {
+        let mut result = Vec3::ZERO;
+        
+        if self.contains(ConnectedDirections::NORTH) {
+            result += Vec3::NEG_Z;
+        }
+        if self.contains(ConnectedDirections::SOUTH) {
+            result += Vec3::Z;
+        }
+        if self.contains(ConnectedDirections::EAST) {
+            result += Vec3::X;
+        }
+        if self.contains(ConnectedDirections::WEST) {
+            result += Vec3::NEG_X;
+        }
+        if self.contains(ConnectedDirections::UP) {
+            result += Vec3::Y;
+        }
+        if self.contains(ConnectedDirections::DOWN) {
+            result += Vec3::NEG_Y;
+        }
+        
+        result.normalize_or_zero()
+    }
+            }
