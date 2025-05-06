@@ -321,12 +321,21 @@ impl ChunkRenderer {
                         let position = Vec3::new(x as f32, y as f32, z as f32);
 
                         // Add vertices
-                        vertices.push(position);
-                        normals.push(Vec3::new(0.0, 1.0, 0.0)); // Up normal
-                        uvs.push(Vec2::new(0.0, 0.0));
+                        vertices.push(position.x);
+                        vertices.push(position.y);
+                        vertices.push(position.z);
+
+                        // Add normals
+                        normals.push(0.0);
+                        normals.push(1.0);
+                        normals.push(0.0);
+
+                        // Add UVs
+                        uvs.push(0.0);
+                        uvs.push(0.0);
 
                         // Add indices
-                        let base_index = vertices.len() as u32 - 1;
+                        let base_index = (vertices.len() / 3) as u32 - 1;
                         indices.push(base_index);
                         indices.push(base_index + 1);
                         indices.push(base_index + 2);
