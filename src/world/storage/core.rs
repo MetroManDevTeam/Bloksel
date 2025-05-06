@@ -2,7 +2,10 @@ use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
 use crate::world::ChunkCoord;
 use crate::world::block::Block;
-use crate::world::chunk::Chunk;
+use crate::world::chunk::{Chunk, SerializedChunk};
+use crate::world::block_id::BlockId;
+use crate::config::core::EngineConfig;
+use crate::player::physics::PlayerState;
 use anyhow::Result;
 use log;
 use serde::{Deserialize, Serialize};
@@ -74,17 +77,17 @@ impl WorldSave {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)] // Added Clone
-struct CompressedSubBlock {
-    local_pos: (u8, u8, u8),
-    id: BlockId,
-    metadata: u8, // Added missing field
-    orientation: BlockOrientation,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CompressedSubBlock {
+    pub local_pos: (u8, u8, u8),
+    pub id: BlockId,
+    pub metadata: u8,
+    pub orientation: BlockOrientation,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)] // Added Clone
-struct CompressedBlock {
-    position: (usize, usize, usize),
-    id: u16,
-    sub_blocks: Vec<CompressedSubBlock>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CompressedBlock {
+    pub position: (usize, usize, usize),
+    pub id: u16,
+    pub sub_blocks: Vec<CompressedSubBlock>,
 }
