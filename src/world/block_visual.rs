@@ -4,7 +4,7 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
     pub struct ConnectedDirections: u8 {
         const NORTH = 0b00000001;
         const SOUTH = 0b00000010;
