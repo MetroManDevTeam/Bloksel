@@ -1,5 +1,5 @@
 use crate::render::pipeline::ChunkRenderer;
-use crate::utils::math::{ChunkCoord, IVec3};
+use crate::ChunkCoord;
 use crate::world::BlockOrientation;
 use crate::world::block::Block;
 use crate::world::block_id::BlockId;
@@ -9,7 +9,7 @@ use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use crate::world::{BlockRegistry, WorldConfig};
 use bincode::{deserialize_from, serialize_into};
 use gl::types::GLuint;
-use glam::Vec3;
+use glam::{IVec3, Vec3};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
