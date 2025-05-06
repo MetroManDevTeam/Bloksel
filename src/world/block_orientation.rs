@@ -1,3 +1,4 @@
+use crate::world::block_facing::BlockFacing;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -12,27 +13,27 @@ pub enum BlockOrientation {
 }
 
 impl BlockOrientation {
-    pub fn from_facing(facing: crate::world::block_facing::BlockFacing) -> Self {
+    pub fn from_facing(facing: BlockFacing) -> Self {
         match facing {
-            crate::world::block_facing::BlockFacing::PosZ => Self::North,
-            crate::world::block_facing::BlockFacing::NegZ => Self::South,
-            crate::world::block_facing::BlockFacing::PosX => Self::East,
-            crate::world::block_facing::BlockFacing::NegX => Self::West,
-            crate::world::block_facing::BlockFacing::PosY => Self::Up,
-            crate::world::block_facing::BlockFacing::NegY => Self::Down,
-            crate::world::block_facing::BlockFacing::None => Self::None,
+            BlockFacing::PosZ => Self::North,
+            BlockFacing::NegZ => Self::South,
+            BlockFacing::PosX => Self::East,
+            BlockFacing::NegX => Self::West,
+            BlockFacing::PosY => Self::Up,
+            BlockFacing::NegY => Self::Down,
+            BlockFacing::None => Self::None,
         }
     }
 
-    pub fn to_facing(self) -> crate::world::block_facing::BlockFacing {
+    pub fn to_facing(self) -> BlockFacing {
         match self {
-            Self::North => crate::world::block_facing::BlockFacing::PosZ,
-            Self::South => crate::world::block_facing::BlockFacing::NegZ,
-            Self::East => crate::world::block_facing::BlockFacing::PosX,
-            Self::West => crate::world::block_facing::BlockFacing::NegX,
-            Self::Up => crate::world::block_facing::BlockFacing::PosY,
-            Self::Down => crate::world::block_facing::BlockFacing::NegY,
-            Self::None => crate::world::block_facing::BlockFacing::None,
+            Self::North => BlockFacing::PosZ,
+            Self::South => BlockFacing::NegZ,
+            Self::East => BlockFacing::PosX,
+            Self::West => BlockFacing::NegX,
+            Self::Up => BlockFacing::PosY,
+            Self::Down => BlockFacing::NegY,
+            Self::None => BlockFacing::None,
         }
     }
 }
