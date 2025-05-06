@@ -1,7 +1,8 @@
-use crate::{
-    world::ChunkCoord,
-    math::{Vec3, Mat4}
-};
+use crate::config::rendering::EngineConfig;
+use crate::utils::core::{AABB, ViewFrustum};
+use crate::world::ChunkCoord;
+use glam::{Mat4, Vec3};
+use std::collections::HashMap;
 
 use std::collections::BTreeMap;
 
@@ -35,10 +36,10 @@ impl SpatialPartition {
     fn rebuild_quadtree(&mut self, center: Vec3, config: &EngineConfig) {
         self.quadtree = QuadTree::new(config.render_distance);
         self.spatial_index.clear();
-        
+
         let radius = config.render_distance as i32;
         let center_chunk = ChunkCoord::from_world_pos(center, config.chunk_size);
-        
+
         for x in -radius..=radius {
             for z in -radius..=radius {
                 let coord = ChunkCoord {
@@ -143,24 +144,35 @@ impl QuadTree {
 
     fn get_quadrant(&self, coord: ChunkCoord) -> usize {
         let center = self.bounds.center();
-        ((coord.x as f32 >= center.x) as usize) + 
-        (((coord.z as f32 >= center.z) as usize) * 2)
+        ((coord.x as f32 >= center.x) as usize) + (((coord.z as f32 >= center.z) as usize) * 2)
     }
 
     fn get_quadrant_bounds(&self, quadrant: usize) -> AABB {
         let center = self.bounds.center();
         match quadrant {
-            0 => AABB { min: self.bounds.min, max: center },
-            1 => AABB { min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z), max: Vec3::new(self.bounds.max.x, center.y, center.z) },
-            2 => AABB { min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z), max: Vec3::new(center.x, center.y, self.bounds.max.z) },
-            3 => AABB { min: center, max: self.bounds.max },
+            0 => AABB {
+                min: self.bounds.min,
+                max: center,
+            },
+            1 => AABB {
+                min: Vec3::new(center.x, self.bounds.min.y, self.bounds.min.z),
+                max: Vec3::new(self.bounds.max.x, center.y, center.z),
+            },
+            2 => AABB {
+                min: Vec3::new(self.bounds.min.x, self.bounds.min.y, center.z),
+                max: Vec3::new(center.x, center.y, self.bounds.max.z),
+            },
+            3 => AABB {
+                min: center,
+                max: self.bounds.max,
+            },
             _ => panic!("Invalid quadrant"),
         }
     }
 
     pub fn query(&self, frustum: &ViewFrustum) -> Vec<ChunkCoord> {
         let mut visible_chunks = Vec::new();
-        
+
         if !self.bounds.intersects_frustum(frustum) {
             return visible_chunks;
         }
