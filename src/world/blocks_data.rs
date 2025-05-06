@@ -816,4 +816,14 @@ impl BlockRegistry {
     pub fn iter(&self) -> impl Iterator<Item = &BlockDefinition> {
         self.blocks.values()
     }
+
+    pub fn get_material(&self, id: BlockId) -> Option<BlockMaterial> {
+        self.get(id).map(|def| def.material.clone())
+    }
+
+    pub fn get_physics(&self, id: BlockId) -> BlockPhysics {
+        self.get(id)
+            .map(|def| BlockPhysics::from(def.flags))
+            .unwrap_or_default()
+    }
 }
