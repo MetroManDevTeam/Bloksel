@@ -18,7 +18,7 @@ pub struct EngineConfig {
     pub fov: f32,
     pub view_distance: f32,
     pub save_interval: f32,
-
+ 
     pub terrain: TerrainConfig,
     pub gameplay: GameplayConfig,
     pub rendering: RenderConfig,
