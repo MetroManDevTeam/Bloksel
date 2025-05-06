@@ -55,17 +55,6 @@ impl BlockFacing {
         }
     }
 
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            0 => Self::Wall,
-            1 => Self::Floor,
-            2 => Self::Ceiling,
-            3 => Self::Corner,
-            4 => Self::Edge,
-            n => Self::Custom(n),
-        }
-    }
-
     pub fn to_u8(self) -> u8 {
         match self {
             Self::Wall => 0,
@@ -75,6 +64,17 @@ impl BlockFacing {
             Self::Edge => 4,
             Self::Custom(n) => n,
             _ => 0,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Wall,
+            1 => Self::Floor,
+            2 => Self::Ceiling,
+            3 => Self::Corner,
+            4 => Self::Edge,
+            n => Self::Custom(n),
         }
     }
 
