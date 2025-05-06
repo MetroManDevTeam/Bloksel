@@ -1,11 +1,13 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BlockMaterial {
     pub id: u16,
     pub name: String,
-    pub albedo: [f32:4],
+    pub albedo: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
-    pub emissive: [f32; 3],
+    pub emission: [f32; 3],
     pub texture_path: Option<String>,
     pub normal_map_path: Option<String>,
     pub occlusion_map_path: Option<String>,
