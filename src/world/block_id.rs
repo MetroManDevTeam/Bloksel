@@ -283,11 +283,3 @@ impl BlockRegistry {
         self.block_colors.get(&id)
     }
 }
-
-impl BlockMaterial {
-    pub fn apply_tint(&mut self, color: [f32; 4], settings: &TintSettings) {
-        let [r, g, b, a] = color;
-        let color = [r, g, b];
-        // ... rest of the method ...
-    }
-}
