@@ -17,7 +17,7 @@ use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::BufWriter;
+use std::io::{self, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -98,7 +98,7 @@ impl Chunk {
         ));
         let file = File::create(chunk_file)?;
         let writer = BufWriter::new(file);
-        serialize_into(writer, self)?;
+        self.save(writer)?;
         Ok(())
     }
 
@@ -110,8 +110,7 @@ impl Chunk {
             coord.z()
         ));
         let file = File::open(chunk_file)?;
-        let chunk: Chunk = deserialize_from(file)?;
-        Ok(chunk)
+        Self::load(file)
     }
 
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
@@ -142,6 +141,20 @@ impl Chunk {
                     )
                     .map(|sub_block| (sub_block, local_pos))
             })
+    }
+
+    pub fn save(&self, writer: &mut impl io::Write) -> io::Result<()> {
+        serialize_into(writer, self).map_err(|e| match e {
+            bincode::Error::Io(e) => e,
+            _ => io::Error::new(io::ErrorKind::Other, "Serialization failed"),
+        })
+    }
+
+    pub fn load(file: &mut impl io::Read) -> io::Result<Self> {
+        deserialize_from(file).map_err(|e| match e {
+            bincode::Error::Io(e) => e,
+            _ => io::Error::new(io::ErrorKind::Other, "Deserialization failed"),
+        })
     }
 }
 
