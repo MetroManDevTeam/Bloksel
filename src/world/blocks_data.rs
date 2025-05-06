@@ -68,31 +68,6 @@ impl BlockFlags {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockMaterial {
-    pub color: [f32; 4],
-    pub emissive: [f32; 3],
-    pub metallic: f32,
-    pub roughness: f32,
-    pub albedo: [f32; 4],
-    pub emission: [f32; 3],
-    pub texture_path: String,
-}
-
-impl Default for BlockMaterial {
-    fn default() -> Self {
-        Self {
-            color: [1.0, 1.0, 1.0, 1.0],
-            emissive: [0.0, 0.0, 0.0],
-            metallic: 0.0,
-            roughness: 1.0,
-            albedo: [1.0, 1.0, 1.0, 1.0],
-            emission: [0.0, 0.0, 0.0],
-            texture_path: String::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDefinition {
     pub id: BlockId,
     pub name: String,
@@ -166,80 +141,139 @@ impl Default for BlockRegistry {
         let mut registry = Self::new();
 
         // Air
-        registry.register(
-            BlockDefinition::new(BlockId::new(0, 0, 0), "air".to_string())
-                .with_flags(BlockFlags::default().with_transparent(true))
-                .with_material(BlockMaterial::default()),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(0, 0, 0),
+            name: "air".to_string(),
+            category: BlockCategory::Gas,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial::default(),
+            flags: BlockFlags::default().with_transparent(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Stone
-        registry.register(
-            BlockDefinition::new(BlockId::new(1, 0, 0), "stone".to_string())
-                .with_flags(BlockFlags::default().with_solid(true))
-                .with_material(BlockMaterial {
-                    color: [0.5, 0.5, 0.5, 1.0],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(1, 0, 0),
+            name: "stone".to_string(),
+            category: BlockCategory::Solid,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [0.5, 0.5, 0.5, 1.0],
+                ..Default::default()
+            },
+            flags: BlockFlags::default().with_solid(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Grass
-        registry.register(
-            BlockDefinition::new(BlockId::new(2, 0, 0), "grass".to_string())
-                .with_flags(BlockFlags::default().with_solid(true))
-                .with_material(BlockMaterial {
-                    color: [0.3, 0.8, 0.3, 1.0],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(2, 0, 0),
+            name: "grass".to_string(),
+            category: BlockCategory::Flora,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [0.3, 0.8, 0.3, 1.0],
+                ..Default::default()
+            },
+            flags: BlockFlags::default().with_solid(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Water
-        registry.register(
-            BlockDefinition::new(BlockId::new(3, 0, 0), "water".to_string())
-                .with_flags(
-                    BlockFlags::default()
-                        .with_liquid(true)
-                        .with_transparent(true),
-                )
-                .with_material(BlockMaterial {
-                    color: [0.2, 0.3, 0.9, 0.8],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(3, 0, 0),
+            name: "water".to_string(),
+            category: BlockCategory::Liquid,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [0.2, 0.3, 0.9, 0.8],
+                ..Default::default()
+            },
+            flags: BlockFlags::default()
+                .with_liquid(true)
+                .with_transparent(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Lava
-        registry.register(
-            BlockDefinition::new(BlockId::new(4, 0, 0), "lava".to_string())
-                .with_flags(BlockFlags::default().with_liquid(true).with_light_level(15))
-                .with_material(BlockMaterial {
-                    color: [1.0, 0.5, 0.0, 1.0],
-                    emissive: [1.0, 0.5, 0.0],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(4, 0, 0),
+            name: "lava".to_string(),
+            category: BlockCategory::Liquid,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [1.0, 0.5, 0.0, 1.0],
+                emissive: [1.0, 0.5, 0.0],
+                ..Default::default()
+            },
+            flags: BlockFlags::default().with_liquid(true).with_light_level(15),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Sand
-        registry.register(
-            BlockDefinition::new(BlockId::new(5, 0, 0), "sand".to_string())
-                .with_flags(BlockFlags::default().with_solid(true))
-                .with_material(BlockMaterial {
-                    color: [0.9, 0.9, 0.7, 1.0],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(5, 0, 0),
+            name: "sand".to_string(),
+            category: BlockCategory::Solid,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [0.9, 0.9, 0.7, 1.0],
+                ..Default::default()
+            },
+            flags: BlockFlags::default().with_solid(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         // Glass
-        registry.register(
-            BlockDefinition::new(BlockId::new(6, 0, 0), "glass".to_string())
-                .with_flags(
-                    BlockFlags::default()
-                        .with_solid(true)
-                        .with_transparent(true),
-                )
-                .with_material(BlockMaterial {
-                    color: [0.9, 0.9, 0.9, 0.5],
-                    ..Default::default()
-                }),
-        );
+        registry.register(BlockDefinition {
+            id: BlockId::new(6, 0, 0),
+            name: "glass".to_string(),
+            category: BlockCategory::Transparent,
+            default_facing: BlockFacing::default(),
+            default_orientation: BlockOrientation::default(),
+            connects_to: HashSet::new(),
+            texture_faces: HashMap::new(),
+            material: BlockMaterial {
+                color: [0.9, 0.9, 0.9, 0.5],
+                ..Default::default()
+            },
+            flags: BlockFlags::default()
+                .with_solid(true)
+                .with_transparent(true),
+            variations: Vec::new(),
+            color_variations: Vec::new(),
+            tint_settings: Default::default(),
+        });
 
         registry
     }
@@ -404,7 +438,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::PosY, "sand.png".into()),
             (BlockFacing::NegY, "sand.png".into()),
         ]),
-        material: BlockMaterial::new([0.9, 0.8, 0.6, 1.0], 0.9, 0.0, 0.0),
+        material: BlockMaterial::new([0.9, 0.9, 0.7, 1.0], 0.9, 0.0, 0.0),
         flags: BlockFlags::new()
             .with_solid(true)
             .with_transparent(false)
