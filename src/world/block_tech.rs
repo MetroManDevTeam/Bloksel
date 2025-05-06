@@ -101,3 +101,28 @@ impl BlockPhysics {
         self.physics.density * volume
     }
 }
+
+impl From<BlockFlags> for BlockPhysics {
+    fn from(flags: BlockFlags) -> Self {
+        BlockPhysics {
+            density: if flags.contains(BlockFlags::SOLID) {
+                1.0
+            } else {
+                0.0
+            },
+            friction: if flags.contains(BlockFlags::SLIPPERY) {
+                0.1
+            } else {
+                0.5
+            },
+            restitution: if flags.contains(BlockFlags::BOUNCY) {
+                0.8
+            } else {
+                0.2
+            },
+            is_solid: flags.contains(BlockFlags::SOLID),
+            is_liquid: flags.contains(BlockFlags::LIQUID),
+            is_gas: flags.contains(BlockFlags::GAS),
+        }
+    }
+}
