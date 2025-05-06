@@ -319,7 +319,7 @@ impl Player {
         let chunk_coord = ChunkCoord::from_world_pos(position, self.chunk_size);
         if let Some(chunk) = terrain.get_chunk(chunk_coord) {
             let local_pos = position - chunk_coord.to_world_pos(self.chunk_size);
-            return chunk.is_solid_at(local_pos);
+            return chunk.is_solid_at(local_pos.x as i32, local_pos.y as i32, local_pos.z as i32);
         }
         false
     }
