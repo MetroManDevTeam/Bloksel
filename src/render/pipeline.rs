@@ -1,6 +1,6 @@
 // In render/pipeline.rs
 use crate::render::{Camera, Mesh, Shader};
-use crate::world::BlockMaterial;
+use crate::world::block_mat::BlockMaterial;
 use crate::world::{BlockRegistry, Chunk};
 use glam::{Vec2, Vec4};
 use image::RgbaImage;
