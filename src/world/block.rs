@@ -1,8 +1,9 @@
 use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
 use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_tech::BlockPhysics;
 use crate::world::block_visual::ConnectedDirections;
-use crate::world::{BlockMaterial, BlockPhysics, BlockRegistry};
+use crate::world::{BlockMaterial, BlockRegistry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -12,6 +13,7 @@ pub struct Block {
     pub facing: BlockFacing,
     pub orientation: BlockOrientation,
     pub connections: ConnectedDirections,
+    pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +31,7 @@ impl Block {
             facing: BlockFacing::default(),
             orientation: BlockOrientation::default(),
             connections: ConnectedDirections::empty(),
+            sub_blocks: HashMap::new(),
         }
     }
 
@@ -48,23 +51,26 @@ impl Block {
     }
 
     pub fn base_id(&self) -> u16 {
-        self.id.base_id()
+        self.id.base_id() as u16
     }
 
     pub fn variation(&self) -> u8 {
-        self.id.variation()
+        self.id.variation() as u8
     }
 
     pub fn color_id(&self) -> u8 {
-        self.id.color_id()
+        self.id.color_id() as u8
     }
 
     pub fn get_material(&self, registry: &BlockRegistry) -> BlockMaterial {
-        registry.get_material(self.id).unwrap_or_default()
+        registry.get_block_material(self.id).unwrap_or_default()
     }
 
     pub fn get_physics(&self, registry: &BlockRegistry) -> BlockPhysics {
-        registry.get_physics(self.id)
+        registry.get_block_flags(self.id).map_or_else(
+            || BlockPhysics::default(),
+            |flags| BlockPhysics::from(flags),
+        )
     }
 
     pub fn place_sub_block(&mut self, pos: (u8, u8, u8), sub_block: SubBlock) {
