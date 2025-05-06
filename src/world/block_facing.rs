@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BlockFacing {
-    PosX,
-    NegX,
-    PosY,
-    NegY,
-    PosZ,
-    NegZ,
+    Wall,
+    Floor,
+    Ceiling,
+    Corner,
+    Edge,
+    Custom(u8),
     None,
 }
 
