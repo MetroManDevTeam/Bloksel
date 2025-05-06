@@ -427,9 +427,10 @@ impl TerrainGenerator {
                                 .block_registry
                                 .get_by_name("grass")
                                 .map(|def| def.id)
-                                .unwrap_or(BlockId::new(10, 0, 0)),
-                            facing: BlockFacing::North,
-                            orientation: BlockOrientation::Default,
+                                .unwrap_or(BlockId::new(10, 0, 0))
+                                .into(),
+                            facing: BlockFacing::PosZ,
+                            orientation: BlockOrientation::North,
                             connections: ConnectedDirections::default(),
                         },
                     );
@@ -454,9 +455,10 @@ impl TerrainGenerator {
                             .block_registry
                             .get_by_name("water")
                             .map(|def| def.id)
-                            .unwrap_or(BlockId::new(10, 0, 0)),
-                        facing: BlockFacing::North,
-                        orientation: BlockOrientation::Default,
+                            .unwrap_or(BlockId::new(10, 0, 0))
+                            .into(),
+                        facing: BlockFacing::PosZ,
+                        orientation: BlockOrientation::North,
                         connections: ConnectedDirections::default(),
                     },
                 );
@@ -489,9 +491,10 @@ impl TerrainGenerator {
                             .block_registry
                             .get_by_name(ore_type)
                             .map(|def| def.id)
-                            .unwrap_or(BlockId::new(10, 0, 0)),
-                        facing: BlockFacing::North,
-                        orientation: BlockOrientation::Default,
+                            .unwrap_or(BlockId::new(10, 0, 0))
+                            .into(),
+                        facing: BlockFacing::PosZ,
+                        orientation: BlockOrientation::North,
                         connections: ConnectedDirections::default(),
                     },
                 );
@@ -564,10 +567,11 @@ impl TerrainGenerator {
                 id: self
                     .block_registry
                     .get_by_name("grass")
-                    .map(|def| def.id.base_id() as u16)
-                    .unwrap_or(10),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::new(10, 0, 0))
+                    .into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::empty(),
             },
         );
@@ -584,10 +588,11 @@ impl TerrainGenerator {
                 id: self
                     .block_registry
                     .get_by_name("water")
-                    .map(|def| def.id.base_id() as u16)
-                    .unwrap_or(10),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::new(10, 0, 0))
+                    .into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::empty(),
             },
         );
@@ -604,10 +609,11 @@ impl TerrainGenerator {
                 id: self
                     .block_registry
                     .get_by_name(ore_type)
-                    .map(|def| def.id.base_id() as u16)
-                    .unwrap_or(10),
-                facing: BlockFacing::North,
-                orientation: BlockOrientation::Default,
+                    .map(|def| def.id)
+                    .unwrap_or(BlockId::new(10, 0, 0))
+                    .into(),
+                facing: BlockFacing::PosZ,
+                orientation: BlockOrientation::North,
                 connections: ConnectedDirections::empty(),
             },
         );
