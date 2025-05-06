@@ -4,7 +4,7 @@ use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
 use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
 use crate::world::block_orientation::BlockOrientation;
-use crate::world::block_tech::{BlockFlags, BlockPhysics};
+use crate::world::block_tech::BlockPhysics;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
