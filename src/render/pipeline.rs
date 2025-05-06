@@ -1,9 +1,12 @@
 // In render/pipeline.rs
-use crate::render::{Camera, Mesh, Shader};
+use crate::render::mesh::Mesh;
+use crate::render::{Camera, Shader};
 use crate::world::block_mat::BlockMaterial;
+use crate::world::chunk::ChunkMesh;
 use crate::world::{BlockRegistry, Chunk};
 use anyhow::Context;
-use glam::{Vec2, Vec4};
+use gl::types::{GLsizei, GLuint};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use image::DynamicImage;
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet};
