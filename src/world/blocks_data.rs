@@ -84,11 +84,11 @@ impl Default for BlockRegistry {
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
             material: BlockMaterial::new([0.5, 0.5, 0.5, 1.0], 0.8, 0.0, 0.0),
-            flags: TechBlockFlags::SOLID | TechBlockFlags::LIQUID,
+            flags: TechBlockFlags::SOLID,
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::SOLID | TechBlockFlags::LIQUID),
+            physics: BlockPhysics::solid(),
         });
 
         // Grass
@@ -101,11 +101,11 @@ impl Default for BlockRegistry {
             connects_to: HashSet::new(),
             texture_faces: HashMap::new(),
             material: BlockMaterial::new([0.3, 0.8, 0.3, 1.0], 0.6, 0.0, 0.0),
-            flags: TechBlockFlags::SOLID | TechBlockFlags::LIQUID,
+            flags: TechBlockFlags::SOLID,
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::SOLID | TechBlockFlags::LIQUID),
+            physics: BlockPhysics::solid(),
         });
 
         // Water
@@ -122,7 +122,7 @@ impl Default for BlockRegistry {
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::LIQUID),
+            physics: BlockPhysics::liquid(),
         });
 
         // Lava
@@ -139,7 +139,7 @@ impl Default for BlockRegistry {
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::LIQUID),
+            physics: BlockPhysics::liquid(),
         });
 
         // Sand
@@ -156,7 +156,7 @@ impl Default for BlockRegistry {
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::SOLID),
+            physics: BlockPhysics::solid(),
         });
 
         // Glass
@@ -173,7 +173,7 @@ impl Default for BlockRegistry {
             variations: Vec::new(),
             color_variations: Vec::new(),
             tint_settings: Default::default(),
-            physics: BlockPhysics::from(TechBlockFlags::SOLID),
+            physics: BlockPhysics::solid(),
         });
 
         registry
@@ -198,13 +198,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "stone_bottom.png".into()),
         ]),
         material: BlockMaterial::new([0.8, 0.8, 0.8, 1.0], 0.7, 0.0, 0.0),
-        flags: TechBlockFlags::SOLID
-            | TechBlockFlags::LIQUID
-                .with_transparent(false)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(0)
-                .with_break_resistance(1),
+        flags: TechBlockFlags::SOLID,
         variations: vec![BlockVariant {
             id: 1,
             name: "cracked".into(),
@@ -222,15 +216,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::SOLID
-                | TechBlockFlags::LIQUID
-                    .with_transparent(false)
-                    .with_flora(false)
-                    .with_decorative(false)
-                    .with_light_level(0)
-                    .with_break_resistance(1),
-        ),
+        physics: BlockPhysics::solid(),
     },
     // 2: Grass
     BlockDefinition {
@@ -249,13 +235,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "dirt.png".into()),
         ]),
         material: BlockMaterial::new([0.4, 0.8, 0.3, 1.0], 0.9, 0.0, 0.0),
-        flags: TechBlockFlags::SOLID
-            | TechBlockFlags::LIQUID
-                .with_transparent(false)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(0)
-                .with_break_resistance(1),
+        flags: TechBlockFlags::SOLID,
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -263,15 +243,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::SOLID
-                | TechBlockFlags::LIQUID
-                    .with_transparent(false)
-                    .with_flora(false)
-                    .with_decorative(false)
-                    .with_light_level(0)
-                    .with_break_resistance(1),
-        ),
+        physics: BlockPhysics::solid(),
     },
     // 3: Water
     BlockDefinition {
@@ -290,12 +262,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "water.png".into()),
         ]),
         material: BlockMaterial::new([0.2, 0.4, 0.8, 0.8], 0.1, 0.0, 0.0),
-        flags: TechBlockFlags::LIQUID
-            .with_transparent(true)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(0)
-            .with_break_resistance(1),
+        flags: TechBlockFlags::LIQUID,
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -303,14 +270,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::LIQUID
-                .with_transparent(true)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(0)
-                .with_break_resistance(1),
-        ),
+        physics: BlockPhysics::liquid(),
     },
     // 4: Lava
     BlockDefinition {
@@ -329,12 +289,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "lava.png".into()),
         ]),
         material: BlockMaterial::new([0.8, 0.2, 0.1, 0.8], 0.1, 0.0, 0.5),
-        flags: TechBlockFlags::LIQUID
-            .with_transparent(true)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(15)
-            .with_break_resistance(2),
+        flags: TechBlockFlags::LIQUID,
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -342,14 +297,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::LIQUID
-                .with_transparent(true)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(15)
-                .with_break_resistance(2),
-        ),
+        physics: BlockPhysics::liquid(),
     },
     // 5: Sand
     BlockDefinition {
@@ -368,12 +316,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "sand.png".into()),
         ]),
         material: BlockMaterial::new([0.9, 0.9, 0.7, 1.0], 0.9, 0.0, 0.0),
-        flags: TechBlockFlags::SOLID
-            .with_transparent(false)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(0)
-            .with_break_resistance(1),
+        flags: TechBlockFlags::SOLID,
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -381,14 +324,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::SOLID
-                .with_transparent(false)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(0)
-                .with_break_resistance(1),
-        ),
+        physics: BlockPhysics::solid(),
     },
     // 6: Glass
     BlockDefinition {
@@ -407,12 +343,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "glass.png".into()),
         ]),
         material: BlockMaterial::new([0.9, 0.9, 0.9, 0.3], 0.1, 0.0, 0.0),
-        flags: TechBlockFlags::SOLID
-            .with_transparent(true)
-            .with_flora(false)
-            .with_decorative(false)
-            .with_light_level(0)
-            .with_break_resistance(1),
+        flags: TechBlockFlags::SOLID,
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -420,14 +351,7 @@ pub const BLOCKS: &[BlockDefinition] = &[
             preserve_metallic: true,
             preserve_roughness: true,
         },
-        physics: BlockPhysics::from(
-            TechBlockFlags::SOLID
-                .with_transparent(true)
-                .with_flora(false)
-                .with_decorative(false)
-                .with_light_level(0)
-                .with_break_resistance(1),
-        ),
+        physics: BlockPhysics::solid(),
     },
 ];
 
