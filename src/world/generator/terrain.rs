@@ -1,13 +1,14 @@
-use crate::utils::math::IVec3;
 use crate::world::block::{Block, BlockFacing, BlockOrientation, SubBlock};
 use crate::world::block_id::BlockId;
 use crate::world::block_registry::BlockRegistry;
 use crate::world::block_visual::ConnectedDirections;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
+use glam::IVec3;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 use parking_lot::RwLock;
-use rand::{Rng, rngs::ChaCha12Rng};
+use rand::Rng;
+use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
