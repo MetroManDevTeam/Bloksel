@@ -3,8 +3,6 @@ use crate::world::block::Block;
 use crate::world::BlockFacing;
 use crate::world::BlockOrientation;
 
-pub type BlockId = u16;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockData {
     pub id: BlockId,
@@ -26,30 +24,45 @@ pub enum BlockCategory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockId(pub u16);
+pub struct BlockId {
+    pub base_id: u32,
+    pub variation: u16,
+    pub color_id: u16,
+}
 
 impl BlockId {
     pub fn new(id: u16) -> Self {
-        Self(id)
+        Self {
+            base_id: id as u32,
+            variation: 0,
+            color_id: 0,
+        }
     }
 
     pub fn to_block(self) -> Block {
-        Block::new(self.0)
+        Block::new(self.base_id as u16)
     }
 
     pub const AIR: BlockId = BlockId {
         base_id: 0,
         variation: 0,
-        color_id: 0
+        color_id: 0,
     };
 
-
     pub fn with_variation(base_id: u32, variation: u16) -> Self {
-        Self { base_id, variation, color_id: 0 }
+        Self {
+            base_id,
+            variation,
+            color_id: 0,
+        }
     }
 
     pub fn with_color(base_id: u32, color_id: u16) -> Self {
-        Self { base_id, variation: 0, color_id }
+        Self {
+            base_id,
+            variation: 0,
+            color_id,
+        }
     }
 
     pub fn from_str(s: &str) -> Result<Self, BlockError> {
@@ -102,7 +115,7 @@ impl Display for BlockId {
 
 impl From<u32> for BlockId {
     fn from(base_id: u32) -> Self {
-        Self::new(base_id)
+        Self::new(base_id as u16)
     }
 }
 
@@ -414,7 +427,7 @@ impl BlockRegistry {
     
     /// Gets the base definition (ignoring variants/colors)
     pub fn get_base(&self, base_id: u32) -> Option<&BlockDefinition> {
-        self.get(BlockId::new(base_id))
+        self.get(BlockId::new(base_id as u16))
     }
     
     /// Gets a specific variant
