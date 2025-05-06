@@ -28,7 +28,7 @@ impl ChunkStorage for FileChunkStorage {
         self.chunks.insert(coord, chunk);
     }
 
-    fn remove_chunk(&mut self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
-        self.chunks.remove(&coord)
+    fn remove_chunk(&mut self, coord: ChunkCoord) {
+        self.chunks.remove(&coord);
     }
 }
