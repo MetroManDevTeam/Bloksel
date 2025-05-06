@@ -47,15 +47,15 @@ impl Block {
         self
     }
 
-    pub fn base_id(&self) -> u32 {
+    pub fn base_id(&self) -> u16 {
         self.id.base_id()
     }
 
-    pub fn variation(&self) -> u32 {
+    pub fn variation(&self) -> u8 {
         self.id.variation()
     }
 
-    pub fn color_id(&self) -> u32 {
+    pub fn color_id(&self) -> u8 {
         self.id.color_id()
     }
 
