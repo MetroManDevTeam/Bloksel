@@ -44,7 +44,7 @@ impl BlockId {
     }
 
     pub fn to_block(self) -> Block {
-        Block::new(self.base_id as u16)
+        Block::new(self)
     }
 
     pub const AIR: BlockId = BlockId {
@@ -118,9 +118,19 @@ impl Display for BlockId {
     }
 }
 
+impl From<u16> for BlockId {
+    fn from(id: u16) -> Self {
+        Self::new(id)
+    }
+}
+
 impl From<u32> for BlockId {
     fn from(base_id: u32) -> Self {
-        Self::new(base_id as u16)
+        Self {
+            base_id,
+            variation: 0,
+            color_id: 0,
+        }
     }
 }
 
