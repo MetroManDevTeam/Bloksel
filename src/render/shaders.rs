@@ -1,8 +1,10 @@
 // shader.rs - Complete Shader Management System
 
-use crate::world::block::{BlockFlags, BlockId, MaterialModifiers};
-use crate::world::block_mat::BlockMaterial;
+use crate::world::block_id::BlockId;
+use crate::world::block_material::{BlockMaterial, MaterialModifiers};
+use crate::world::block_tech::BlockFlags;
 use gl::types::*;
+use glam::{Mat4, Vec3};
 use std::ffi::{CString, NulError};
 use std::fs;
 use std::ptr;
@@ -236,6 +238,132 @@ impl ShaderProgram {
 
         program.detect_features();
         Ok(program)
+    }
+
+    pub fn new(vertex_path: &str, fragment_path: &str) -> Result<Self, ShaderError> {
+        let vertex_shader = Self::compile_shader(vertex_path, gl::VERTEX_SHADER)?;
+        let fragment_shader = Self::compile_shader(fragment_path, gl::FRAGMENT_SHADER)?;
+
+        let program = unsafe { gl::CreateProgram() };
+        unsafe {
+            gl::AttachShader(program, vertex_shader);
+            gl::AttachShader(program, fragment_shader);
+            Self::link_program(program)?;
+            gl::DeleteShader(vertex_shader);
+            gl::DeleteShader(fragment_shader);
+        }
+
+        let mut program = ShaderProgram {
+            id: program,
+            uniforms: std::collections::HashMap::new(),
+            variant_support: false,
+            connection_support: false,
+        };
+
+        program.detect_features();
+        Ok(program)
+    }
+
+    fn compile_shader(path: &str, shader_type: GLenum) -> Result<GLuint, ShaderError> {
+        let source = fs::read_to_string(path)?;
+        let source = CString::new(source)?;
+        let shader = unsafe { gl::CreateShader(shader_type) };
+        unsafe {
+            gl::ShaderSource(shader, 1, &source.as_ptr(), std::ptr::null());
+            gl::CompileShader(shader);
+        }
+
+        let mut success = 0;
+        unsafe { gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success) };
+        if success == 0 {
+            let mut len = 0;
+            unsafe { gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len) };
+            let mut buffer = vec![0u8; len as usize];
+            unsafe {
+                gl::GetShaderInfoLog(
+                    shader,
+                    len,
+                    std::ptr::null_mut(),
+                    buffer.as_mut_ptr() as *mut i8,
+                )
+            };
+            let error = String::from_utf8_lossy(&buffer).to_string();
+            unsafe { gl::DeleteShader(shader) };
+            return Err(ShaderError::Compilation(error));
+        }
+
+        Ok(shader)
+    }
+
+    fn link_program(program: GLuint) -> Result<(), ShaderError> {
+        unsafe { gl::LinkProgram(program) };
+        let mut success = 0;
+        unsafe { gl::GetProgramiv(program, gl::LINK_STATUS, &mut success) };
+        if success == 0 {
+            let mut len = 0;
+            unsafe { gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len) };
+            let mut buffer = vec![0u8; len as usize];
+            unsafe {
+                gl::GetProgramInfoLog(
+                    program,
+                    len,
+                    std::ptr::null_mut(),
+                    buffer.as_mut_ptr() as *mut i8,
+                )
+            };
+            let error = String::from_utf8_lossy(&buffer).to_string();
+            return Err(ShaderError::Linking(error));
+        }
+        Ok(())
+    }
+
+    pub fn use_program(&self) {
+        unsafe { gl::UseProgram(self.id) };
+    }
+
+    pub fn set_uniform(&self, name: &str, value: &impl UniformValue) {
+        let location = self.get_uniform_location(name);
+        value.set_uniform(location);
+    }
+
+    fn get_uniform_location(&self, name: &str) -> GLint {
+        *self.uniforms.entry(name.to_string()).or_insert_with(|| {
+            let name = CString::new(name).unwrap();
+            unsafe { gl::GetUniformLocation(self.id, name.as_ptr()) }
+        })
+    }
+
+    fn detect_features(&mut self) {
+        self.variant_support = self.get_uniform_location("material.hasVariants") != -1;
+        self.connection_support = self.get_uniform_location("connectedDirections") != -1;
+    }
+}
+
+pub trait UniformValue {
+    fn set_uniform(&self, location: GLint);
+}
+
+impl UniformValue for Mat4 {
+    fn set_uniform(&self, location: GLint) {
+        unsafe { gl::UniformMatrix4fv(location, 1, gl::FALSE, self.as_ref().as_ptr()) };
+    }
+}
+
+impl UniformValue for Vec3 {
+    fn set_uniform(&self, location: GLint) {
+        unsafe { gl::Uniform3f(location, self.x, self.y, self.z) };
+    }
+}
+
+impl UniformValue for f32 {
+    fn set_uniform(&self, location: GLint) {
+        unsafe { gl::Uniform1f(location, *self) };
+    }
+}
+
+impl UniformValue for i32 {
+    fn set_uniform(&self, location: GLint) {
+        unsafe { gl::Uniform1i(location, *self) };
     }
 }
 
