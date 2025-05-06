@@ -502,13 +502,14 @@ impl ChunkRenderer {
             unsafe {
                 self.shader.use_program();
                 self.shader.set_uniform("model", &chunk.transform());
-                self.shader.set_uniform("view", &camera.view());
-                self.shader.set_uniform("projection", &camera.projection());
+                self.shader.set_uniform("view", &camera.view_matrix());
+                self.shader
+                    .set_uniform("projection", &camera.projection_matrix());
 
                 // Bind texture atlas
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, self.texture_atlas);
-                self.shader.set_uniform("texture_atlas", 0);
+                self.shader.set_uniform("texture_atlas", &0);
 
                 // Bind VAO and draw
                 gl::BindVertexArray(mesh.vao);
