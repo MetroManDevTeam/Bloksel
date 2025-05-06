@@ -275,6 +275,7 @@ impl SubBlock {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockRegistry {
     // Primary storage
     blocks: HashMap<BlockId, BlockDefinition>,
@@ -473,12 +474,12 @@ impl BlockRegistry {
         self.texture_atlas_indices.get(path).copied()
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, BlockError> {
-        bincode::serialize(self).map_err(|_| BlockError::SerializationError)
+    pub fn save(&self) -> Result<Vec<u8>, BlockError> {
+        bincode::serialize(self).map_err(|_| BlockError::SerializationFailed)
     }
 
-    pub fn deserialize(data: &[u8]) -> Result<Self, BlockError> {
-        bincode::deserialize(data).map_err(|_| BlockError::DeserializationError)
+    pub fn load(data: &[u8]) -> Result<Self, BlockError> {
+        bincode::deserialize(data).map_err(|_| BlockError::DeserializationFailed)
     }
 
     fn rebuild_caches(&mut self) {
