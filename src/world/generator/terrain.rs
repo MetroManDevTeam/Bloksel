@@ -417,19 +417,20 @@ impl TerrainGenerator {
             {
                 if rng.gen_ratio(1, 10) {
                     block.place_sub_block(
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
-                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        (
+                            rng.gen_range(0..SUB_RESOLUTION as u8),
+                            rng.gen_range(0..SUB_RESOLUTION as u8),
+                            rng.gen_range(0..SUB_RESOLUTION as u8),
+                        ),
                         SubBlock {
                             id: self
                                 .block_registry
                                 .get_by_name("grass")
                                 .map(|def| def.id)
                                 .unwrap_or(BlockId::new(10, 0, 0)),
-                            metadata: 0,
-                            facing: BlockFacing::None,
-                            orientation: BlockOrientation::None,
-                            connections: ConnectedDirections::empty(),
+                            facing: BlockFacing::North,
+                            orientation: BlockOrientation::Default,
+                            connections: ConnectedDirections::default(),
                         },
                     );
                 }
@@ -443,19 +444,20 @@ impl TerrainGenerator {
                         .unwrap_or(BlockId::new(10, 0, 0)) =>
             {
                 block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    (
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                    ),
                     SubBlock {
                         id: self
                             .block_registry
                             .get_by_name("water")
                             .map(|def| def.id)
                             .unwrap_or(BlockId::new(10, 0, 0)),
-                        metadata: 0,
-                        facing: BlockFacing::None,
-                        orientation: BlockOrientation::None,
-                        connections: ConnectedDirections::empty(),
+                        facing: BlockFacing::North,
+                        orientation: BlockOrientation::Default,
+                        connections: ConnectedDirections::default(),
                     },
                 );
             }
@@ -477,19 +479,20 @@ impl TerrainGenerator {
 
             for _ in 0..rng.gen_range(1..=3) {
                 block.place_sub_block(
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
-                    rng.gen_range(0..SUB_RESOLUTION as u8),
+                    (
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                        rng.gen_range(0..SUB_RESOLUTION as u8),
+                    ),
                     SubBlock {
                         id: self
                             .block_registry
                             .get_by_name(ore_type)
                             .map(|def| def.id)
                             .unwrap_or(BlockId::new(10, 0, 0)),
-                        metadata: 0,
-                        facing: BlockFacing::None,
-                        orientation: BlockOrientation::None,
-                        connections: ConnectedDirections::empty(),
+                        facing: BlockFacing::North,
+                        orientation: BlockOrientation::Default,
+                        connections: ConnectedDirections::default(),
                     },
                 );
             }
@@ -557,15 +560,16 @@ impl TerrainGenerator {
                 rng.gen_range(0..SUB_RESOLUTION as u8),
                 rng.gen_range(0..SUB_RESOLUTION as u8),
             ),
-            SubBlock::new(
-                self.block_registry
+            SubBlock {
+                id: self
+                    .block_registry
                     .get_by_name("grass")
                     .map(|def| def.id.base_id() as u16)
                     .unwrap_or(10),
-            )
-            .with_facing(BlockFacing::None)
-            .with_orientation(BlockOrientation::None)
-            .with_connections(ConnectedDirections::empty()),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::empty(),
+            },
         );
     }
 
@@ -576,15 +580,16 @@ impl TerrainGenerator {
                 rng.gen_range(0..SUB_RESOLUTION as u8),
                 rng.gen_range(0..SUB_RESOLUTION as u8),
             ),
-            SubBlock::new(
-                self.block_registry
+            SubBlock {
+                id: self
+                    .block_registry
                     .get_by_name("water")
                     .map(|def| def.id.base_id() as u16)
                     .unwrap_or(10),
-            )
-            .with_facing(BlockFacing::None)
-            .with_orientation(BlockOrientation::None)
-            .with_connections(ConnectedDirections::empty()),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::empty(),
+            },
         );
     }
 
@@ -595,15 +600,16 @@ impl TerrainGenerator {
                 rng.gen_range(0..SUB_RESOLUTION as u8),
                 rng.gen_range(0..SUB_RESOLUTION as u8),
             ),
-            SubBlock::new(
-                self.block_registry
+            SubBlock {
+                id: self
+                    .block_registry
                     .get_by_name(ore_type)
                     .map(|def| def.id.base_id() as u16)
                     .unwrap_or(10),
-            )
-            .with_facing(BlockFacing::None)
-            .with_orientation(BlockOrientation::None)
-            .with_connections(ConnectedDirections::empty()),
+                facing: BlockFacing::North,
+                orientation: BlockOrientation::Default,
+                connections: ConnectedDirections::empty(),
+            },
         );
     }
 }
