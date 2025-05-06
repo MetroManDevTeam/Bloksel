@@ -1,24 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockMaterial {
-    pub id: u16,
-    pub name: String,
     pub albedo: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
     pub emission: [f32; 3],
-    pub texture_path: Option<String>,
-    pub normal_map_path: Option<String>,
-    pub occlusion_map_path: Option<String>,
-    #[serde(default)]
-    pub tintable: bool,
-    #[serde(default)]
-    pub grayscale_base: bool,
-    #[serde(default)]
-    pub tint_mask_path: Option<String>,
-    #[serde(default)]
-    pub vertex_colored: bool,
+    pub texture_index: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
