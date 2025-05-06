@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use crate::world::block::Block;
+use crate::world::BlockFacing;
+use crate::world::BlockOrientation;
 
 pub type BlockId = u16;
 
@@ -26,11 +29,15 @@ pub enum BlockCategory {
 pub struct BlockId(pub u16);
 
 impl BlockId {
-    pub fn new(base_id: u32) -> Self {
-        Self { base_id, variation: 0, color_id: 0 }
+    pub fn new(id: u16) -> Self {
+        Self(id)
     }
 
-     pub const AIR: BlockId = BlockId {
+    pub fn to_block(self) -> Block {
+        Block::new(self.0)
+    }
+
+    pub const AIR: BlockId = BlockId {
         base_id: 0,
         variation: 0,
         color_id: 0
