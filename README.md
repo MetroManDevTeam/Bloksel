@@ -40,10 +40,3 @@ cargo run --release
 - `src/assets/` - Asset management and loading
 - `src/ui/` - User interface components
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
