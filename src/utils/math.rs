@@ -47,23 +47,7 @@ impl AABB {
     }
 
     pub fn intersects_frustum(&self, frustum: &ViewFrustum) -> bool {
-        for plane in &frustum.planes {
-            let mut min_point = self.min;
-            if plane.normal.x >= 0.0 {
-                min_point.x = self.max.x;
-            }
-            if plane.normal.y >= 0.0 {
-                min_point.y = self.max.y;
-            }
-            if plane.normal.z >= 0.0 {
-                min_point.z = self.max.z;
-            }
-
-            if plane.normal.dot(min_point) + plane.distance < 0.0 {
-                return false;
-            }
-        }
-        true
+        frustum.intersects_aabb(self)
     }
 
     pub fn transform(&self, transform: Mat4) -> Self {
@@ -113,63 +97,68 @@ impl ViewFrustum {
 
     pub fn from_matrices(view: &Mat4, proj: &Mat4) -> Self {
         let vp = *proj * *view;
+        let mut planes = [Plane::default(); 6];
 
-        let mut planes = [
-            Plane::default(),
-            Plane::default(),
-            Plane::default(),
-            Plane::default(),
-            Plane::default(),
-            Plane::default(),
-        ];
-
+        // Extract planes from view-projection matrix
         // Right plane
-        planes[0].normal = Vec3::new(
-            vp.w_axis[0] - vp.x_axis[0],
-            vp.w_axis[1] - vp.x_axis[1],
-            vp.w_axis[2] - vp.x_axis[2],
+        planes[0] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] - vp.x_axis[0],
+                vp.w_axis[1] - vp.x_axis[1],
+                vp.w_axis[2] - vp.x_axis[2],
+            ),
+            vp.w_axis[3] - vp.x_axis[3],
         );
-        planes[0].distance = vp.w_axis[3] - vp.x_axis[3];
 
         // Left plane
-        planes[1].normal = Vec3::new(
-            vp.w_axis[0] + vp.x_axis[0],
-            vp.w_axis[1] + vp.x_axis[1],
-            vp.w_axis[2] + vp.x_axis[2],
+        planes[1] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] + vp.x_axis[0],
+                vp.w_axis[1] + vp.x_axis[1],
+                vp.w_axis[2] + vp.x_axis[2],
+            ),
+            vp.w_axis[3] + vp.x_axis[3],
         );
-        planes[1].distance = vp.w_axis[3] + vp.x_axis[3];
 
         // Top plane
-        planes[2].normal = Vec3::new(
-            vp.w_axis[0] - vp.y_axis[0],
-            vp.w_axis[1] - vp.y_axis[1],
-            vp.w_axis[2] - vp.y_axis[2],
+        planes[2] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] - vp.y_axis[0],
+                vp.w_axis[1] - vp.y_axis[1],
+                vp.w_axis[2] - vp.y_axis[2],
+            ),
+            vp.w_axis[3] - vp.y_axis[3],
         );
-        planes[2].distance = vp.w_axis[3] - vp.y_axis[3];
 
         // Bottom plane
-        planes[3].normal = Vec3::new(
-            vp.w_axis[0] + vp.y_axis[0],
-            vp.w_axis[1] + vp.y_axis[1],
-            vp.w_axis[2] + vp.y_axis[2],
+        planes[3] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] + vp.y_axis[0],
+                vp.w_axis[1] + vp.y_axis[1],
+                vp.w_axis[2] + vp.y_axis[2],
+            ),
+            vp.w_axis[3] + vp.y_axis[3],
         );
-        planes[3].distance = vp.w_axis[3] + vp.y_axis[3];
 
         // Far plane
-        planes[4].normal = Vec3::new(
-            vp.w_axis[0] - vp.z_axis[0],
-            vp.w_axis[1] - vp.z_axis[1],
-            vp.w_axis[2] - vp.z_axis[2],
+        planes[4] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] - vp.z_axis[0],
+                vp.w_axis[1] - vp.z_axis[1],
+                vp.w_axis[2] - vp.z_axis[2],
+            ),
+            vp.w_axis[3] - vp.z_axis[3],
         );
-        planes[4].distance = vp.w_axis[3] - vp.z_axis[3];
 
         // Near plane
-        planes[5].normal = Vec3::new(
-            vp.w_axis[0] + vp.z_axis[0],
-            vp.w_axis[1] + vp.z_axis[1],
-            vp.w_axis[2] + vp.z_axis[2],
+        planes[5] = Plane::new(
+            Vec3::new(
+                vp.w_axis[0] + vp.z_axis[0],
+                vp.w_axis[1] + vp.z_axis[1],
+                vp.w_axis[2] + vp.z_axis[2],
+            ),
+            vp.w_axis[3] + vp.z_axis[3],
         );
-        planes[5].distance = vp.w_axis[3] + vp.z_axis[3];
 
         // Normalize all planes
         for plane in &mut planes {
