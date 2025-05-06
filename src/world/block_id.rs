@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
-use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockData {
@@ -34,12 +33,6 @@ pub enum BlockCategory {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockId(pub(crate) u32);
-
-#[derive(Debug, Error)]
-pub enum BlockError {
-    #[error("Invalid block ID format")]
-    InvalidIdFormat,
-}
 
 impl BlockId {
     pub fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
