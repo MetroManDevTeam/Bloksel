@@ -25,13 +25,13 @@ impl BlockFacing {
 
     pub fn opposite(&self) -> Self {
         match self {
-            BlockFacing::North => BlockFacing::South,
-            BlockFacing::South => BlockFacing::North,
-            BlockFacing::East => BlockFacing::West,
-            BlockFacing::West => BlockFacing::East,
-            BlockFacing::Up => BlockFacing::Down,
-            BlockFacing::Down => BlockFacing::Up,
+            BlockFacing::Wall => BlockFacing::Wall,
+            BlockFacing::Floor => BlockFacing::Ceiling,
+            BlockFacing::Ceiling => BlockFacing::Floor,
+            BlockFacing::Corner => BlockFacing::Corner,
+            BlockFacing::Edge => BlockFacing::Edge,
             BlockFacing::None => BlockFacing::None,
+            BlockFacing::Custom(n) => BlockFacing::Custom(*n),
         }
     }
 }
