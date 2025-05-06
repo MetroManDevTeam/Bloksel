@@ -1,6 +1,9 @@
 use crate::config::GameConfig;
 use crate::render::MeshBuilder;
+use crate::world::BlockFacing;
+use crate::world::BlockOrientation;
 use crate::world::ChunkCoord;
+use crate::world::block::Block;
 use crate::world::chunk::{CHUNK_SIZE, CHUNK_VOLUME, Chunk};
 use anyhow::{Result, anyhow};
 use glam::f32::sse2::mat4::Mat4;
@@ -14,14 +17,16 @@ use std::sync::Arc;
 pub struct ChunkPool {
     chunks: RwLock<HashMap<ChunkCoord, Arc<Chunk>>>,
     max_size: usize,
+    config: GameConfig,
 }
 
 impl ChunkPool {
     /// Creates a new pool with base template and maximum size
-    pub fn new(max_size: usize) -> Self {
+    pub fn new(config: GameConfig) -> Self {
         Self {
             chunks: RwLock::new(HashMap::new()),
-            max_size,
+            max_size: 0,
+            config,
         }
     }
 
@@ -98,6 +103,19 @@ impl ChunkPool {
     pub fn clear(&self) {
         self.chunks.write().clear();
     }
+
+    pub fn get_chunk(&self, coord: ChunkCoord) -> Option<Arc<Chunk>> {
+        self.chunks.read().get(&coord).cloned()
+    }
+
+    pub fn set_chunk(&self, coord: ChunkCoord, chunk: Arc<Chunk>) {
+        let mut chunks = self.chunks.write();
+        chunks.insert(coord, chunk);
+    }
+
+    pub fn remove_chunk(&self, coord: ChunkCoord) {
+        self.chunks.write().remove(&coord);
+    }
 }
 
 /// Statistics about pool utilization
@@ -113,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_pool_acquire_release() {
-        let pool = ChunkPool::new(10);
+        let pool = ChunkPool::new(GameConfig::default());
         let coord = ChunkCoord::new(1, 2, 3);
 
         // First acquire should create new chunk
@@ -131,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_pool_exhaustion() {
-        let pool = ChunkPool::new(2);
+        let pool = ChunkPool::new(GameConfig::default());
 
         let _c1 = pool.acquire(ChunkCoord::new(1, 0, 0)).unwrap();
         let _c2 = pool.acquire(ChunkCoord::new(2, 0, 0)).unwrap();
