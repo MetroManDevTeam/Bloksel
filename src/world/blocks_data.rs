@@ -2,7 +2,7 @@
 
 use super::{
     block_id::{BlockDefinition, BlockVariant, ColorVariant},
-    block_mat::{BlockMaterial, MaterialModifiers},
+    block_mat::{BlockMaterial, MaterialModifiers, TintBlendMode, TintMaskChannel, TintSettings},
     block_tech::BlockFlags,
     block_visual::{BlockFacing, BlockOrientation},
 };
