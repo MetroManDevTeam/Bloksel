@@ -3,58 +3,72 @@ use crate::world::BlockOrientation;
 use crate::world::block::Block;
 use crate::world::chunk::Chunk;
 use crate::world::chunk_coord::ChunkCoord;
-use crate::world::generator::WorldGenerator;
-use crate::world::storage::ChunkStorage;
+use crate::world::generator::terrain::{TerrainGenerator, WorldGenConfig};
+use crate::world::pool::ChunkPool;
+use crate::world::spatial::SpatialPartition;
+use crate::world::storage::core::ChunkStorage;
+use crate::world::storage::file::FileChunkStorage;
 use crate::{
-    config::WorldGenConfig,
+    config::core::EngineConfig,
     render::pipeline::ChunkRenderer,
     world::{
-        BlockId, BlockMaterial, BlockRegistry, ChunkManager, ChunkPool, MaterialModifiers,
-        PoolStats, QuadTree, SerializedChunk, SpatialPartition, TerrainGenerator,
+        BlockId, BlockMaterial, BlockRegistry, ChunkManager, MaterialModifiers, PoolStats,
+        QuadTree, SerializedChunk,
     },
 };
+use glam::Vec3;
 use std::sync::Arc;
 
 pub struct World {
-    pub generator: TerrainGenerator,
-    pub storage: SpatialPartition,
-    pub pool: ChunkPool,
-    pub config: WorldGenConfig,
+    generator: TerrainGenerator,
+    storage: Box<dyn ChunkStorage>,
+    pool: ChunkPool,
+    config: EngineConfig,
 }
 
 impl World {
-    pub fn new(config: WorldGenConfig, block_registry: Arc<BlockRegistry>) -> Self {
+    pub fn new(config: EngineConfig, world_config: WorldGenConfig) -> Self {
+        let storage = Box::new(FileChunkStorage::new("world"));
+        let pool = ChunkPool::new(1000); // Maximum 1000 chunks in pool
+        let generator = TerrainGenerator::new(world_config, Arc::new(Default::default()));
+
         Self {
-            generator: TerrainGenerator::new(config.clone(), block_registry),
-            storage: SpatialPartition::new(),
-            pool: ChunkPool::new(),
+            generator,
+            storage,
+            pool,
             config,
         }
     }
 
-    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<Block> {
-        let chunk_coord = ChunkCoord::from_world_pos(x, y, z);
-        let (local_x, local_y, local_z) = chunk_coord.get_local_coords(x, y, z);
+    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<&Block> {
+        let chunk_coord = ChunkCoord::from_world_pos(Vec3::new(x as f32, y as f32, z as f32), 32);
+        let (local_x, local_y, local_z) = self.get_local_coords(x, y, z);
 
         if let Some(chunk) = self.storage.get_chunk(&chunk_coord) {
-            chunk
-                .get_block(local_x.into(), local_y.into(), local_z.into())
-                .cloned()
+            chunk.get_block(local_x as u32, local_y as u32, local_z as u32)
         } else {
             None
         }
     }
 
     pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: Option<Block>) {
-        let chunk_coord = ChunkCoord::from_world_pos(x, y, z);
-        let (local_x, local_y, local_z) = chunk_coord.get_local_coords(x, y, z);
+        let chunk_coord = ChunkCoord::from_world_pos(Vec3::new(x as f32, y as f32, z as f32), 32);
+        let (local_x, local_y, local_z) = self.get_local_coords(x, y, z);
 
         if let Some(chunk) = self.storage.get_chunk_mut(&chunk_coord) {
-            chunk.set_block(local_x.into(), local_y.into(), local_z.into(), block);
+            chunk.set_block(local_x as u32, local_y as u32, local_z as u32, block);
         }
     }
 
-    pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<Arc<Chunk>> {
+    fn get_local_coords(&self, x: i32, y: i32, z: i32) -> (i32, i32, i32) {
+        let chunk_size = 32;
+        let local_x = ((x % chunk_size) + chunk_size) % chunk_size;
+        let local_y = ((y % chunk_size) + chunk_size) % chunk_size;
+        let local_z = ((z % chunk_size) + chunk_size) % chunk_size;
+        (local_x, local_y, local_z)
+    }
+
+    pub fn get_chunk(&self, coord: &ChunkCoord) -> Option<&Chunk> {
         self.storage.get_chunk(coord)
     }
 
