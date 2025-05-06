@@ -1,11 +1,11 @@
 // blocks_data.rs - Complete Block Definitions for Voxel Game
 
-use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
-use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
-use crate::world::block_tech::BlockPhysics;
 use crate::world::block_facing::BlockFacing;
-use crate::world::block_orientation::BlockOrientation;
 use crate::world::block_flags::BlockFlags;
+use crate::world::block_id::{BlockDefinition, BlockId, BlockVariant, ColorVariant};
+use crate::world::block_material::{BlockMaterial, MaterialModifiers, TintSettings};
+use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_tech::BlockPhysics;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -146,7 +146,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "stone_bottom.png".into()),
         ]),
         material: BlockMaterial::new([0.8, 0.8, 0.8, 1.0], 0.7, 0.0, 0.0),
-        flags: BlockFlags::SOLID,
+        flags: BlockFlags::new()
+            .with_solid(true)
+            .with_transparent(false)
+            .with_liquid(false)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(0)
+            .with_break_resistance(1),
         variations: vec![BlockVariant {
             id: 1,
             name: "cracked".into(),
@@ -182,7 +189,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "dirt.png".into()),
         ]),
         material: BlockMaterial::new([0.4, 0.8, 0.3, 1.0], 0.9, 0.0, 0.0),
-        flags: BlockFlags::SOLID,
+        flags: BlockFlags::new()
+            .with_solid(true)
+            .with_transparent(false)
+            .with_liquid(false)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(0)
+            .with_break_resistance(1),
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -208,7 +222,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "water.png".into()),
         ]),
         material: BlockMaterial::new([0.2, 0.4, 0.8, 0.8], 0.1, 0.0, 0.0),
-        flags: BlockFlags::LIQUID,
+        flags: BlockFlags::new()
+            .with_solid(false)
+            .with_transparent(true)
+            .with_liquid(true)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(0)
+            .with_break_resistance(1),
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -234,7 +255,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "lava.png".into()),
         ]),
         material: BlockMaterial::new([0.8, 0.2, 0.1, 0.8], 0.1, 0.0, 0.5),
-        flags: BlockFlags::LIQUID,
+        flags: BlockFlags::new()
+            .with_solid(false)
+            .with_transparent(true)
+            .with_liquid(true)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(15)
+            .with_break_resistance(2),
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -260,7 +288,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "sand.png".into()),
         ]),
         material: BlockMaterial::new([0.9, 0.8, 0.6, 1.0], 0.9, 0.0, 0.0),
-        flags: BlockFlags::SOLID,
+        flags: BlockFlags::new()
+            .with_solid(true)
+            .with_transparent(false)
+            .with_liquid(false)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(0)
+            .with_break_resistance(1),
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
@@ -286,7 +321,14 @@ pub const BLOCKS: &[BlockDefinition] = &[
             (BlockFacing::NegY, "glass.png".into()),
         ]),
         material: BlockMaterial::new([0.9, 0.9, 0.9, 0.3], 0.1, 0.0, 0.0),
-        flags: BlockFlags::SOLID,
+        flags: BlockFlags::new()
+            .with_solid(true)
+            .with_transparent(true)
+            .with_liquid(false)
+            .with_flora(false)
+            .with_decorative(false)
+            .with_light_level(0)
+            .with_break_resistance(1),
         variations: vec![],
         color_variations: vec![],
         tint_settings: TintSettings {
