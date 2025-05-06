@@ -1,8 +1,5 @@
-use egui::{Context, CentralPanel, Window, ComboBox, Grid, Spinner};
-use crate::{
-    world::WorldMeta,
-    engine::VoxelEngine,
-};
+use crate::{engine::VoxelEngine, world::WorldMeta};
+use egui::{CentralPanel, ComboBox, Context, Grid, Spinner, Window};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MenuScreen {
@@ -95,9 +92,21 @@ impl MenuState {
                         ComboBox::new("world_type", "")
                             .selected_text(format!("{:?}", self.create_world_state.world_type))
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Normal, "Normal");
-                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Superflat, "Superflat");
-                                ui.selectable_value(&mut self.create_world_state.world_type, WorldType::Void, "Void");
+                                ui.selectable_value(
+                                    &mut self.create_world_state.world_type,
+                                    WorldType::Normal,
+                                    "Normal",
+                                );
+                                ui.selectable_value(
+                                    &mut self.create_world_state.world_type,
+                                    WorldType::Superflat,
+                                    "Superflat",
+                                );
+                                ui.selectable_value(
+                                    &mut self.create_world_state.world_type,
+                                    WorldType::Void,
+                                    "Void",
+                                );
                             });
                         ui.end_row();
 
@@ -105,10 +114,26 @@ impl MenuState {
                         ComboBox::new("difficulty", "")
                             .selected_text(format!("{:?}", self.create_world_state.difficulty))
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Peaceful, "Peaceful");
-                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Easy, "Easy");
-                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Normal, "Normal");
-                                ui.selectable_value(&mut self.create_world_state.difficulty, Difficulty::Hard, "Hard");
+                                ui.selectable_value(
+                                    &mut self.create_world_state.difficulty,
+                                    Difficulty::Peaceful,
+                                    "Peaceful",
+                                );
+                                ui.selectable_value(
+                                    &mut self.create_world_state.difficulty,
+                                    Difficulty::Easy,
+                                    "Easy",
+                                );
+                                ui.selectable_value(
+                                    &mut self.create_world_state.difficulty,
+                                    Difficulty::Normal,
+                                    "Normal",
+                                );
+                                ui.selectable_value(
+                                    &mut self.create_world_state.difficulty,
+                                    Difficulty::Hard,
+                                    "Hard",
+                                );
                             });
                         ui.end_row();
                     });
