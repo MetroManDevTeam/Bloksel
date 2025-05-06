@@ -1,9 +1,11 @@
 use crate::world::block_facing::BlockFacing;
-use crate::world::{BlockId, BlockOrientation, ConnectedDirections};
+use crate::world::block_id::BlockId;
+use crate::world::block_orientation::BlockOrientation;
+use crate::world::block_visual::ConnectedDirections;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub id: BlockId,
     pub orientation: BlockOrientation,
@@ -11,10 +13,9 @@ pub struct Block {
     pub sub_blocks: HashMap<(u8, u8, u8), SubBlock>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SubBlock {
     pub id: BlockId,
-    pub metadata: u8,
     pub facing: BlockFacing,
     pub orientation: BlockOrientation,
     pub connections: ConnectedDirections,
@@ -25,7 +26,7 @@ impl Block {
         Self {
             id,
             orientation: BlockOrientation::None,
-            facing: BlockFacing::None,
+            facing: BlockFacing::PosY,
             sub_blocks: HashMap::new(),
         }
     }
@@ -40,16 +41,16 @@ impl Block {
         self
     }
 
-    pub fn place_sub_block(&mut self, x: u8, y: u8, z: u8, sub_block: SubBlock) {
-        self.sub_blocks.insert((x, y, z), sub_block);
+    pub fn place_sub_block(&mut self, pos: (u8, u8, u8), sub: SubBlock) -> Option<SubBlock> {
+        self.sub_blocks.insert(pos, sub)
     }
 
-    pub fn get_sub_block(&self, x: u8, y: u8, z: u8) -> Option<&SubBlock> {
-        self.sub_blocks.get(&(x, y, z))
+    pub fn get_sub_block(&self, pos: (u8, u8, u8)) -> Option<&SubBlock> {
+        self.sub_blocks.get(&pos)
     }
 
-    pub fn remove_sub_block(&mut self, x: u8, y: u8, z: u8) {
-        self.sub_blocks.remove(&(x, y, z));
+    pub fn remove_sub_block(&mut self, pos: (u8, u8, u8)) -> Option<SubBlock> {
+        self.sub_blocks.remove(&pos)
     }
 
     pub fn get_primary_id(&self) -> BlockId {
