@@ -34,7 +34,7 @@ pub enum BlockCategory {
 pub struct BlockId(pub(crate) u32);
 
 impl BlockId {
-    pub fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
+    pub const fn new(base_id: u32, variation: u32, color_id: u32) -> Self {
         Self((base_id << 16) | ((variation & 0xFF) << 8) | (color_id & 0xFF))
     }
 
