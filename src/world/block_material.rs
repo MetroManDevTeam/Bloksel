@@ -54,6 +54,16 @@ pub struct TintSettings {
     pub preserve_roughness: bool,
 }
 
+impl Default for TintSettings {
+    fn default() -> Self {
+        Self {
+            strength: 0.5,
+            preserve_metallic: true,
+            preserve_roughness: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MaterialModifiers {
     #[serde(default)]
