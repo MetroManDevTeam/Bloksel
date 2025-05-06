@@ -61,12 +61,15 @@ impl BlockFlags {
     }
 
     pub fn with_light_level(mut self, light_level: u8) -> Self {
-        self.0 = (self.0 & !Self::LIGHT_LEVEL_MASK.bits()) | ((light_level as u32) << 8);
+        let bits = self.bits();
+        self.bits = (bits & !Self::LIGHT_LEVEL_MASK.bits()) | ((light_level as u32) << 8);
         self
     }
 
     pub fn with_break_resistance(mut self, break_resistance: u8) -> Self {
-        self.0 = (self.0 & !Self::BREAK_RESISTANCE_MASK.bits()) | ((break_resistance as u32) << 16);
+        let bits = self.bits();
+        self.bits =
+            (bits & !Self::BREAK_RESISTANCE_MASK.bits()) | ((break_resistance as u32) << 16);
         self
     }
 
@@ -91,10 +94,10 @@ impl BlockFlags {
     }
 
     pub fn light_level(&self) -> u8 {
-        ((self.0 & Self::LIGHT_LEVEL_MASK.bits()) >> 8) as u8
+        ((self.bits() & Self::LIGHT_LEVEL_MASK.bits()) >> 8) as u8
     }
 
     pub fn break_resistance(&self) -> u8 {
-        ((self.0 & Self::BREAK_RESISTANCE_MASK.bits()) >> 16) as u8
+        ((self.bits() & Self::BREAK_RESISTANCE_MASK.bits()) >> 16) as u8
     }
 }
