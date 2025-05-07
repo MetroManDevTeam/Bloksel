@@ -414,18 +414,18 @@ impl Player {
                     self.jump();
                 }
             }
-            KeyCode::LShift => {
-                if pressed {
-                    self.crouch();
-                } else {
-                    self.stand();
-                }
-            }
-            KeyCode::LControl => {
+            KeyCode::ShiftLeft => {
                 if pressed {
                     self.sprint();
                 } else {
                     self.walk();
+                }
+            }
+            KeyCode::ControlLeft => {
+                if pressed {
+                    self.crouch();
+                } else {
+                    self.stand();
                 }
             }
             _ => {}
