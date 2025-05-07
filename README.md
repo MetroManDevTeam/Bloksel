@@ -1,7 +1,7 @@
 ![1000141985](https://github.com/user-attachments/assets/2f9f0964-5cc5-4321-a641-fd4fd098e097)
 
 # Welcome to the Bloksel Project!
-## Project under development the first stable release we'll be announced, do not clone yet
+## Project under development the first stable prototype release will be announced when ready, do not clone yet
 
 A voxel-based game engine written in Rust, featuring a block-based world with advanced terrain generation, physics, and rendering capabilities. Bloksel expands on the idea of an **unlimited voxel engine**, designed to push the boundaries of creativity and performance.
 
