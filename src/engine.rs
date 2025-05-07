@@ -12,7 +12,7 @@ use crate::{
         spatial::SpatialPartition,
     },
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossbeam_channel::{Receiver, Sender, bounded};
 use glam::Vec3;
 use log::warn;
@@ -101,14 +101,14 @@ impl VoxelEngine {
             ThreadPoolBuilder::new()
                 .num_threads(4)
                 .build()
-                .context("Failed to create generation pool")?,
+                .with_context(|| "Failed to create generation pool")?,
         );
 
         let io_pool = Arc::new(
             ThreadPoolBuilder::new()
                 .num_threads(2)
                 .build()
-                .context("Failed to create IO pool")?,
+                .with_context(|| "Failed to create IO pool")?,
         );
         let (load_sender, load_receiver) = bounded(100);
         let (unload_sender, unload_receiver) = bounded(100);
