@@ -77,7 +77,7 @@ fn main() -> Result<()> {
 
     // Create event loop and window
     let event_loop = EventLoop::new()?;
-    let window = Window::new(&event_loop)?;
+    let window = event_loop.create_window(Window::default_attributes())?;
     window.set_title("Voxel Engine");
     window.set_inner_size(LogicalSize::new(1280.0, 720.0));
 
