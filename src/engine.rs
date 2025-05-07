@@ -88,7 +88,7 @@ impl VoxelEngine {
         ));
 
         let chunk_renderer = Arc::new(ChunkRenderer::new(
-            ShaderProgram::new()?,
+            ShaderProgram::new("shaders/voxel.vert", "shaders/voxel.frag")?,
             0, // texture_atlas
             block_registry.clone(),
         )?);
@@ -130,8 +130,7 @@ impl VoxelEngine {
 
     pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
         EngineConfig {
-            name,
-            seed,
+            world_seed: seed,
             render_distance: 8,
             lod_levels: [4, 8, 16],
             chunk_size: 32,
