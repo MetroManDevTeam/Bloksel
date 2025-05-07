@@ -103,7 +103,7 @@ impl Block {
     }
 
     pub fn is_solid(&self) -> bool {
-        self.get_physics(&BlockRegistry::default()).is_solid()
+        self.get_physics(&BlockRegistry::default()).solid
     }
 }
 
