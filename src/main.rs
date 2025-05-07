@@ -4,7 +4,7 @@ use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::Window,
+    window::WindowBuilder,
 };
 
 use ourvoxelworldproject::{
@@ -76,12 +76,14 @@ fn main() -> Result<()> {
 
     // Create window and event loop
     let event_loop = EventLoop::new()?;
-    let window = Window::new(&event_loop)?;
+    let window = WindowBuilder::new()
+        .with_title("Voxel Engine")
+        .build(&event_loop)?;
 
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    event_loop.run(move |event, elwt| {
+    event_loop.run_app(move |event, elwt| {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
