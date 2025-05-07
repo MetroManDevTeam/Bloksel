@@ -10,7 +10,7 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use log::{info, LevelFilter};
 use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
-use std::num::NonZeroU32;
+use std::{ffi::CString, num::NonZeroU32};
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -89,11 +89,20 @@ impl App {
             .make_current(&gl_surface)
             .expect("Failed to make context current");
 
+        gl::load_with(|symbol| {
+            let symbol = CString::new(symbol).unwrap();
+            gl_display.get_proc_address(symbol.as_c_str()) as *const _
+        });
+
+        // Initialize OpenGL state
         unsafe {
-            gl::load_with(|symbol| {
-                let symbol = std::ffi::CString::new(symbol).unwrap();
-                gl_display.get_proc_address(symbol.as_c_str()) as *const _
-            });
+            gl::Enable(gl::DEPTH_TEST);
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
+            gl::FrontFace(gl::CCW);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         }
 
         Self {
@@ -115,12 +124,18 @@ impl App {
                     NonZeroU32::new(size.width).unwrap(),
                     NonZeroU32::new(size.height).unwrap(),
                 );
+                unsafe {
+                    gl::Viewport(0, 0, size.width as i32, size.height as i32);
+                }
             }
             _ => {}
         }
     }
 
     fn update(&mut self) {
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
         // TODO: Implement update and render logic
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
     }
