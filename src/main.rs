@@ -9,9 +9,7 @@ use winit::{
 
 use ourvoxelworldproject::{
     config::{
-        core::EngineConfig,
-        gameplay::GameplayConfig,
-        chunksys::ChunkSysConfig,
+        chunksys::ChunkSysConfig, core::EngineConfig, gameplay::GameplayConfig,
         worldgen::WorldGenConfig,
     },
     engine::VoxelEngine,
@@ -51,20 +49,24 @@ fn main() -> Result<()> {
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    event_loop.run(move |event, elwt| {
-        match event {
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                elwt.exit();
-            }
-            Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
-                engine.resize(size.width, size.height);
-            }
-            Event::MainEventsCleared => {
-                engine.update();
-                engine.render();
-            }
-            _ => (),
+    event_loop.run(move |event, elwt| match event {
+        Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } => {
+            elwt.exit();
         }
+        Event::WindowEvent {
+            event: WindowEvent::Resized(size),
+            ..
+        } => {
+            engine.resize(size.width, size.height);
+        }
+        Event::MainEventsCleared => {
+            engine.update();
+            engine.render();
+        }
+        _ => (),
     })?;
 
     Ok(())
