@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::{info, LevelFilter};
+use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
 use winit::{
     application::ApplicationHandler,
@@ -24,8 +24,9 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let mut window_attributes = WindowAttributes::default();
-        window_attributes.title.clone();
+        let window_attributes = WindowAttributes::default()
+            .with_title("Voxel Engine")
+            .with_inner_size(LogicalSize::new(1280.0, 720.0));
         let window = event_loop.create_window(window_attributes).unwrap();
         self.window = Some(window);
     }
