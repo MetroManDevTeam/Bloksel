@@ -1,14 +1,14 @@
-use crate::PlayerInput;
-use crate::utils::math::{AABB, Plane, ViewFrustum};
+use crate::utils::math::{Plane, ViewFrustum, AABB};
 use crate::world::block_id::BlockData;
 use crate::world::block_tech::BlockPhysics;
 use crate::world::{Chunk, ChunkCoord, TerrainGenerator};
+use crate::PlayerInput;
 use glam::{Mat4, Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::sync::Arc;
+use winit::event::VirtualKeyCode as KeyCode;
 use winit::event::{ElementState, MouseScrollDelta};
-use winit::keyboard::KeyCode;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum PlayerState {
@@ -239,7 +239,11 @@ impl Player {
             _ => self.base_speed,
         };
 
-        if input.sprint { base * 2.0 } else { base }
+        if input.sprint {
+            base * 2.0
+        } else {
+            base
+        }
     }
 
     fn apply_physics(&mut self, dt: f32) {
@@ -412,14 +416,14 @@ impl Player {
                     self.jump();
                 }
             }
-            KeyCode::ShiftLeft => {
+            KeyCode::LShift => {
                 if pressed {
                     self.crouch();
                 } else {
                     self.stand();
                 }
             }
-            KeyCode::ControlLeft => {
+            KeyCode::LControl => {
                 if pressed {
                     self.sprint();
                 } else {
