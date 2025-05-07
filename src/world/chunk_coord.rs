@@ -1,10 +1,29 @@
 use glam::{IVec3, Vec3};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChunkCoord(pub IVec3);
+
+impl Serialize for ChunkCoord {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (self.0.x, self.0.y, self.0.z).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ChunkCoord {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (x, y, z) = <(i32, i32, i32)>::deserialize(deserializer)?;
+        Ok(ChunkCoord(IVec3::new(x, y, z)))
+    }
+}
 
 impl PartialOrd for ChunkCoord {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
