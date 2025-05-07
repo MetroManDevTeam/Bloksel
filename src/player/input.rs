@@ -1,7 +1,7 @@
 use crate::player::physics::PlayerState;
 use glam::Vec2;
-use winit::event::VirtualKeyCode as KeyCode;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
+use winit::keyboard::KeyCode;
 
 #[derive(Debug, Default)]
 pub struct PlayerInput {
