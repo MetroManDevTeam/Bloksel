@@ -2,10 +2,9 @@ use anyhow::Result;
 use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
 use winit::{
-    dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
 };
 
 use ourvoxelworldproject::{
@@ -76,24 +75,24 @@ fn main() -> Result<()> {
     };
 
     // Create window and event loop
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
+    let event_loop = EventLoop::new()?;
+    let window = Window::builder()
         .with_title("Voxel Engine")
-        .with_inner_size(LogicalSize::new(1280, 720))
+        .with_inner_size(winit::dpi::LogicalSize::new(1280, 720))
         .build(&event_loop)?;
 
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
     event_loop.run(move |event, _, control_flow| {
-        control_flow.set_poll();
+        *control_flow = ControlFlow::Poll;
 
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                control_flow.set_exit();
+                *control_flow = ControlFlow::Exit;
             }
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
@@ -101,12 +100,12 @@ fn main() -> Result<()> {
             } => {
                 // TODO: Implement resize handling
             }
-            Event::MainEventsCleared => {
+            Event::AboutToWait => {
                 // TODO: Implement update and render
             }
             _ => (),
         }
-    });
+    })?;
 
     Ok(())
 }
