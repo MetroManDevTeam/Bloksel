@@ -11,6 +11,9 @@ use std::ptr;
 use std::str;
 use std::sync::Arc;
 use thiserror::Error;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use anyhow::Result;
 
 #[derive(Debug, Error)]
 pub enum ShaderError {
@@ -29,7 +32,7 @@ pub enum ShaderError {
 /// Main shader program structure
 pub struct ShaderProgram {
     id: GLuint,
-    uniforms: std::collections::HashMap<String, GLint>,
+    uniforms: Mutex<HashMap<String, GLint>>,
     pub variant_support: bool,
     pub connection_support: bool,
 }
@@ -231,7 +234,7 @@ impl ShaderProgram {
 
         let mut program = ShaderProgram {
             id: program,
-            uniforms: std::collections::HashMap::new(),
+            uniforms: Mutex::new(HashMap::new()),
             variant_support: false,
             connection_support: false,
         };
@@ -240,7 +243,7 @@ impl ShaderProgram {
         Ok(program)
     }
 
-    pub fn new(vertex_path: &str, fragment_path: &str) -> Result<Self, ShaderError> {
+    pub fn new(vertex_path: &str, fragment_path: &str) -> Result<Self> {
         let vertex_shader = Self::compile_shader(vertex_path, gl::VERTEX_SHADER)?;
         let fragment_shader = Self::compile_shader(fragment_path, gl::FRAGMENT_SHADER)?;
 
@@ -255,7 +258,7 @@ impl ShaderProgram {
 
         let mut program = ShaderProgram {
             id: program,
-            uniforms: std::collections::HashMap::new(),
+            uniforms: Mutex::new(HashMap::new()),
             variant_support: false,
             connection_support: false,
         };
@@ -327,8 +330,9 @@ impl ShaderProgram {
     }
 
     fn get_uniform_location(&self, name: &str) -> GLint {
-        *self.uniforms.entry(name.to_string()).or_insert_with(|| {
-            let c_name = std::ffi::CString::new(name).unwrap();
+        let mut uniforms = self.uniforms.lock().unwrap();
+        *uniforms.entry(name.to_string()).or_insert_with(|| {
+            let c_name = CString::new(name).unwrap();
             unsafe { gl::GetUniformLocation(self.id, c_name.as_ptr()) }
         })
     }
