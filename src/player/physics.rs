@@ -157,10 +157,10 @@ impl Player {
                 if input.right {
                     velocity.x += speed;
                 }
-                if input.jump {
+                if input.fly_up {
                     velocity.y += speed;
                 }
-                if input.crouch {
+                if input.fly_down {
                     velocity.y -= speed;
                 }
 
