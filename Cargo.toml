@@ -27,5 +27,5 @@ rayon = "1.10.0"
 simple_logger = "5.0.0"
 thiserror = "2.0.12"
 thread_local = "1.1.7"
-winit = "0.28"
+winit = "0.30.10"
 serde = { version = "1.0", features = ["derive"] }
