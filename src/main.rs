@@ -1,59 +1,95 @@
 use anyhow::Result;
 use glutin::{
-    context::{ContextAttributesBuilder, PossiblyCurrentContext},
-    display::GetGlDisplay,
+    config::{Config, ConfigTemplateBuilder},
+    context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext},
+    display::{GetGlDisplay, GlDisplay},
     prelude::*,
+    surface::{Surface, WindowSurface},
 };
-use glutin_winit::GlWindow;
+use glutin_winit::DisplayBuilder;
 use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
-use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
     event::WindowEvent,
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowAttributes},
+    event_loop::EventLoop,
+    window::{Window, WindowBuilder},
 };
 
-use ourvoxelworldproject::{
-    config::{
-        chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
-        gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
-    },
-    engine::VoxelEngine,
-};
+use ourvoxelworldproject::{config::core::EngineConfig, engine::VoxelEngine};
 
 struct App {
     window: Option<Window>,
     gl_context: Option<PossiblyCurrentContext>,
+    gl_surface: Option<Surface<WindowSurface>>,
     engine: VoxelEngine,
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let window_attributes = WindowAttributes::default()
+        let window_builder = WindowBuilder::new()
             .with_title("Voxel Engine")
             .with_inner_size(LogicalSize::new(1280.0, 720.0));
-        let window = event_loop.create_window(window_attributes).unwrap();
 
-        // Create OpenGL context
+        // Create window and OpenGL context
+        let template = ConfigTemplateBuilder::new()
+            .with_alpha_size(8)
+            .with_transparency(true);
+
+        let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+
+        let (window, gl_config) = display_builder
+            .build(event_loop, template, |configs| {
+                configs
+                    .reduce(|accum, config| {
+                        let transparency_check = config.supports_transparency().unwrap_or(false)
+                            & !accum.supports_transparency().unwrap_or(false);
+                        if transparency_check || config.num_samples() > accum.num_samples() {
+                            config
+                        } else {
+                            accum
+                        }
+                    })
+                    .unwrap()
+            })
+            .unwrap();
+
+        let window = window.unwrap();
+        let raw_window_handle = window.raw_window_handle();
+
+        // Create GL context
         let context_attributes = ContextAttributesBuilder::new()
-            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
-            .build(Some(window.id()));
+            .with_context_api(ContextApi::OpenGl(None))
+            .build(Some(raw_window_handle));
 
-        let gl_display = glutin::display::Display::gl();
+        let gl_display = gl_config.display();
         let gl_context = unsafe {
             gl_display
-                .create_context(&context_attributes)
+                .create_context(&gl_config, &context_attributes)
                 .expect("Failed to create OpenGL context")
         };
 
-        // Load OpenGL functions
-        gl::load_with(|s| gl_display.get_proc_address(s) as *const _);
+        // Create GL surface
+        let attrs = window.build_surface_attributes(<_>::default());
+        let gl_surface = unsafe {
+            gl_config
+                .display()
+                .create_window_surface(&gl_config, &attrs)
+                .expect("Failed to create GL surface")
+        };
+
+        // Make context current
+        let gl_context = gl_context
+            .make_current(&gl_surface)
+            .expect("Failed to make context current");
+
+        // Load GL functions
+        gl::load_with(|symbol| gl_display.get_proc_address(symbol) as *const _);
 
         self.window = Some(window);
         self.gl_context = Some(gl_context);
+        self.gl_surface = Some(gl_surface);
     }
 
     fn window_event(
@@ -68,8 +104,12 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Resized(size) => {
                 info!("Window resized to: {:?}", size);
-                if let Some(context) = &self.gl_context {
-                    context.resize(size.into());
+                if let Some(surface) = &self.gl_surface {
+                    surface.resize(
+                        &self.gl_context.as_ref().unwrap(),
+                        size.width as u32,
+                        size.height as u32,
+                    );
                 }
             }
             _ => (),
@@ -80,6 +120,11 @@ impl ApplicationHandler for App {
         // TODO: Implement update and render
         // self.engine.update();
         // self.engine.render();
+        if let Some(surface) = &self.gl_surface {
+            surface
+                .swap_buffers(&self.gl_context.as_ref().unwrap())
+                .expect("Failed to swap buffers");
+        }
     }
 }
 
@@ -92,6 +137,7 @@ fn main() -> Result<()> {
     let mut app = App {
         window: None,
         gl_context: None,
+        gl_surface: None,
         engine,
     };
 
