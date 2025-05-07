@@ -18,7 +18,15 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use ourvoxelworldproject::{config::core::EngineConfig, engine::VoxelEngine};
+use ourvoxelworldproject::{
+    config::{
+        chunksys::ChunkSysConfig,
+        core::EngineConfig,
+        game::{GameplayConfig, RenderConfig, TerrainConfig},
+        worldgen::WorldGenConfig,
+    },
+    engine::VoxelEngine,
+};
 
 struct App {
     window: Option<Window>,
@@ -152,11 +160,11 @@ fn main() -> Result<()> {
         fov: 70.0,
         view_distance: 1000.0,
         save_interval: 300.0,
-        terrain: Default::default(),
-        gameplay: Default::default(),
-        rendering: Default::default(),
-        chunksys: Default::default(),
-        worldgen: Default::default(),
+        terrain: TerrainConfig::default(),
+        gameplay: GameplayConfig::default(),
+        rendering: RenderConfig::default(),
+        chunksys: ChunkSysConfig::default(),
+        worldgen: WorldGenConfig::default(),
     })?);
 
     app.init(&event_loop);
