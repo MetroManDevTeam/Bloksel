@@ -89,6 +89,7 @@ impl App {
             .make_current(&gl_surface)
             .expect("Failed to make context current");
 
+        // Load OpenGL functions
         gl::load_with(|symbol| {
             let symbol = CString::new(symbol).unwrap();
             gl_display.get_proc_address(symbol.as_c_str()) as *const _
