@@ -24,11 +24,8 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let window_attributes = WindowAttributes {
-            title: "Voxel Engine".to_string(), // Fixed: title is String, not Option<String>
-            inner_size: Some(LogicalSize::new(1280.0, 720.0).into()),
-            ..Default::default()
-        };
+        let mut window_attributes = WindowAttributes::default();
+        window_attributes.title.clone();
         let window = event_loop.create_window(window_attributes).unwrap();
         self.window = Some(window);
     }
