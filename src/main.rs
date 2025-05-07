@@ -27,117 +27,71 @@ use ourvoxelworldproject::{
 };
 
 struct App {
-    window: Option<Window>,
-    gl_context: Option<PossiblyCurrentContext>,
-    gl_surface: Option<Surface<WindowSurface>>,
+    window: Window,
+    gl_context: PossiblyCurrentContext,
+    gl_surface: Surface<WindowSurface>,
     engine: VoxelEngine,
 }
 
 impl App {
     fn new(engine: VoxelEngine) -> Self {
         Self {
-            window: None,
-            gl_context: None,
-            gl_surface: None,
+            window: Window::new(&EventLoopBuilder::new().build().unwrap()).unwrap(),
+            gl_context: PossiblyCurrentContext::new(
+                ContextAttributesBuilder::new()
+                    .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
+                    .build(Some(unsafe {
+                        raw_window_handle::HasRawWindowHandle::raw_window_handle(
+                            &Window::new(&EventLoopBuilder::new().build().unwrap()).unwrap(),
+                        )
+                    })),
+            )
+            .unwrap(),
+            gl_surface: Surface::new(
+                &gl_context,
+                &window,
+                &ConfigTemplateBuilder::new()
+                    .with_alpha_size(8)
+                    .with_depth_size(24)
+                    .with_stencil_size(8)
+                    .with_transparency(true)
+                    .build(),
+            )
+            .unwrap(),
             engine,
         }
     }
 
     fn init(&mut self, event_loop: &EventLoop<()>) {
-        let window_builder = WindowBuilder::new()
-            .with_title("Voxel Engine")
-            .with_inner_size(LogicalSize::new(1280.0, 720.0));
+        self.window.set_inner_size(LogicalSize::new(800, 600));
+        self.window.set_title("Bloksel");
+        self.window.set_visible(true);
 
-        // Create window and OpenGL context
-        let template = ConfigTemplateBuilder::new()
-            .with_alpha_size(8)
-            .with_transparency(true);
-
-        let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
-
-        let (window, gl_config) = display_builder
-            .build(&event_loop, template, |configs| {
-                configs
-                    .reduce(|accum, config| {
-                        let transparency_check = config.supports_transparency().unwrap_or(false)
-                            & !accum.supports_transparency().unwrap_or(false);
-                        if transparency_check || config.num_samples() > accum.num_samples() {
-                            config
-                        } else {
-                            accum
-                        }
-                    })
-                    .unwrap()
-            })
-            .unwrap();
-
-        let window = window.unwrap();
-
-        // Create GL context
-        let context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::OpenGl(None))
-            .build(Some(window.raw_window_handle()));
-
-        let gl_display = gl_config.display();
-        let gl_context = unsafe {
-            gl_display
-                .create_context(&gl_config, &context_attributes)
-                .expect("Failed to create OpenGL context")
-        };
-
-        // Create GL surface
-        let attrs = window.build_surface_attributes(<_>::default());
-        let gl_surface = unsafe {
-            gl_config
-                .display()
-                .create_window_surface(&gl_config, &attrs)
-                .expect("Failed to create GL surface")
-        };
-
-        // Make context current
-        let gl_context = gl_context
-            .make_current(&gl_surface)
-            .expect("Failed to make context current");
-
-        // Load GL functions
-        gl::load_with(|symbol| {
-            let symbol = std::ffi::CString::new(symbol).unwrap();
-            gl_display.get_proc_address(symbol.as_c_str()) as *const _
-        });
-
-        self.window = Some(window);
-        self.gl_context = Some(gl_context);
-        self.gl_surface = Some(gl_surface);
+        unsafe {
+            self.gl_context.make_current(&self.gl_surface).unwrap();
+            gl::load_with(|s| self.gl_context.get_proc_address(s) as *const _);
+        }
     }
 
     fn handle_window_event(&mut self, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-                std::process::exit(0);
+                // TODO: Handle window close
             }
             WindowEvent::Resized(size) => {
-                info!("Window resized to: {:?}", size);
-                if let Some(surface) = &self.gl_surface {
-                    surface.resize(
-                        &self.gl_context.as_ref().unwrap(),
-                        NonZeroU32::new(size.width as u32).unwrap(),
-                        NonZeroU32::new(size.height as u32).unwrap(),
-                    );
-                }
+                self.gl_surface.resize(
+                    &self.gl_context,
+                    NonZeroU32::new(size.width).unwrap(),
+                    NonZeroU32::new(size.height).unwrap(),
+                );
             }
-            _ => (),
+            _ => {}
         }
     }
 
     fn update(&mut self) {
-        // TODO: Implement update and render
-        // self.engine.update();
-        // self.engine.render();
-        if let Some(surface) = &self.gl_surface {
-            surface
-                .swap_buffers(&self.gl_context.as_ref().unwrap())
-                .expect("Failed to swap buffers");
-        }
+        // TODO: Implement update and render logic
+        self.gl_surface.swap_buffers(&self.gl_context).unwrap();
     }
 }
 
@@ -167,7 +121,7 @@ fn main() -> Result<()> {
 
     app.init(&event_loop);
 
-    event_loop.run(move |event, window_target| match event {
+    event_loop.run(move |event, _| match event {
         Event::WindowEvent {
             event: window_event,
             ..
