@@ -4,7 +4,7 @@ use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
+    window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 
     // Create window and event loop
     let event_loop = EventLoop::new()?;
-    let window = Window::builder()
+    let window = WindowBuilder::new()
         .with_title("Voxel Engine")
         .with_inner_size(winit::dpi::LogicalSize::new(1280, 720))
         .build(&event_loop)?;
@@ -84,15 +84,13 @@ fn main() -> Result<()> {
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-
+    event_loop.run_app(move |event, elwt| {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                *control_flow = ControlFlow::Exit;
+                elwt.exit();
             }
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
