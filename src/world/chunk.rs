@@ -196,11 +196,13 @@ impl Chunk {
     }
 
     pub fn get_block_id_safe(&self, name: &str) -> BlockId {
-        get_block_registry()
-            .borrow()
-            .get_by_name(name)
-            .map(|def| def.id.0)
-            .unwrap_or(BlockId::new(10, 0, 0))
+        BlockId(
+            get_block_registry()
+                .borrow()
+                .get_by_name(name)
+                .map(|def| def.id.0)
+                .unwrap_or(10),
+        )
     }
 
     pub fn create_grass_block(&mut self) -> Block {
@@ -482,10 +484,12 @@ impl ChunkManager {
     }
 
     fn get_block_id_safe(&self, name: &str) -> BlockId {
-        self.block_registry
-            .get_by_name(name)
-            .map(|def| def.id.0)
-            .unwrap_or(BlockId::new(10, 0, 0))
+        BlockId(
+            self.block_registry
+                .get_by_name(name)
+                .map(|def| def.0)
+                .unwrap_or(10),
+        )
     }
 
     fn add_biome_features(&self, block: &mut Block, biome: BiomeType, rng: &mut ChaCha12Rng) {
