@@ -5,7 +5,7 @@ use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::Window,
+    window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
@@ -77,9 +77,10 @@ fn main() -> Result<()> {
 
     // Create event loop and window
     let event_loop = EventLoop::new()?;
-    let window = event_loop.create_window(Window::default_attributes())?;
-    window.set_title("Voxel Engine");
-    window.set_inner_size(LogicalSize::new(1280.0, 720.0));
+    let window = WindowBuilder::new()
+        .with_title("Voxel Engine")
+        .with_inner_size(LogicalSize::new(1280.0, 720.0))
+        .build(&event_loop)?;
 
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
