@@ -199,7 +199,7 @@ impl Chunk {
         get_block_registry()
             .borrow()
             .get_by_name(name)
-            .map(|def| def.id)
+            .map(|def| def.id.get_id())
             .unwrap_or(BlockId::new(10, 0, 0))
     }
 
@@ -484,7 +484,7 @@ impl ChunkManager {
     fn get_block_id_safe(&self, name: &str) -> BlockId {
         self.block_registry
             .get_by_name(name)
-            .map(|def| def.id)
+            .map(|def| def.id.get_id())
             .unwrap_or(BlockId::new(10, 0, 0))
     }
 
