@@ -1,5 +1,6 @@
-pub mod input;
-pub mod physics;
+mod input;
+mod physics;
 
-pub use input::PlayerInput;
-pub use physics::{Player, PlayerState};
+pub use input::InputState;
+pub use physics::Player;
+pub use physics::PlayerState;
