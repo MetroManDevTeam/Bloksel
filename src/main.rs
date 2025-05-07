@@ -24,6 +24,7 @@ use ourvoxelworldproject::{
         gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
     },
     engine::VoxelEngine,
+    menu::{MenuState, MenuScreen},
     render::texture::Texture,
 };
 
@@ -34,6 +35,10 @@ struct App {
     engine: Option<VoxelEngine>,
     loading_texture: Option<Texture>,
     loading_start: Instant,
+    menu_state: MenuState,
+    egui_ctx: Option<egui::Context>,
+    egui_winit: Option<egui_winit::State>,
+    egui_glow: Option<egui_glow::EguiGlow>,
 }
 
 impl App {
@@ -112,7 +117,17 @@ impl App {
         }
 
         // Load loading screen texture
-        let loading_texture = Texture::from_file("assets/images/organization.jpg")?;
+        let loading_texture = Texture::from_file("assets/images/organization.png")?;
+
+        // Initialize egui
+        let egui_ctx = Some(egui::Context::default());
+        let egui_winit = Some(egui_winit::State::new(
+            event_loop.create_proxy(),
+            window.scale_factor(),
+            Some(gl_config.display().clone()),
+        ));
+        let painter = egui_glow::Painter::new(&gl_config.display(), None).unwrap();
+        let egui_glow = Some(egui_glow::EguiGlow::new(egui_ctx.as_ref().unwrap(), painter));
 
         Ok((
             Self {
@@ -122,15 +137,29 @@ impl App {
                 engine: None,
                 loading_texture: Some(loading_texture),
                 loading_start: Instant::now(),
+                menu_state: MenuState::new(),
+                egui_ctx,
+                egui_winit,
+                egui_glow,
             },
             event_loop,
         ))
     }
 
-    fn handle_window_event(&mut self, event: WindowEvent) {
+    fn handle_window_event(&mut self, event: &WindowEvent<'_>) -> bool {
+        if let Some(egui_winit) = &mut self.egui_winit {
+            if let Some(egui_ctx) = &self.egui_ctx {
+                let response = egui_winit.on_window_event(egui_ctx, event);
+                if response.consumed {
+                    return true;
+                }
+            }
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 // TODO: Handle window close
+                true
             }
             WindowEvent::Resized(size) => {
                 self.gl_surface.resize(
@@ -141,53 +170,97 @@ impl App {
                 unsafe {
                     gl::Viewport(0, 0, size.width as i32, size.height as i32);
                 }
+                false
             }
-            _ => {}
+            _ => false,
         }
     }
 
     fn update(&mut self) {
+        // Begin egui frame
+        if let (Some(egui_ctx), Some(egui_winit), Some(egui_glow)) = (
+            &self.egui_ctx,
+            &mut self.egui_winit,
+            &mut self.egui_glow,
+        ) {
+            let raw_input = egui_winit.take_egui_input(&self.window);
+            egui_ctx.begin_frame(raw_input);
+        }
+
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        // Show loading screen if engine is not initialized
-        if self.engine.is_none() {
-            self.render_loading_screen();
-            
-            // Initialize engine after a minimum loading time (e.g., 3 seconds)
-            if self.loading_start.elapsed().as_secs() >= 3 {
-                match VoxelEngine::new(EngineConfig {
-                    world_seed: 12345,
-                    render_distance: 8,
-                    lod_levels: [4, 8, 16],
-                    chunk_size: 32,
-                    texture_atlas_size: 1024,
-                    max_chunk_pool_size: 1000,
-                    vsync: true,
-                    async_loading: true,
-                    fov: 70.0,
-                    view_distance: 1000.0,
-                    save_interval: 300.0,
-                    terrain: TerrainConfig::default(),
-                    gameplay: GameplayConfig::default(),
-                    rendering: RenderConfig::default(),
-                    chunksys: ChunkSysConfig::default(),
-                    worldgen: WorldGenConfig::default(),
-                }) {
-                    Ok(engine) => {
-                        self.engine = Some(engine);
-                        self.loading_texture = None; // Free loading texture
+        match self.menu_state.current_screen {
+            MenuScreen::Loading => {
+                // Show loading screen if engine is not initialized
+                if self.engine.is_none() {
+                    self.render_loading_screen();
+                    
+                    // Initialize engine after minimum loading time
+                    if self.loading_start.elapsed().as_secs() >= 3 {
+                        match VoxelEngine::new(EngineConfig {
+                            world_seed: 12345,
+                            render_distance: 8,
+                            lod_levels: [4, 8, 16],
+                            chunk_size: 32,
+                            texture_atlas_size: 1024,
+                            max_chunk_pool_size: 1000,
+                            vsync: true,
+                            async_loading: true,
+                            fov: 70.0,
+                            view_distance: 1000.0,
+                            save_interval: 300.0,
+                            terrain: TerrainConfig::default(),
+                            gameplay: GameplayConfig::default(),
+                            rendering: RenderConfig::default(),
+                            chunksys: ChunkSysConfig::default(),
+                            worldgen: WorldGenConfig::default(),
+                        }) {
+                            Ok(engine) => {
+                                self.engine = Some(engine);
+                                self.loading_texture = None;
+                                self.menu_state.current_screen = MenuScreen::Main;
+                            }
+                            Err(e) => {
+                                log::error!("Failed to initialize engine: {}", e);
+                                // TODO: Handle error
+                            }
+                        }
                     }
-                    Err(e) => {
-                        log::error!("Failed to initialize engine: {}", e);
-                        // TODO: Handle initialization error
+                } else {
+                    // Show egui loading screen
+                    if let Some(egui_ctx) = &self.egui_ctx {
+                        self.menu_state.show(egui_ctx, self.engine.as_mut().unwrap());
                     }
                 }
             }
-        } else {
-            // Normal game rendering
-            // TODO: Implement game rendering
+            _ => {
+                // Show menu UI
+                if let Some(egui_ctx) = &self.egui_ctx {
+                    self.menu_state.show(egui_ctx, self.engine.as_mut().unwrap());
+                }
+            }
+        }
+
+        // End egui frame and render
+        if let (Some(egui_ctx), Some(egui_glow)) = (&self.egui_ctx, &mut self.egui_glow) {
+            let full_output = egui_ctx.end_frame();
+            let clipped_primitives = egui_ctx.tessellate(full_output.shapes);
+            
+            if let Some(glow) = egui_glow.painter.gl() {
+                unsafe {
+                    gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+                    gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+                }
+            }
+            
+            egui_glow.paint_and_update_textures(
+                [self.window.inner_size().width, self.window.inner_size().height],
+                self.window.scale_factor(),
+                clipped_primitives,
+                &full_output.textures_delta,
+            );
         }
 
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
@@ -199,7 +272,6 @@ impl App {
                 gl::ClearColor(0.1, 0.1, 0.1, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
                 
-                // Simple quad rendering for the logo
                 gl::Enable(gl::TEXTURE_2D);
                 texture.bind();
                 
@@ -222,17 +294,26 @@ fn main() -> Result<()> {
 
     let (mut app, event_loop) = App::new()?;
 
-    event_loop.run(move |event, _| match event {
-        Event::WindowEvent {
-            event: window_event,
-            ..
-        } => {
-            app.handle_window_event(window_event);
+    event_loop.run(move |event, _| {
+        let consumed = match &event {
+            Event::WindowEvent { event, .. } => app.handle_window_event(event),
+            _ => false,
+        };
+
+        if !consumed {
+            match event {
+                Event::WindowEvent {
+                    event: WindowEvent::RedrawRequested,
+                    ..
+                } => {
+                    app.update();
+                }
+                Event::AboutToWait => {
+                    app.window.request_redraw();
+                }
+                _ => (),
+            }
         }
-        Event::AboutToWait => {
-            app.update();
-        }
-        _ => (),
     })?;
 
     Ok(())
