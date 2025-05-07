@@ -31,15 +31,15 @@ impl PlayerInput {
 
     pub fn handle_key(&mut self, key: KeyCode, pressed: bool) {
         match key {
-            KeyCode::KeyW => self.forward = pressed,
-            KeyCode::KeyS => self.backward = pressed,
-            KeyCode::KeyA => self.left = pressed,
-            KeyCode::KeyD => self.right = pressed,
+            KeyCode::W => self.forward = pressed,
+            KeyCode::S => self.backward = pressed,
+            KeyCode::A => self.left = pressed,
+            KeyCode::D => self.right = pressed,
             KeyCode::Space => self.jump = pressed,
-            KeyCode::ShiftLeft => self.sprint = pressed,
-            KeyCode::KeyE => self.fly_up = pressed,
-            KeyCode::KeyQ => self.fly_down = pressed,
-            KeyCode::ControlLeft => self.crouch = pressed,
+            KeyCode::LShift => self.sprint = pressed,
+            KeyCode::E => self.fly_up = pressed,
+            KeyCode::Q => self.fly_down = pressed,
+            KeyCode::LControl => self.crouch = pressed,
             _ => {}
         }
     }
