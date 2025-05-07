@@ -14,16 +14,14 @@ use std::num::NonZeroU32;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{EventLoop, EventLoopBuilder},
     window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
     config::{
-        chunksys::ChunkSysConfig,
-        core::EngineConfig,
-        game::{GameplayConfig, RenderConfig, TerrainConfig},
-        worldgen::WorldGenConfig,
+        chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
+        gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
     },
     engine::VoxelEngine,
 };
