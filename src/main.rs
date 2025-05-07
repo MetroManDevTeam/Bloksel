@@ -2,13 +2,11 @@ use anyhow::Result;
 use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
 use winit::{
-    application::{
-        ApplicationHandler,
-        window::{Window, WindowBuilder},
-    },
+    application::ApplicationHandler,
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
