@@ -18,6 +18,7 @@ use glam::Vec3;
 use log::warn;
 use parking_lot::Mutex;
 use rayon::ThreadPool;
+use rayon::ThreadPoolBuilder;
 use std::{
     collections::HashMap,
     path::Path,
@@ -96,8 +97,19 @@ impl VoxelEngine {
         let player = Arc::new(Mutex::new(Player::default()));
 
         // Setup threading
-        let generation_pool = Arc::new(ThreadPool::new()?);
-        let io_pool = Arc::new(ThreadPool::new()?);
+        let generation_pool = Arc::new(
+            ThreadPoolBuilder::new()
+                .num_threads(4)
+                .build()
+                .context("Failed to create generation pool")?,
+        );
+
+        let io_pool = Arc::new(
+            ThreadPoolBuilder::new()
+                .num_threads(2)
+                .build()
+                .context("Failed to create IO pool")?,
+        );
         let (load_sender, load_receiver) = bounded(100);
         let (unload_sender, unload_receiver) = bounded(100);
 
