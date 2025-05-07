@@ -40,7 +40,7 @@ cd Bloksel
 cargo build --release  
 
 # Run the game  
-cargo run --release  
+ cargo run --release  
 ```  
 
 ## Project Structure  
