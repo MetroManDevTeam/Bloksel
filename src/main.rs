@@ -4,7 +4,7 @@ use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::WindowBuilder,
+    window::Window,
 };
 
 use ourvoxelworldproject::{
@@ -76,9 +76,7 @@ fn main() -> Result<()> {
 
     // Create window and event loop
     let event_loop = EventLoop::new()?;
-    let window = WindowBuilder::new()
-        .with_title("Voxel Engine")
-        .build(&event_loop)?;
+    let window = Window::new(&event_loop)?;
 
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
