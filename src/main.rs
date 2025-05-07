@@ -19,8 +19,8 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
 };
 
 // Internal Modules
@@ -79,16 +79,13 @@ fn main() -> Result<()> {
     };
 
     // Create window and event loop
-    let event_loop = EventLoop::new().unwrap();
-    let _window = WindowBuilder::new()
-        .with_title("Voxel Engine")
-        .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0))
-        .build(&event_loop)?;
+    let event_loop = EventLoop::new()?;
+    let window = Window::new(&event_loop)?;
 
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    event_loop.run(move |event, elwt| {
+    event_loop.run_app(move |event, elwt| {
         elwt.set_control_flow(ControlFlow::Poll);
 
         match event {
