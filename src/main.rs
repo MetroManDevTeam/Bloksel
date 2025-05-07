@@ -20,7 +20,7 @@ use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::Window,
+    window::{Window, WindowBuilder},
 };
 
 // Internal Modules
@@ -29,6 +29,7 @@ use crate::{
         chunksys::ChunkSysConfig, core::EngineConfig, gameplay::GameplayConfig,
         worldgen::WorldGenConfig,
     },
+    engine::VoxelEngine,
     player::{
         input::PlayerInput,
         physics::{Player, PlayerState},
@@ -58,7 +59,8 @@ fn main() -> Result<()> {
 
     // Create engine configuration
     let config = EngineConfig {
-        world_seed: 12345,
+        name: "Test World".to_string(),
+        seed: 12345,
         render_distance: 16,
         lod_levels: [4, 8, 16],
         chunk_size: 32,
@@ -69,6 +71,11 @@ fn main() -> Result<()> {
         fov: 70.0,
         view_distance: 1000.0,
         save_interval: 300.0, // 5 minutes
+        terrain: GameplayConfig::default(),
+        gameplay: GameplayConfig::default(),
+        rendering: GameplayConfig::default(),
+        chunksys: ChunkSysConfig::default(),
+        worldgen: WorldGenConfig::default(),
     };
 
     // Create window and event loop
@@ -81,7 +88,7 @@ fn main() -> Result<()> {
     // Initialize the engine
     let mut engine = VoxelEngine::new(config)?;
 
-    event_loop.run_app(move |event, elwt| {
+    event_loop.run(move |event, elwt| {
         elwt.set_control_flow(ControlFlow::Poll);
 
         match event {
