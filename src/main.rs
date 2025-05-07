@@ -34,7 +34,7 @@ struct App {
 }
 
 impl App {
-    fn new(engine: VoxelEngine) -> Result<(Self, EventLoop<()>)> {
+    fn new() -> Result<(Self, EventLoop<()>)> {
         let event_loop = EventLoopBuilder::new().build()?;
         let window_builder = WindowBuilder::new()
             .with_title("Bloksel")
@@ -108,6 +108,26 @@ impl App {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         }
 
+        // Create VoxelEngine after OpenGL is initialized
+        let engine = VoxelEngine::new(EngineConfig {
+            world_seed: 12345,
+            render_distance: 8,
+            lod_levels: [4, 8, 16],
+            chunk_size: 32,
+            texture_atlas_size: 1024,
+            max_chunk_pool_size: 1000,
+            vsync: true,
+            async_loading: true,
+            fov: 70.0,
+            view_distance: 1000.0,
+            save_interval: 300.0,
+            terrain: TerrainConfig::default(),
+            gameplay: GameplayConfig::default(),
+            rendering: RenderConfig::default(),
+            chunksys: ChunkSysConfig::default(),
+            worldgen: WorldGenConfig::default(),
+        })?;
+
         Ok((
             Self {
                 window,
@@ -151,26 +171,7 @@ fn main() -> Result<()> {
     SimpleLogger::new().with_level(LevelFilter::Info).init()?;
     info!("Starting voxel engine...");
 
-    let engine = VoxelEngine::new(EngineConfig {
-        world_seed: 12345,
-        render_distance: 8,
-        lod_levels: [4, 8, 16],
-        chunk_size: 32,
-        texture_atlas_size: 1024,
-        max_chunk_pool_size: 1000,
-        vsync: true,
-        async_loading: true,
-        fov: 70.0,
-        view_distance: 1000.0,
-        save_interval: 300.0,
-        terrain: TerrainConfig::default(),
-        gameplay: GameplayConfig::default(),
-        rendering: RenderConfig::default(),
-        chunksys: ChunkSysConfig::default(),
-        worldgen: WorldGenConfig::default(),
-    })?;
-
-    let (mut app, event_loop) = App::new(engine)?;
+    let (mut app, event_loop) = App::new()?;
 
     event_loop.run(move |event, _| match event {
         Event::WindowEvent {
