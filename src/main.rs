@@ -120,14 +120,14 @@ impl App {
         let loading_texture = Texture::from_file("assets/images/organization.png")?;
 
         // Initialize egui
-        let egui_ctx = Some(egui::Context::default());
-        let egui_winit = Some(egui_winit::State::new(
-            event_loop.create_proxy(),
-            window.scale_factor(),
+        let egui_ctx = egui::Context::default());
+        let egui_winit = egui_winit::State::new(
+            egui_ctx.clone()
+            &event_loop,
             Some(gl_config.display().clone()),
-        ));
-        let painter = egui_glow::Painter::new(&gl_config.display(), None).unwrap();
-        let egui_glow = Some(egui_glow::EguiGlow::new(egui_ctx.as_ref().unwrap(), painter));
+        );
+        let painter = egui_glow::Painter::new(&gl_config.display(), None, None).unwrap();
+        let egui_glow = egui_glow::EguiGlow::new(egui_ctx, painter);
 
         Ok((
             Self {
@@ -138,23 +138,23 @@ impl App {
                 loading_texture: Some(loading_texture),
                 loading_start: Instant::now(),
                 menu_state: MenuState::new(),
-                egui_ctx,
-                egui_winit,
-                egui_glow,
+                egui_ctx: Some(egui_glow.egui_ctx.clone()),
+                egui_winit: Some(egui_winit),
+                egui_glow: Some(egui_glow),
             },
             event_loop,
         ))
     }
 
     fn handle_window_event(&mut self, event: &WindowEvent<'_>) -> bool {
-        if let Some(egui_winit) = &mut self.egui_winit {
-            if let Some(egui_ctx) = &self.egui_ctx {
-                let response = egui_winit.on_window_event(egui_ctx, event);
-                if response.consumed {
-                    return true;
-                }
+    if let Some(egui_winit) = &mut self.egui_winit {
+        if let Some(egui_ctx) = &self.egui_ctx {
+            let response = egui_winit.on_window_event(&self.window, egui_ctx, event);
+            if response.consumed {
+                return true;
             }
         }
+    }
 
         match event {
             WindowEvent::CloseRequested => {
@@ -255,12 +255,13 @@ impl App {
                 }
             }
             
-            egui_glow.paint_and_update_textures(
-                [self.window.inner_size().width, self.window.inner_size().height],
-                self.window.scale_factor(),
-                clipped_primitives,
-                &full_output.textures_delta,
-            );
+            egui_glow.paint(
+    &self.window,
+    [self.window.inner_size().width, self.window.inner_size().height],
+    self.window.scale_factor(),
+    clipped_primitives,
+    &full_output.textures_delta,
+);
         }
 
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
