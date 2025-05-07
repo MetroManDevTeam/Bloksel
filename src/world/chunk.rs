@@ -199,7 +199,7 @@ impl Chunk {
         get_block_registry()
             .borrow()
             .get_by_name(name)
-            .map(|def| def.id.get_id())
+            .map(|def| def.id.0)
             .unwrap_or(BlockId::new(10, 0, 0))
     }
 
