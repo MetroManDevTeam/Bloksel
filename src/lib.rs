@@ -1,32 +1,25 @@
-pub mod assets;
 pub mod config;
 pub mod engine;
 pub mod player;
 pub mod render;
-pub mod ui;
 pub mod utils;
 pub mod world;
 
-// Re-exports for easier access
-pub use config::{
-    chunksys::ChunkSysConfig, core::EngineConfig, gameplay::GameplayConfig,
-    worldgen::WorldGenConfig,
-};
+// Re-export commonly used types
+pub use config::chunksys::ChunkSysConfig;
+pub use config::core::EngineConfig;
+pub use config::gameplay::GameplayConfig;
+pub use config::worldgen::WorldGenConfig;
 pub use engine::VoxelEngine;
-pub use player::{
-    input::PlayerInput,
-    physics::{Player, PlayerState},
-};
-pub use render::{pipeline::RenderPipeline, shaders::ShaderProgram};
+pub use player::input::PlayerInput;
+pub use player::physics::{Player, PlayerState};
+pub use render::pipeline::RenderPipeline;
+pub use render::shaders::ShaderProgram;
+pub use utils::error::BlockError;
 pub use utils::math::raycast::Ray;
-pub use utils::{
-    error::BlockError,
-    math::{Plane, ViewFrustum},
-};
-pub use world::{
-    block_id::BlockRegistry,
-    chunk::{Chunk, SerializedChunk},
-    chunk_coord::ChunkCoord,
-    generator::terrain::TerrainGenerator,
-    spatial::SpatialPartition,
-};
+pub use utils::math::{Plane, ViewFrustum};
+pub use world::block_id::BlockRegistry;
+pub use world::chunk::{Chunk, SerializedChunk};
+pub use world::chunk_coord::ChunkCoord;
+pub use world::generator::terrain::TerrainGenerator;
+pub use world::spatial::SpatialPartition;
