@@ -1,10 +1,11 @@
 use anyhow::Result;
 use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
+use winit::window::WindowBuilder;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    window::Window,
 };
 
 use ourvoxelworldproject::{
