@@ -2,12 +2,13 @@ use anyhow::Result;
 use glutin::{
     config::ConfigTemplateBuilder,
     context::{ContextAttributesBuilder, PossiblyCurrentContext},
-    display::GlDisplay,
+    display::{GetGlDisplay, GlDisplay},
     prelude::*,
     surface::{Surface, WindowSurface},
 };
-use glutin_winit::DisplayBuilder;
+use glutin_winit::{DisplayBuilder, GlWindow};
 use log::{info, LevelFilter};
+use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
 use std::num::NonZeroU32;
 use winit::{
@@ -67,7 +68,7 @@ impl App {
 
         let context_attributes = ContextAttributesBuilder::new()
             .with_context_api(glutin::context::ContextApi::OpenGl(None))
-            .build(Some(window.raw_window_handle()));
+            .build(Some(window.window_handle()));
 
         let gl_display = gl_config.display();
         let gl_context = unsafe {
