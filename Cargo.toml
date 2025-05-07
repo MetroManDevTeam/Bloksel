@@ -12,6 +12,8 @@ crossbeam-channel = "0.5.15"
 egui = "0.26.2"
 egui-winit = "0.26.2"
 gl = "0.14.0"
+glutin = "0.31.3"
+glutin-winit = "0.4.0"
 glam = { version = "0.30.3", features = ["serde"] }
 image = "0.25.6"
 lazy_static = "1.4.0"
