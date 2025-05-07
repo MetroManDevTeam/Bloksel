@@ -13,10 +13,25 @@ pub struct EngineConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderConfig {
-    pub enable_shadows: bool,
-    pub shadow_resolution: u32,
-    pub enable_ssao: bool,
-    pub enable_fxaa: bool,
-    pub enable_bloom: bool,
-    pub max_fps: u32,
+    pub shadow_quality: u32,
+    pub shadow_distance: f32,
+    pub ambient_occlusion: bool,
+    pub fog_distance: f32,
+    pub fog_density: f32,
+    pub bloom_strength: f32,
+    pub dof_strength: f32,
+}
+
+impl Default for RenderConfig {
+    fn default() -> Self {
+        Self {
+            shadow_quality: 2048,
+            shadow_distance: 100.0,
+            ambient_occlusion: true,
+            fog_distance: 500.0,
+            fog_density: 0.01,
+            bloom_strength: 0.5,
+            dof_strength: 0.3,
+        }
+    }
 }
