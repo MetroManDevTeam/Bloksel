@@ -1,14 +1,13 @@
 use anyhow::Result;
 use glutin::{
     config::ConfigTemplateBuilder,
-    context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext},
-    display::{GetGlDisplay, GlDisplay},
+    context::{ContextAttributesBuilder, PossiblyCurrentContext},
+    display::GlDisplay,
     prelude::*,
     surface::{Surface, WindowSurface},
 };
-use glutin_winit::{DisplayBuilder, GlWindow};
+use glutin_winit::DisplayBuilder;
 use log::{info, LevelFilter};
-use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
 use std::num::NonZeroU32;
 use winit::{
@@ -35,41 +34,72 @@ struct App {
 
 impl App {
     fn new(engine: VoxelEngine) -> Self {
-        Self {
-            window: Window::new(&EventLoopBuilder::new().build().unwrap()).unwrap(),
-            gl_context: PossiblyCurrentContext::new(
-                ContextAttributesBuilder::new()
-                    .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
-                    .build(Some(unsafe {
-                        raw_window_handle::HasRawWindowHandle::raw_window_handle(
-                            &Window::new(&EventLoopBuilder::new().build().unwrap()).unwrap(),
-                        )
-                    })),
-            )
-            .unwrap(),
-            gl_surface: Surface::new(
-                &gl_context,
-                &window,
-                &ConfigTemplateBuilder::new()
-                    .with_alpha_size(8)
-                    .with_depth_size(24)
-                    .with_stencil_size(8)
-                    .with_transparency(true)
-                    .build(),
-            )
-            .unwrap(),
-            engine,
-        }
-    }
+        let event_loop = EventLoopBuilder::new().build().unwrap();
+        let window_builder = WindowBuilder::new()
+            .with_title("Bloksel")
+            .with_inner_size(LogicalSize::new(800, 600));
 
-    fn init(&mut self, event_loop: &EventLoop<()>) {
-        self.window.set_inner_size(LogicalSize::new(800, 600));
-        self.window.set_title("Bloksel");
-        self.window.set_visible(true);
+        let template = ConfigTemplateBuilder::new()
+            .with_alpha_size(8)
+            .with_depth_size(24)
+            .with_stencil_size(8)
+            .with_transparency(true);
+
+        let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+
+        let (window, gl_config) = display_builder
+            .build(&event_loop, template, |configs| {
+                configs
+                    .reduce(|accum, config| {
+                        let transparency_check = config.supports_transparency().unwrap_or(false)
+                            & !accum.supports_transparency().unwrap_or(false);
+                        if transparency_check || config.num_samples() > accum.num_samples() {
+                            config
+                        } else {
+                            accum
+                        }
+                    })
+                    .unwrap()
+            })
+            .unwrap();
+
+        let window = window.unwrap();
+
+        let context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(glutin::context::ContextApi::OpenGl(None))
+            .build(Some(window.raw_window_handle()));
+
+        let gl_display = gl_config.display();
+        let gl_context = unsafe {
+            gl_display
+                .create_context(&gl_config, &context_attributes)
+                .expect("Failed to create OpenGL context")
+        };
+
+        let attrs = window.build_surface_attributes(<_>::default());
+        let gl_surface = unsafe {
+            gl_config
+                .display()
+                .create_window_surface(&gl_config, &attrs)
+                .expect("Failed to create GL surface")
+        };
+
+        let gl_context = gl_context
+            .make_current(&gl_surface)
+            .expect("Failed to make context current");
 
         unsafe {
-            self.gl_context.make_current(&self.gl_surface).unwrap();
-            gl::load_with(|s| self.gl_context.get_proc_address(s) as *const _);
+            gl::load_with(|symbol| {
+                let symbol = std::ffi::CString::new(symbol).unwrap();
+                gl_display.get_proc_address(symbol.as_c_str()) as *const _
+            });
+        }
+
+        Self {
+            window,
+            gl_context,
+            gl_surface,
+            engine,
         }
     }
 
@@ -118,8 +148,6 @@ fn main() -> Result<()> {
         chunksys: ChunkSysConfig::default(),
         worldgen: WorldGenConfig::default(),
     })?);
-
-    app.init(&event_loop);
 
     event_loop.run(move |event, _| match event {
         Event::WindowEvent {
