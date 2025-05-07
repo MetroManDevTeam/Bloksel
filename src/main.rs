@@ -18,7 +18,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use ourvoxelworldproject::{
+use bloksel::{
     config::{
         chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
         gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
