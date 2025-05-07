@@ -328,8 +328,8 @@ impl ShaderProgram {
 
     fn get_uniform_location(&self, name: &str) -> GLint {
         *self.uniforms.entry(name.to_string()).or_insert_with(|| {
-            let name = CString::new(name).unwrap();
-            unsafe { gl::GetUniformLocation(self.id, name.as_ptr()) }
+            let c_name = std::ffi::CString::new(name).unwrap();
+            unsafe { gl::GetUniformLocation(self.id, c_name.as_ptr()) }
         })
     }
 
