@@ -8,13 +8,13 @@ use glutin::{
 };
 use glutin_winit::{DisplayBuilder, GlWindow};
 use log::{info, LevelFilter};
+use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
 use std::num::NonZeroU32;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder},
-    raw_window_handle::HasWindowHandle,
     window::{Window, WindowBuilder},
 };
 
@@ -68,7 +68,7 @@ impl App {
 
         let context_attributes = ContextAttributesBuilder::new()
             .with_context_api(glutin::context::ContextApi::OpenGl(None))
-            .build(Some(window.window_handle().unwrap().as_raw()));
+            .build(Some(window.raw_window_handle()));
 
         let gl_display = gl_config.display();
         let gl_context = unsafe {
