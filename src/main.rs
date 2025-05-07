@@ -8,13 +8,11 @@ use glutin::{
 };
 use glutin_winit::{DisplayBuilder, GlWindow};
 use log::{info, LevelFilter};
-use raw_window_handle::HasRawWindowHandle;
-use simple_logger::SimpleLogger;
-use std::num::NonZeroU32;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder},
+    raw_window_handle::HasWindowHandle,
     window::{Window, WindowBuilder},
 };
 
