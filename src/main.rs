@@ -112,7 +112,7 @@ impl App {
         }
 
         // Load loading screen texture
-        let loading_texture = Texture::from_file("assets/images/organization.png")?;
+        let loading_texture = Texture::from_file("assets/images/organization.jpg")?;
 
         Ok((
             Self {
