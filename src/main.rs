@@ -89,12 +89,12 @@ fn main() -> Result<()> {
 
     let event_loop = EventLoop::new()?;
     let engine = VoxelEngine::new(EngineConfig::default())?;
-    let app = App {
+    let mut app = App {
         window: None,
         gl_context: None,
         engine,
     };
 
-    event_loop.run_app(Box::new(app))?;
+    event_loop.run_app(&mut app)?;
     Ok(())
 }
