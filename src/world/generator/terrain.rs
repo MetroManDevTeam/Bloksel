@@ -125,7 +125,7 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
+    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
         let mut chunk = Chunk::new(coord);
         match self.config.world_type {
             WorldType::Normal => self.generate_normal_chunk(&mut chunk, coord),
