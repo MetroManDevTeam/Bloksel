@@ -2,10 +2,11 @@ use anyhow::Result;
 use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
 use winit::{
+    application::ApplicationHandler,
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
 };
 
 use ourvoxelworldproject::{
@@ -15,6 +16,45 @@ use ourvoxelworldproject::{
     },
     engine::VoxelEngine,
 };
+
+struct App {
+    window: Option<Window>,
+    engine: VoxelEngine,
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let window = event_loop
+            .create_window(Window::default_attributes())
+            .unwrap();
+        window.set_title("Voxel Engine");
+        window.set_inner_size(LogicalSize::new(1280.0, 720.0));
+        self.window = Some(window);
+    }
+
+    fn window_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::CloseRequested => {
+                _event_loop.exit();
+            }
+            WindowEvent::Resized(size) => {
+                info!("Window resized to: {:?}", size);
+            }
+            _ => (),
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+        // TODO: Implement update and render
+        // self.engine.update();
+        // self.engine.render();
+    }
+}
 
 fn main() -> Result<()> {
     // Initialize logging
@@ -75,39 +115,19 @@ fn main() -> Result<()> {
         },
     };
 
-    // Create event loop and window
+    // Create event loop and initialize app
     let event_loop = EventLoop::new()?;
-    let window = WindowBuilder::new()
-        .with_title("Voxel Engine")
-        .with_inner_size(LogicalSize::new(1280.0, 720.0))
-        .build(&event_loop)?;
+    let engine = VoxelEngine::new(config)?;
+    let mut app = App {
+        window: None,
+        engine,
+    };
 
-    // Initialize the engine
-    let mut engine = VoxelEngine::new(config)?;
+    // Set control flow for continuous rendering
+    event_loop.set_control_flow(ControlFlow::Poll);
 
-    event_loop.run_app(move |event, elwt| {
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                elwt.exit();
-            }
-            Event::WindowEvent {
-                event: WindowEvent::Resized(size),
-                ..
-            } => {
-                // TODO: Implement resize handling
-                info!("Window resized to: {:?}", size);
-            }
-            Event::AboutToWait => {
-                // TODO: Implement update and render
-                // engine.update();
-                // engine.render();
-            }
-            _ => (),
-        }
-    })?;
+    // Run the event loop
+    event_loop.run_app(&mut app)?;
 
     Ok(())
 }
