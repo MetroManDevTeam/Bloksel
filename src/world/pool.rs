@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_pool_exhaustion() {
-        let pool = ChunkPool::new(GameConfig::default());
+        let pool = ChunkPool::new(10); // Replace 10 with the desired max_size value
 
         let _c1 = pool.acquire(ChunkCoord::new(1, 0, 0)).unwrap();
         let _c2 = pool.acquire(ChunkCoord::new(2, 0, 0)).unwrap();
