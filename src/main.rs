@@ -34,8 +34,8 @@ struct App {
 }
 
 impl App {
-    fn new(engine: VoxelEngine) -> Self {
-        let event_loop = EventLoopBuilder::new().build().unwrap();
+    fn new(engine: VoxelEngine) -> Result<(Self, EventLoop<()>)> {
+        let event_loop = EventLoopBuilder::new().build()?;
         let window_builder = WindowBuilder::new()
             .with_title("Bloksel")
             .with_inner_size(LogicalSize::new(800, 600));
@@ -65,12 +65,14 @@ impl App {
             .unwrap();
 
         let window = window.unwrap();
+        let raw_window_handle = window.raw_window_handle();
 
         let context_attributes = ContextAttributesBuilder::new()
             .with_context_api(glutin::context::ContextApi::OpenGl(None))
-            .build(Some(window.raw_window_handle()));
+            .build(Some(raw_window_handle));
 
         let gl_display = gl_config.display();
+
         let gl_context = unsafe {
             gl_display
                 .create_context(&gl_config, &context_attributes)
@@ -106,12 +108,15 @@ impl App {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         }
 
-        Self {
-            window,
-            gl_context,
-            gl_surface,
-            engine,
-        }
+        Ok((
+            Self {
+                window,
+                gl_context,
+                gl_surface,
+                engine,
+            },
+            event_loop,
+        ))
     }
 
     fn handle_window_event(&mut self, event: WindowEvent) {
@@ -146,8 +151,7 @@ fn main() -> Result<()> {
     SimpleLogger::new().with_level(LevelFilter::Info).init()?;
     info!("Starting voxel engine...");
 
-    let event_loop = EventLoopBuilder::new().build()?;
-    let mut app = App::new(VoxelEngine::new(EngineConfig {
+    let engine = VoxelEngine::new(EngineConfig {
         world_seed: 12345,
         render_distance: 8,
         lod_levels: [4, 8, 16],
@@ -164,7 +168,9 @@ fn main() -> Result<()> {
         rendering: RenderConfig::default(),
         chunksys: ChunkSysConfig::default(),
         worldgen: WorldGenConfig::default(),
-    })?);
+    })?;
+
+    let (mut app, event_loop) = App::new(engine)?;
 
     event_loop.run(move |event, _| match event {
         Event::WindowEvent {
