@@ -3,8 +3,8 @@ use log::{LevelFilter, info};
 use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    event_loop::EventLoop,
+    window::WindowBuilder,
 };
 
 use ourvoxelworldproject::{
