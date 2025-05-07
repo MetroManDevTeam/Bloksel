@@ -6,7 +6,7 @@ use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
+    window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
@@ -24,11 +24,11 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let window = event_loop
-            .create_window(Window::default_attributes())
+        let window = WindowBuilder::new()
+            .with_title("Voxel Engine")
+            .with_inner_size(LogicalSize::new(1280.0, 720.0))
+            .build(event_loop)
             .unwrap();
-        window.set_title("Voxel Engine");
-        window.set_inner_size(LogicalSize::new(1280.0, 720.0));
         self.window = Some(window);
     }
 
