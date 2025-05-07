@@ -7,14 +7,14 @@ use glutin::{
     surface::{Surface, WindowSurface},
 };
 use glutin_winit::{DisplayBuilder, GlWindow};
-use log::{LevelFilter, info};
+use log::{info, LevelFilter};
 use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
 use std::num::NonZeroU32;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
     window::{Window, WindowBuilder},
 };
 
@@ -50,7 +50,7 @@ impl App {
         let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
 
         let (window, gl_config) = display_builder
-            .build(event_loop, template, |configs| {
+            .build(&event_loop, template, |configs| {
                 configs
                     .reduce(|accum, config| {
                         let transparency_check = config.supports_transparency().unwrap_or(false)
@@ -104,10 +104,10 @@ impl App {
         self.gl_surface = Some(gl_surface);
     }
 
-    fn handle_window_event(&mut self, event: WindowEvent, control_flow: &mut ControlFlow) {
+    fn handle_window_event(&mut self, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-                *control_flow = ControlFlow::Exit;
+                std::process::exit(0);
             }
             WindowEvent::Resized(size) => {
                 info!("Window resized to: {:?}", size);
@@ -139,7 +139,7 @@ fn main() -> Result<()> {
     SimpleLogger::new().with_level(LevelFilter::Info).init()?;
     info!("Starting voxel engine...");
 
-    let event_loop = EventLoop::new()?;
+    let event_loop = EventLoopBuilder::new().build()?;
     let mut app = App::new(VoxelEngine::new(EngineConfig {
         world_seed: 12345,
         render_distance: 8,
@@ -161,14 +161,14 @@ fn main() -> Result<()> {
 
     app.init(&event_loop);
 
-    event_loop.run(move |event, _, control_flow| match event {
+    event_loop.run(move |event, window_target| match event {
         Event::WindowEvent {
             event: window_event,
             ..
         } => {
-            app.handle_window_event(window_event, control_flow);
+            app.handle_window_event(window_event);
         }
-        Event::MainEventsCleared => {
+        Event::AboutToWait => {
             app.update();
         }
         _ => (),
