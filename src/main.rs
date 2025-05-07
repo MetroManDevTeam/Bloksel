@@ -4,7 +4,7 @@ use simple_logger::SimpleLogger;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
 use ourvoxelworldproject::{
