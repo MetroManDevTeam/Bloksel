@@ -1,4 +1,4 @@
-use crate::PlayerInput;
+use crate::player::input::InputState;
 use crate::utils::math::{AABB, Plane, ViewFrustum};
 use crate::world::block_id::BlockData;
 use crate::world::block_tech::BlockPhysics;
@@ -52,7 +52,7 @@ pub struct Player {
     pub last_safe_position: Vec3,
 
     pub physics: BlockPhysics,
-    pub input: PlayerInput,
+    pub input: InputState,
 }
 
 impl Default for Player {
@@ -76,13 +76,13 @@ impl Default for Player {
             collision_enabled: true,
             last_safe_position: Vec3::new(0.0, 70.0, 0.0),
             physics: BlockPhysics::default(),
-            input: PlayerInput::default(),
+            input: InputState::default(),
         }
     }
 }
 
 impl Player {
-    pub fn update(&mut self, dt: f32, terrain: &TerrainGenerator, input: &PlayerInput) {
+    pub fn update(&mut self, dt: f32, terrain: &TerrainGenerator, input: &InputState) {
         self.handle_rotation(input);
         self.handle_movement(dt, input);
         self.handle_zoom(input);
@@ -92,15 +92,16 @@ impl Player {
         self.update_safe_position();
     }
 
-    fn handle_rotation(&mut self, input: &PlayerInput) {
-        // Smooth rotation with edge case protection
-        let mouse_delta = input.mouse_delta * self.sensitivity * self.zoom_level;
+    fn handle_rotation(&mut self, input: &InputState) {
+        let mouse_delta = Vec2::new(input.mouse_delta.0, input.mouse_delta.1)
+            * self.sensitivity
+            * self.zoom_level;
         self.rotation.x = (self.rotation.x + mouse_delta.x).rem_euclid(2.0 * PI);
         self.rotation.y =
             (self.rotation.y + mouse_delta.y).clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 
-    fn handle_movement(&mut self, dt: f32, input: &PlayerInput) {
+    fn handle_movement(&mut self, dt: f32, input: &InputState) {
         match self.state {
             PlayerState::Walking => {
                 let speed = self.base_speed * self.speed_multiplier;
@@ -201,9 +202,8 @@ impl Player {
         }
     }
 
-    fn calculate_movement_vector(&self, input: &PlayerInput) -> Vec3 {
+    fn calculate_movement_vector(&self, input: &InputState) -> Vec3 {
         let forward = Vec3::new(self.rotation.x.sin(), 0.0, self.rotation.x.cos()).normalize();
-
         let right = Vec3::new(
             (self.rotation.x + FRAC_PI_2).sin(),
             0.0,
@@ -232,7 +232,7 @@ impl Player {
         }
     }
 
-    fn calculate_current_speed(&self, input: &PlayerInput) -> f32 {
+    fn calculate_current_speed(&self, input: &InputState) -> f32 {
         let base = match self.state {
             PlayerState::Spectator => self.base_speed * 3.0,
             PlayerState::Walking => self.base_speed,
@@ -337,23 +337,14 @@ impl Player {
         self.rotation.y = self.rotation.y.clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
     }
 
-    fn handle_zoom(&mut self, input: &PlayerInput) {
+    fn handle_zoom(&mut self, input: &InputState) {
         if self.state != PlayerState::Spectator {
             return;
         }
 
         let zoom_speed = 0.1;
-        match input.zoom_delta {
-            Some(MouseScrollDelta::LineDelta(_, y)) => {
-                self.zoom_level =
-                    (self.zoom_level - y * zoom_speed).clamp(self.min_zoom, self.max_zoom);
-            }
-            Some(MouseScrollDelta::PixelDelta(pos)) => {
-                self.zoom_level =
-                    (self.zoom_level - pos.y as f32 * 0.01).clamp(self.min_zoom, self.max_zoom);
-            }
-            None => {} // Handle None case
-        }
+        self.zoom_level =
+            (self.zoom_level - input.mouse_scroll * zoom_speed).clamp(self.min_zoom, self.max_zoom);
     }
 
     pub fn get_view_matrix(&self) -> glam::Mat4 {
