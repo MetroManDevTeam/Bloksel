@@ -91,7 +91,7 @@ impl VoxelEngine {
             ShaderProgram::new("shaders/voxel.vert", "shaders/voxel.frag")?,
             0, // texture_atlas
             block_registry.clone(),
-        )?);
+        ));
 
         let player = Arc::new(Mutex::new(Player::default()));
 
