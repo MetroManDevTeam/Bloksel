@@ -98,12 +98,15 @@ fn main() -> Result<()> {
             } => {
                 elwt.exit();
             }
-            Event::AboutToWait => {
-                // Main game loop would go here
-                if let Err(e) = engine.run() {
-                    log::error!("Engine error: {}", e);
-                    elwt.exit();
-                }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
+                engine.resize(size.width, size.height);
+            }
+            Event::MainEventsCleared => {
+                engine.update();
+                engine.render();
             }
             _ => (),
         }
