@@ -1,4 +1,4 @@
-use crate::world::chunk::{CHUNK_VOLUME, Chunk};
+use crate::world::chunk::{Chunk, CHUNK_VOLUME};
 use crate::world::chunk_coord::ChunkCoord;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_pool_acquire_release() {
-        let pool = ChunkPool::new(GameConfig::default());
+        let pool = ChunkPool::new(10); // Replace 10 with the desired max_size value
         let coord = ChunkCoord::new(1, 2, 3);
 
         // First acquire should create new chunk
