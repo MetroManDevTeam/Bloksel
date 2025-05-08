@@ -31,3 +31,7 @@ simple_logger = "4.3"
 thiserror = "1.0"
 thread_local = "1.1"
 winit = "0.29"
+
+rodio = "0.17"
+symphonia = { version = "0.5", features = ["mp3", "aac", "alac", "flac", "wav", "vorbis"] }
+
