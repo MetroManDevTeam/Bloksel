@@ -1,178 +1,221 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    time::Duration
+};
+use tokio::{
+    fs, io,
+    time::timeout
+};
 use reqwest::Client;
-use tokio::{fs, io};
 use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GameManifest {
-    version: String,
-    files: Vec<GameFile>,
+pub struct VersionManifest {
+    pub version: String,
+    pub exe_url: String,
+    pub exe_size: u64,
+    pub exe_sha256: String,
+    #[serde(default)]
+    pub required: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct GameFile {
-    path: String,
-    sha256: String,
-    size: u64,
+#[derive(Debug, Error)]
+pub enum UpdateError {
+    #[error("Network error: {0}")]
+    Network(#[from] reqwest::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("Hash mismatch")]
+    HashMismatch,
+    #[error("Size mismatch (expected {expected}, got {actual})")]
+    SizeMismatch { expected: u64, actual: u64 },
+    #[error("Update timeout")]
+    Timeout,
+    #[error("Update required")]
+    UpdateRequired,
 }
 
 pub struct GameUpdater {
     client: Client,
-    repo: String,
-    branch: String,
-    game_dir: PathBuf,
+    base_url: String,
+    install_dir: PathBuf,
+    current_exe: PathBuf,
 }
 
 impl GameUpdater {
-    pub fn new(repo: String, branch: String, game_dir: PathBuf) -> Self {
-        Self {
+    /// Creates a new updater instance
+    pub fn new(base_url: impl Into<String>, install_dir: impl AsRef<Path>) -> Result<Self, UpdateError> {
+        Ok(Self {
             client: Client::new(),
-            repo,
-            branch,
-            game_dir,
-        }
+            base_url: base_url.into(),
+            install_dir: install_dir.as_ref().to_path_buf(),
+            current_exe: std::env::current_exe()?,
+        })
     }
 
-    pub async fn detect_changes(&self) -> Result<Vec<String>, String> {
-        let manifest = match self.fetch_manifest().await {
-            Ok(m) => m,
-            Err(e) => return Err(format!("Failed to fetch manifest: {}", e)),
-        };
+    /// Checks for updates and installs them if available
+    pub async fn run(&self) -> Result<bool, UpdateError> {
+        let local_ver = self.get_local_version().await.unwrap_or("0.0.0".into());
+        let remote = self.fetch_manifest().await?;
 
-        let mut changed_files = Vec::new();
+        if local_ver == remote.version {
+            return Ok(false); // No update needed
+        }
 
-        for file in manifest.files {
-            let file_path = self.game_dir.join(&file.path);
-            
-            // Skip protected files
-            if self.is_protected(&file.path) {
-                continue;
-            }
+        if remote.required {
+            return Err(UpdateError::UpdateRequired);
+        }
 
-            // Check if file exists and matches hash
-            let needs_update = match fs::read(&file_path).await {
-                Ok(content) => {
-                    let local_hash = format!("{:x}", Sha256::digest(&content));
-                    local_hash != file.sha256
-                },
-                Err(_) => true, // File doesn't exist
-            };
+        self.install_update(&remote).await?;
+        Ok(true)
+    }
 
-            if needs_update {
-                changed_files.push(file.path);
+    async fn get_local_version(&self) -> Option<String> {
+        fs::read_to_string(self.install_dir.join("version.json"))
+            .await.ok()
+            .and_then(|v| serde_json::from_str::<VersionManifest>(&v).ok())
+            .map(|m| m.version)
+    }
+
+    async fn fetch_manifest(&self) -> Result<VersionManifest, UpdateError> {
+        let url = format!("{}/version.json", self.base_url);
+        timeout(
+            Duration::from_secs(10),
+            self.client.get(&url).send()
+        )
+        .await??
+        .json()
+        .await
+    }
+
+    async fn install_update(&self, manifest: &VersionManifest) -> Result<(), UpdateError> {
+        // 1. Download to temp file
+        let temp_path = self.install_dir.join("game_update.tmp");
+        self.download_verified(&manifest.exe_url, &temp_path, manifest.exe_sha256.as_str(), manifest.exe_size).await?;
+
+        // 2. Install
+        #[cfg(windows)]
+        self.install_windows(&temp_path).await?;
+
+        #[cfg(not(windows))]
+        self.install_unix(&temp_path).await?;
+
+        // 3. Update version file
+        fs::write(
+            self.install_dir.join("version.json"),
+            serde_json::to_string_pretty(manifest)?
+        ).await?;
+
+        Ok(())
+    }
+
+    async fn download_verified(
+        &self,
+        url: &str,
+        dest: &Path,
+        expected_hash: &str,
+        expected_size: u64
+    ) -> Result<(), UpdateError> {
+        // Download
+        let mut response = timeout(
+            Duration::from_secs(60),
+            self.client.get(url).send()
+        ).await??;
+
+        // Check size
+        if let Some(len) = response.content_length() {
+            if len != expected_size {
+                return Err(UpdateError::SizeMismatch {
+                    expected: expected_size,
+                    actual: len
+                });
             }
         }
 
-        Ok(changed_files)
-    }
+        // Stream to file while hashing
+        let mut file = fs::File::create(dest).await?;
+        let mut hasher = Sha256::new();
+        let mut downloaded = 0;
 
-    pub async fn update_game(&self, files_to_update: &[String]) -> Result<usize, String> {
-        let mut updated_count = 0;
-
-        for file_path in files_to_update {
-            if self.is_protected(file_path) {
-                continue;
-            }
-
-            let download_url = format!(
-                "https://raw.githubusercontent.com/{}/{}/{}",
-                self.repo, self.branch, file_path
-            );
-
-            let dest_path = self.game_dir.join(file_path);
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent).await
-                    .map_err(|e| format!("Failed to create directories: {}", e))?;
-            }
-
-            // Download file
-            let content = self.client.get(&download_url)
-                .send().await
-                .map_err(|e| format!("Download failed: {}", e))?
-                .bytes().await
-                .map_err(|e| format!("Failed to read response: {}", e))?;
-
-            // Verify hash before writing
-            let downloaded_hash = format!("{:x}", Sha256::digest(&content));
-            let expected_hash = self.get_expected_hash(file_path).await?;
-            
-            if downloaded_hash != expected_hash {
-                return Err(format!("Hash mismatch for {}", file_path));
-            }
-
-            fs::write(&dest_path, &content).await
-                .map_err(|e| format!("Failed to write file: {}", e))?;
-
-            updated_count += 1;
+        while let Some(chunk) = timeout(Duration::from_secs(30), response.chunk()).await? {
+            let chunk = chunk?;
+            hasher.update(&chunk);
+            io::copy(&mut chunk.as_ref(), &mut file).await?;
+            downloaded += chunk.len() as u64;
         }
 
-        Ok(updated_count)
+        // Verify hash
+        if format!("{:x}", hasher.finalize()) != expected_hash {
+            fs::remove_file(dest).await.ok();
+            return Err(UpdateError::HashMismatch);
+        }
+
+        Ok(())
     }
 
-    async fn fetch_manifest(&self) -> Result<GameManifest, String> {
-        let url = format!(
-            "https://raw.githubusercontent.com/{}/{}/manifest.json",
-            self.repo, self.branch
+    #[cfg(windows)]
+    async fn install_windows(&self, new_exe: &Path) -> Result<(), UpdateError> {
+        let script = format!(
+            r#"
+            @echo off
+            timeout /t 1 /nobreak >nul
+            del "{}"
+            rename "{}" "{}"
+            start "" "{}"
+            del "%~f0"
+            "#,
+            self.current_exe.display(),
+            new_exe.display(),
+            self.current_exe.file_name().unwrap().to_string_lossy(),
+            self.current_exe.display()
         );
 
-        let response = self.client.get(&url)
-            .send().await
-            .map_err(|e| format!("Request failed: {}", e))?;
+        let script_path = self.install_dir.join("update.bat");
+        fs::write(&script_path, script).await?;
 
-        response.json().await
-            .map_err(|e| format!("JSON parse failed: {}", e))
+        Command::new("cmd")
+            .args(["/C", &script_path.to_string_lossy()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
+
+        Ok(())
     }
 
-    async fn get_expected_hash(&self, file_path: &str) -> Result<String, String> {
-        let manifest = self.fetch_manifest().await?;
-        manifest.files.iter()
-            .find(|f| f.path == file_path)
-            .map(|f| f.sha256.clone())
-            .ok_or_else(|| format!("File not in manifest: {}", file_path))
-    }
-
-    fn is_protected(&self, path: &str) -> bool {
-        let protected = [
-            "user_data/",
-            "config/settings.toml",
-            "saves/",
-            "custom_",
-        ];
-        protected.iter().any(|p| path.starts_with(p))
+    #[cfg(not(windows))]
+    async fn install_unix(&self, new_exe: &Path) -> Result<(), UpdateError> {
+        fs::rename(new_exe, &self.current_exe).await?;
+        Ok(())
     }
 }
 
+    /* USAGE
 
-
-/*
-USAGE EXAMPLE 
+// In your main.rs or wherever needed:
+mod updater;
 
 #[tokio::main]
 async fn main() {
-    let updater = GameUpdater::new(
-        "your_github/repo".to_string(),
-        "main".to_string(),
-        PathBuf::from("./game_files")
-    );
+    let updater = updater::GameUpdater::new(
+        "https://your-site.com/updates",
+        std::env::current_dir().unwrap()
+    ).unwrap();
 
-    // Detect what needs updating
-    match updater.detect_changes().await {
-        Ok(changed) => {
-            if changed.is_empty() {
-                println!("Game is up-to-date!");
-                return;
-            }
-            
-            println!("Files to update: {:?}", changed);
-            
-            // Perform the update
-            match updater.update_game(&changed).await {
-                Ok(count) => println!("Successfully updated {} files", count),
-                Err(e) => eprintln!("Update failed: {}", e),
-            }
-        },
-        Err(e) => eprintln!("Error detecting changes: {}", e),
+    match updater.run().await {
+        Ok(updated) if updated => {
+            println!("Restart to apply update!");
+            std::process::exit(0);
+        }
+        Err(e) => eprintln!("Update failed: {}", e),
+        _ => {} // No update needed
     }
-} 
+
+    // Run your game...
+}
+
 */
