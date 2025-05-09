@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = "1.0"
 bincode = "1.3"
 bytemuck = "1.14"
-bitflag = "0.10.1"
 bitflags = { version = "2.0", features = ["serde"] }
 crossbeam-channel = "0.5.15"
 egui = "0.26"
@@ -17,6 +16,7 @@ gl = "0.14"
 glam = "0.24"
 glutin = "0.31"
 glutin-winit = "0.4"
+glow = "0.12"  # Add this for egui_glow
 image = "0.25"
 lazy_static = "1.4.0"
 log = "0.4"
@@ -31,7 +31,6 @@ simple_logger = "4.3"
 thiserror = "1.0"
 thread_local = "1.1"
 winit = "0.29"
-
 rodio = "0.17"
 symphonia = { version = "0.5", features = ["mp3", "aac", "alac", "flac", "wav", "vorbis"] }
 
