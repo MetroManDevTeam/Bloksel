@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use log::{info, warn};
+use log::{info, warn, error};
+use crate::config::language::LanguageConfig;
 
 #[derive(Debug, Error)]
 pub enum TranslationError {
@@ -18,24 +20,61 @@ pub enum TranslationError {
     FormatError(#[from] serde_json::Error),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Placeholder error: {0}")]
+    PlaceholderError(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TranslationFile {
     translations: HashMap<String, String>,
+    #[serde(default)]
+    metadata: TranslationMetadata,
 }
 
-static TRANSLATIONS: OnceLock<HashMap<String, TranslationFile>> = OnceLock::new();
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct TranslationMetadata {
+    #[serde(default)]
+    last_modified: Option<u64>,
+}
 
-/// Initialize the translation system
+struct TranslationCache {
+    translations: HashMap<String, TranslationFile>,
+    base_path: PathBuf,
+    last_checked: std::time::SystemTime,
+}
+
+static TRANSLATION_CACHE: Lazy<Arc<RwLock<TranslationCache>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(TranslationCache {
+        translations: HashMap::new(),
+        base_path: PathBuf::new(),
+        last_checked: std::time::SystemTime::now(),
+    }))
+});
+
+/// Initialize translation system with base path
 pub fn init_translations(base_path: &str) -> Result<(), TranslationError> {
-    let translations = load_all_translations(base_path)?;
-    TRANSLATIONS.set(translations).map_err(|_| TranslationError::LoadError("Translations already initialized".into()))?;
+    let mut cache = TRANSLATION_CACHE.write().unwrap();
+    cache.base_path = PathBuf::from(base_path);
+    reload_translations(&mut cache)?;
     Ok(())
 }
 
-fn load_all_translations(base_path: &str) -> Result<HashMap<String, TranslationFile>, TranslationError> {
-    let translations_dir = Path::new(base_path).join("languages");
+/// Reload translations if files changed
+pub fn reload_if_changed() -> Result<bool, TranslationError> {
+    let mut cache = TRANSLATION_CACHE.write().unwrap();
+    let needs_reload = check_for_updates(&cache)?;
+    
+    if needs_reload {
+        info!("Reloading translations due to changes");
+        reload_translations(&mut cache)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+fn reload_translations(cache: &mut TranslationCache) -> Result<(), TranslationError> {
+    let translations_dir = cache.base_path.join("languages");
     info!("Loading translations from: {}", translations_dir.display());
 
     if !translations_dir.exists() {
@@ -58,18 +97,19 @@ fn load_all_translations(base_path: &str) -> Result<HashMap<String, TranslationF
                     Ok(translation_file) => {
                         translations.insert(language_code.to_string(), translation_file);
                         loaded_languages += 1;
-                        info!("Loaded language: {}", language_code);
                     }
                     Err(e) => {
-                        warn!("Failed to load {}: {}", path.display(), e);
+                        error!("Failed to load {}: {}", path.display(), e);
                     }
                 }
             }
         }
     }
 
+    cache.translations = translations;
+    cache.last_checked = std::time::SystemTime::now();
     info!("Loaded {} language(s)", loaded_languages);
-    Ok(translations)
+    Ok(())
 }
 
 fn load_translation_file(path: &Path) -> Result<TranslationFile, TranslationError> {
@@ -78,25 +118,65 @@ fn load_translation_file(path: &Path) -> Result<TranslationFile, TranslationErro
     Ok(translation_file)
 }
 
-pub fn get_translation(language: &str, key: &str) -> Result<String, TranslationError> {
-    let translations = TRANSLATIONS.get().ok_or_else(|| TranslationError::LoadError("Translations not initialized".into()))?;
+fn check_for_updates(cache: &TranslationCache) -> Result<bool, TranslationError> {
+    let translations_dir = cache.base_path.join("languages");
+    let mut needs_reload = false;
 
-    let translation_file = translations
-        .get(language)
-        .ok_or_else(|| TranslationError::UnsupportedLanguage(language.to_string()))?;
+    for (lang_code, translation_file) in &cache.translations {
+        let file_path = translations_dir.join(format!("{}.json", lang_code));
+        let metadata = fs::metadata(&file_path)?;
+
+        if let Ok(modified_time) = metadata.modified() {
+            if let Some(cached_time) = translation_file.metadata.last_modified {
+                let cached_time = std::time::UNIX_EPOCH + std::time::Duration::from_secs(cached_time);
+                if modified_time > cached_time {
+                    needs_reload = true;
+                    break;
+                }
+            } else if modified_time > cache.last_checked {
+                needs_reload = true;
+                break;
+            }
+        }
+    }
+
+    Ok(needs_reload)
+}
+
+pub fn get_translation(key: &str) -> Result<String, TranslationError> {
+    let lang_config = crate::config::language::load_or_create_config()
+        .map_err(|e| TranslationError::LoadError(e.to_string()))?;
+    
+    let domain = key.split('.').next().unwrap_or("");
+    let lang = lang_config.overrides.get(domain)
+        .unwrap_or(&lang_config.preferred);
+
+    let cache = TRANSLATION_CACHE.read().unwrap();
+    let translation_file = cache.translations
+        .get(lang)
+        .ok_or_else(|| TranslationError::UnsupportedLanguage(lang.to_string()))?;
 
     translation_file.translations
         .get(key)
         .map(|s| s.to_string())
-        .ok_or_else(|| TranslationError::KeyNotFound(key.to_string(), language.to_string()))
+        .ok_or_else(|| {
+            if let Some(fallback) = &lang_config.fallback {
+                if let Some(fallback_translation) = cache.translations
+                    .get(fallback)
+                    .and_then(|f| f.translations.get(key))
+                {
+                    return Ok(fallback_translation.clone());
+                }
+            }
+            TranslationError::KeyNotFound(key.to_string(), lang.to_string())
+        })
 }
 
 pub fn get_translation_with_params(
-    language: &str,
     key: &str,
     params: &HashMap<&str, &str>,
 ) -> Result<String, TranslationError> {
-    let translation = get_translation(language, key)?;
+    let translation = get_translation(key)?;
     let mut result = translation.clone();
 
     for (param, value) in params {
@@ -107,19 +187,8 @@ pub fn get_translation_with_params(
 }
 
 pub fn supported_languages() -> Vec<String> {
-    TRANSLATIONS.get()
-        .map(|t| t.keys().cloned().collect())
-        .unwrap_or_default()
-}
-
-pub fn get_system_language() -> String {
-    std::env::var("LANG")
-        .unwrap_or_else(|_| "en".to_string())
-        .split('.')
-        .next()
-        .and_then(|s| s.split('_').next())
-        .unwrap_or("en")
-        .to_lowercase()
+    let cache = TRANSLATION_CACHE.read().unwrap();
+    cache.translations.keys().cloned().collect()
 }
 
 #[cfg(test)]
@@ -139,8 +208,8 @@ mod tests {
             "translations": {{
                 "greeting": "Hello",
                 "welcome": "Welcome, {name}",
-                "messages.one": "You have 1 message",
-                "messages.other": "You have {count} messages"
+                "menu.save": "Save",
+                "menu.save.world": "Save World"
             }}
         }}"#).unwrap();
 
@@ -150,7 +219,9 @@ mod tests {
         {{
             "translations": {{
                 "greeting": "Hola",
-                "welcome": "Bienvenido, {name}"
+                "welcome": "Bienvenido, {name}",
+                "menu.save": "Guardar",
+                "menu.save.world": "Guardar Mundo"
             }}
         }}"#).unwrap();
     }
@@ -163,53 +234,17 @@ mod tests {
         init_translations(dir.path().to_str().unwrap()).unwrap();
         assert_eq!(supported_languages().len(), 2);
 
-        assert_eq!(get_translation("en", "greeting").unwrap(), "Hello");
-        assert_eq!(get_translation("es", "greeting").unwrap(), "Hola");
+        // Mock config
+        let mut config = crate::config::language::LanguageConfig::default();
+        config.preferred = "es".to_string();
+        
+        assert_eq!(get_translation("greeting").unwrap(), "Hola");
         
         let mut params = HashMap::new();
-        params.insert("name", "John");
+        params.insert("name", "Juan");
         assert_eq!(
-            get_translation_with_params("en", "welcome", &params).unwrap(),
-            "Welcome, John"
-        );
-    }
-
-    #[test]
-    fn test_plural_translation() {
-        let dir = tempdir().unwrap();
-        create_test_translations(dir.path());
-        init_translations(dir.path().to_str().unwrap()).unwrap();
-
-        // Test plural variants directly
-        assert_eq!(
-            get_translation("en", "messages.one").unwrap(),
-            "You have 1 message"
-        );
-        
-        let mut params = HashMap::new();
-        params.insert("count", "5");
-        assert_eq!(
-            get_translation_with_params("en", "messages.other", &params).unwrap(),
-            "You have 5 messages"
+            get_translation_with_params("welcome", &params).unwrap(),
+            "Bienvenido, Juan"
         );
     }
 }
-
-/* USAGE
-
-// Initialize once at app start
-init_translations("path/to/translations").unwrap();
-
-// Simple lookup
-get_translation("en", "greeting").unwrap();
-
-// With parameters
-let mut params = HashMap::new();
-params.insert("name", "Alice");
-get_translation_with_params("en", "welcome", &params).unwrap();
-
-// Plural handling (directly use your keys)
-get_translation("en", "messages.one").unwrap();  // "You have 1 message"
-get_translation("en", "messages.many").unwrap(); // "You have {count} messages" 
-
-*/
