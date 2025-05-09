@@ -4,9 +4,11 @@ pub mod game;
 pub mod gameplay;
 pub mod rendering;
 pub mod worldgen;
+pub mod language; 
 
 pub use chunksys::ChunkSysConfig;
 pub use core::EngineConfig;
 pub use gameplay::GameplayConfig;
 pub use rendering::RenderConfig;
 pub use worldgen::WorldGenConfig;
+pub use language::LanguageConfig;  
