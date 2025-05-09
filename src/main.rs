@@ -39,6 +39,7 @@ struct App {
     egui_ctx: Option<egui::Context>,
     egui_winit: Option<egui_winit::State>,
     egui_glow: Option<egui_glow::EguiGlow>,
+    glow_context: Option<std::rc::Rc<glow::Context>>, // Add this field
 }
 
 impl App {
@@ -117,44 +118,59 @@ impl App {
         }
 
         // Load loading screen texture
-        let loading_texture = Texture::from_file("assets/images/organization.png")?;
-
+        let loading_texture = match Texture::from_file("assets/images/organization.png") {
+    Ok(texture) => Some(texture),
+    Err(e) => {
+        log::error!("Failed to load loading texture: {}", e);
+        None
+    }
+};
         // Initialize egui
-        let egui_ctx = egui::Context::default());
+        let egui_ctx = egui::Context::default();
         let egui_winit = egui_winit::State::new(
-            egui_ctx.clone()
             &event_loop,
-            Some(gl_config.display().clone()),
+            Some(window.id()),
+            Some(&gl_display),
+            None,
         );
-        let painter = egui_glow::Painter::new(&gl_config.display(), None, None).unwrap();
-        let egui_glow = egui_glow::EguiGlow::new(egui_ctx, painter);
+        
+        // Create egui_glow with a glow context
+        let glow_context = unsafe {
+    std::rc::Rc::new(glow::Context::from_loader_function(|s| {
+        gl_display.get_proc_address(s) as *const _
+    }))
+};
+
+let egui_glow = egui_glow::EguiGlow::new(
+    egui_ctx.clone(),
+    egui_glow::Painter::with_rc_context(glow_context.clone()),
+);
 
         Ok((
-            Self {
-                window,
-                gl_context,
-                gl_surface,
-                engine: None,
-                loading_texture: Some(loading_texture),
-                loading_start: Instant::now(),
-                menu_state: MenuState::new(),
-                egui_ctx: Some(egui_glow.egui_ctx.clone()),
-                egui_winit: Some(egui_winit),
-                egui_glow: Some(egui_glow),
-            },
-            event_loop,
-        ))
+    Self {
+        window,
+        gl_context,
+        gl_surface,
+        engine: None,
+        loading_texture: Some(loading_texture),
+        loading_start: Instant::now(),
+        menu_state: MenuState::new(),
+        egui_ctx: Some(egui_ctx),
+        egui_winit: Some(egui_winit),
+        egui_glow: Some(egui_glow),
+        glow_context: Some(glow_context), // Store the glow context
+    },
+    event_loop,
+))
     }
 
     fn handle_window_event(&mut self, event: &WindowEvent<'_>) -> bool {
-    if let Some(egui_winit) = &mut self.egui_winit {
-        if let Some(egui_ctx) = &self.egui_ctx {
-            let response = egui_winit.on_window_event(&self.window, egui_ctx, event);
+        if let Some(egui_winit) = &mut self.egui_winit {
+            let response = egui_winit.on_window_event(&self.window, event);
             if response.consumed {
                 return true;
             }
         }
-    }
 
         match event {
             WindowEvent::CloseRequested => {
@@ -246,47 +262,60 @@ impl App {
         // End egui frame and render
         if let (Some(egui_ctx), Some(egui_glow)) = (&self.egui_ctx, &mut self.egui_glow) {
             let full_output = egui_ctx.end_frame();
-            let clipped_primitives = egui_ctx.tessellate(full_output.shapes);
+            let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
             
-            if let Some(glow) = egui_glow.painter.gl() {
-                unsafe {
-                    gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-                    gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-                }
-            }
+            let screen_size = [
+                self.window.inner_size().width,
+                self.window.inner_size().height
+            ];
             
             egui_glow.paint(
-    &self.window,
-    [self.window.inner_size().width, self.window.inner_size().height],
-    self.window.scale_factor(),
-    clipped_primitives,
-    &full_output.textures_delta,
-);
+                screen_size,
+                self.window.scale_factor() as f32,
+                &clipped_primitives,
+                &full_output.textures_delta,
+                false // Manage GL state ourselves
+            );
+            
+            // Handle platform output (clipboard, etc.)
+            if let Some(egui_winit) = &mut self.egui_winit {
+                egui_winit.handle_platform_output(&self.window, egui_ctx, full_output.platform_output);
+            }
         }
 
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
     }
 
     fn render_loading_screen(&self) {
-        if let Some(texture) = &self.loading_texture {
-            unsafe {
-                gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-                
-                gl::Enable(gl::TEXTURE_2D);
-                texture.bind();
-                
-                gl::Begin(gl::QUADS);
-                gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(-0.5, -0.5);
-                gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.5, -0.5);
-                gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.5, 0.5);
-                gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(-0.5, 0.5);
-                gl::End();
-                
-                gl::Disable(gl::TEXTURE_2D);
-            }
+    if let Some(texture) = &self.loading_texture {
+        unsafe {
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            
+            // Modern OpenGL doesn't use gl::TEXTURE_2D this way
+            // Instead, bind the texture properly
+            texture.bind();
+            
+            // Consider using a shader-based approach instead of immediate mode
+            // Immediate mode (gl::Begin/End) is deprecated in modern OpenGL
+            // Here's a simple substitute that follows modern practices:
+            
+            // 1. Use a simple shader program for rendering textured quads
+            // 2. Use VAO/VBO instead of immediate mode
+            // 3. Draw using gl::DrawArrays or gl::DrawElements
+            
+            // For now, if you need to keep immediate mode for quick development:
+            gl::Enable(gl::TEXTURE_2D);
+            gl::Begin(gl::QUADS);
+            gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(-0.5, -0.5);
+            gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.5, -0.5);
+            gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.5, 0.5);
+            gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(-0.5, 0.5);
+            gl::End();
+            gl::Disable(gl::TEXTURE_2D);
         }
     }
+}
 }
 
 fn main() -> Result<()> {
@@ -295,7 +324,7 @@ fn main() -> Result<()> {
 
     let (mut app, event_loop) = App::new()?;
 
-    event_loop.run(move |event, _| {
+    event_loop.run(move |event, window_target| {
         let consumed = match &event {
             Event::WindowEvent { event, .. } => app.handle_window_event(event),
             _ => false,
