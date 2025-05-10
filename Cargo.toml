@@ -16,7 +16,7 @@ gl = { version = "0.14.0"}
 glam = "0.24"
 glutin = "0.31"
 glutin-winit = "0.4"
-glow = "0.12"  
+glow = "0.13"  
 image = "0.25"
 lazy_static = "1.4.0"
 log = "0.4"
