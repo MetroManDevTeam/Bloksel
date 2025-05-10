@@ -44,6 +44,8 @@ struct App {
     egui_winit: Option<egui_winit::State>,
     glow_context: Option<Arc<glow::Context>>,
      painter: Option<egui_glow::Painter>,
+    menu_state: MenuState, 
+
 }
 
 impl App {
@@ -164,6 +166,7 @@ impl App {
                 egui_winit: Some(egui_winit),
                 glow_context: Some(glow_context),
                 painter: None,
+                menu_state: MenuState::new() ,  
             },
             event_loop,
         ))
@@ -291,6 +294,49 @@ impl App {
             }
         }
 
+        
+    // Begin egui frame
+    if let (Some(egui_ctx), Some(egui_winit)) = (&self.egui_ctx, &mut self.egui_winit) {
+        let raw_input = egui_winit.take_egui_input(&self.window);
+        egui_ctx.begin_frame(raw_input);
+
+        // Initialize painter if needed
+        if self.painter.is_none() {
+            if let Some(glow_context) = &self.glow_context {
+                self.painter = Some(
+                    egui_glow::Painter::new(glow_context.clone(), "", None).unwrap()
+                );
+            }
+        }
+
+        // Show the appropriate menu screen
+        if let Some(engine) = &mut self.engine {
+            self.menu_state.show(egui_ctx, engine);
+        }
+
+        let full_output = egui_ctx.end_frame();
+        let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+
+        if let Some(painter) = &mut self.painter {
+            painter.paint_and_update_textures(
+                [self.window.inner_size().width, self.window.inner_size().height],
+                self.window.scale_factor() as f32,
+                &clipped_primitives,
+                &full_output.textures_delta,
+            );
+        }
+
+        if let Some(egui_winit) = &mut self.egui_winit {
+            egui_winit.handle_platform_output(&self.window, full_output.platform_output);
+        }
+    }
+
+    unsafe {
+        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+    }
+
+            
+
         self.gl_surface.swap_buffers(&self.gl_context).unwrap();
     }
 
@@ -359,40 +405,37 @@ impl App {
     }
 
     fn cleanup(&mut self) {
-        if let Some(mut painter) = self.painter.take() {
-            // Make sure GL context is current before destroying
-            let _ = self.gl_context.make_current(&self.gl_surface);
-            
-            painter.destroy();
-        }
+    if let Some(painter) = self.painter.take() {
+        let _ = self.gl_context.make_current(&self.gl_surface);
+        painter.destroy();
+    }
+
     }
 }
 
 fn main() -> Result<()> {
     let (mut app, event_loop) = App::new()?;
 
-    event_loop.run(move |event, _| {
-        let consumed = match &event {
-            Event::WindowEvent { event, .. } => app.handle_window_event(event),
-            _ => false,
-        };
-
-        if !consumed {
-            match event {
-                Event::WindowEvent {
-                    event: WindowEvent::RedrawRequested,
-                    ..
-                } => app.update(),
-                Event::AboutToWait => app.window.request_redraw(),
-                _ => (),
-
-                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-            app.cleanup();
-           
-        },
+    event_loop.run(move |event, elwt| {
+    match event {
+        Event::WindowEvent { event, .. } => {
+            if app.handle_window_event(&event) {
+                if let WindowEvent::CloseRequested = event {
+                    app.cleanup();
+                    elwt.exit();
+                }
             }
         }
-    })?;
+        Event::AboutToWait => {
+            app.window.request_redraw();
+        }
+        Event::RedrawRequested => {
+            //app.cleanup();
+            app.update();
+        }
+        _ => (),
+    }
+})?;
 
     Ok(())
 }
