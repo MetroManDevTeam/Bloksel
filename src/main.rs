@@ -468,7 +468,12 @@ fn main() -> Result<()> {
                 }
             }
             Event::AboutToWait => {
-                app.window.request_redraw();
+                // Check exit condition before requesting redraw
+                    if !app.engine.running.load(Ordering::Relaxed) {
+                        *control_flow = ControlFlow::Exit;
+                        return;
+                    }
+                    app.window.request_redraw();
             }
             Event::RedrawRequested(..) => {
                 if let Err(e) = app.update() {
@@ -481,6 +486,11 @@ fn main() -> Result<()> {
                         elwt.exit();
                     }
                 }
+            }
+            Event::LoopExiting => {
+                    app.cleanup();
+                        
+            
             }
             _ => (),
         }
