@@ -1,7 +1,8 @@
+
 use anyhow::Result;
 use glutin::{
     config::ConfigTemplateBuilder,
-    context::{ContextAttributesBuilder, PossiblyCurrentContext},
+    context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext, Version},
     display::{GetGlDisplay, GlDisplay},
     prelude::*,
     surface::{Surface, WindowSurface},
@@ -10,7 +11,12 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use log::{info, LevelFilter};
 use raw_window_handle::HasRawWindowHandle;
 use simple_logger::SimpleLogger;
-use std::{ffi::CString, num::NonZeroU32, path::Path, time::Instant};
+use std::{
+    ffi::{CStr, CString},
+    num::NonZeroU32,
+    sync::Arc,
+    time::Instant,
+};
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -24,7 +30,7 @@ use bloksel::{
         gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
     },
     engine::VoxelEngine,
-    menu::{MenuState, MenuScreen},
+    ui::menu::{MenuState, MenuScreen},
     render::texture::Texture,
 };
 
@@ -38,12 +44,16 @@ struct App {
     menu_state: MenuState,
     egui_ctx: Option<egui::Context>,
     egui_winit: Option<egui_winit::State>,
-    egui_glow: Option<egui_glow::EguiGlow>,
-    glow_context: Option<std::rc::Rc<glow::Context>>, // Add this field
+    glow_context: Option<Arc<glow::Context>>,
 }
+
+
 
 impl App {
     fn new() -> Result<(Self, EventLoop<()>)> {
+        SimpleLogger::new().with_level(LevelFilter::Info).init()?;
+        info!("Initializing application...");
+
         let event_loop = EventLoopBuilder::new().build()?;
         let window_builder = WindowBuilder::new()
             .with_title("Bloksel")
@@ -62,7 +72,7 @@ impl App {
                 configs
                     .reduce(|accum, config| {
                         let transparency_check = config.supports_transparency().unwrap_or(false)
-                            & !accum.supports_transparency().unwrap_or(false);
+                            && !accum.supports_transparency().unwrap_or(false);
                         if transparency_check || config.num_samples() > accum.num_samples() {
                             config
                         } else {
@@ -77,7 +87,8 @@ impl App {
         let raw_window_handle = window.raw_window_handle();
 
         let context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(glutin::context::ContextApi::OpenGl(None))
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
+            .with_profile(glutin::config::GlProfile::Compatibility)
             .build(Some(raw_window_handle));
 
         let gl_display = gl_config.display();
@@ -119,52 +130,52 @@ impl App {
 
         // Load loading screen texture
         let loading_texture = match Texture::from_file("assets/images/organization.png") {
-    Ok(texture) => Some(texture),
-    Err(e) => {
-        log::error!("Failed to load loading texture: {}", e);
-        None
-    }
-};
+            Ok(texture) => Some(texture),
+            Err(e) => {
+                log::error!("Failed to load loading texture: {}", e);
+                None
+            }
+        };
+
         // Initialize egui
         let egui_ctx = egui::Context::default();
         let egui_winit = egui_winit::State::new(
+            egui_ctx.clone(),
+            egui::ViewportId::from_window_id(window.id()),
             &event_loop,
-            Some(window.id()),
-            Some(&gl_display),
+            None,
             None,
         );
-        
-        // Create egui_glow with a glow context
-        let glow_context = unsafe {
-    std::rc::Rc::new(glow::Context::from_loader_function(|s| {
-        gl_display.get_proc_address(s) as *const _
-    }))
-};
 
-let egui_glow = egui_glow::EguiGlow::new(
-    egui_ctx.clone(),
-    egui_glow::Painter::with_rc_context(glow_context.clone()),
-);
+        // Create glow context
+        let glow_context = Arc::new(unsafe {
+            glow::Context::from_loader_function(|s| {
+                let c_str = CStr::from_ptr(s.as_ptr() as *const i8);
+                gl_display.get_proc_address(c_str) as *const _
+            })
+        });
 
         Ok((
-    Self {
-        window,
-        gl_context,
-        gl_surface,
-        engine: None,
-        loading_texture: Some(loading_texture),
-        loading_start: Instant::now(),
-        menu_state: MenuState::new(),
-        egui_ctx: Some(egui_ctx),
-        egui_winit: Some(egui_winit),
-        egui_glow: Some(egui_glow),
-        glow_context: Some(glow_context), // Store the glow context
-    },
-    event_loop,
-))
-    }
+            Self {
+                window,
+                gl_context,
+                gl_surface,
+                engine: None,
+                loading_texture,
+                loading_start: Instant::now(),
+                menu_state: MenuState::new(),
+                egui_ctx: Some(egui_ctx),
+                egui_winit: Some(egui_winit),
+                glow_context: Some(glow_context),
+            },
+            event_loop,
+        ));
+    
+        
+        
+    
 
-    fn handle_window_event(&mut self, event: &WindowEvent<'_>) -> bool {
+    fn handle_window_event(&mut self, event: &WindowEvent) -> bool {
         if let Some(egui_winit) = &mut self.egui_winit {
             let response = egui_winit.on_window_event(&self.window, event);
             if response.consumed {
@@ -173,10 +184,7 @@ let egui_glow = egui_glow::EguiGlow::new(
         }
 
         match event {
-            WindowEvent::CloseRequested => {
-                // TODO: Handle window close
-                true
-            }
+            WindowEvent::CloseRequested => true,
             WindowEvent::Resized(size) => {
                 self.gl_surface.resize(
                     &self.gl_context,
@@ -209,11 +217,9 @@ let egui_glow = egui_glow::EguiGlow::new(
 
         match self.menu_state.current_screen {
             MenuScreen::Loading => {
-                // Show loading screen if engine is not initialized
                 if self.engine.is_none() {
                     self.render_loading_screen();
                     
-                    // Initialize engine after minimum loading time
                     if self.loading_start.elapsed().as_secs() >= 3 {
                         match VoxelEngine::new(EngineConfig {
                             world_seed: 12345,
@@ -238,28 +244,18 @@ let egui_glow = egui_glow::EguiGlow::new(
                                 self.loading_texture = None;
                                 self.menu_state.current_screen = MenuScreen::Main;
                             }
-                            Err(e) => {
-                                log::error!("Failed to initialize engine: {}", e);
-                                // TODO: Handle error
-                            }
+                            Err(e) => log::error!("Engine initialization failed: {}", e),
                         }
-                    }
-                } else {
-                    // Show egui loading screen
-                    if let Some(egui_ctx) = &self.egui_ctx {
-                        self.menu_state.show(egui_ctx, self.engine.as_mut().unwrap());
                     }
                 }
             }
             _ => {
-                // Show menu UI
                 if let Some(egui_ctx) = &self.egui_ctx {
                     self.menu_state.show(egui_ctx, self.engine.as_mut().unwrap());
                 }
             }
         }
 
-        // End egui frame and render
         if let (Some(egui_ctx), Some(egui_glow)) = (&self.egui_ctx, &mut self.egui_glow) {
             let full_output = egui_ctx.end_frame();
             let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
@@ -274,12 +270,11 @@ let egui_glow = egui_glow::EguiGlow::new(
                 self.window.scale_factor() as f32,
                 &clipped_primitives,
                 &full_output.textures_delta,
-                false // Manage GL state ourselves
             );
             
-            // Handle platform output (clipboard, etc.)
             if let Some(egui_winit) = &mut self.egui_winit {
-                egui_winit.handle_platform_output(&self.window, egui_ctx, full_output.platform_output);
+                egui_winit.handle_platform_output(&self.window, full_output.platform_output);
+
             }
         }
 
@@ -287,41 +282,30 @@ let egui_glow = egui_glow::EguiGlow::new(
     }
 
     fn render_loading_screen(&self) {
-    if let Some(texture) = &self.loading_texture {
-        unsafe {
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            
-            // Modern OpenGL doesn't use gl::TEXTURE_2D this way
-            // Instead, bind the texture properly
-            texture.bind();
-            
-            // Consider using a shader-based approach instead of immediate mode
-            // Immediate mode (gl::Begin/End) is deprecated in modern OpenGL
-            // Here's a simple substitute that follows modern practices:
-            
-            // 1. Use a simple shader program for rendering textured quads
-            // 2. Use VAO/VBO instead of immediate mode
-            // 3. Draw using gl::DrawArrays or gl::DrawElements
-            
-            // For now, if you need to keep immediate mode for quick development:
-            gl::Enable(gl::TEXTURE_2D);
-            gl::Begin(gl::QUADS);
-            gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(-0.5, -0.5);
-            gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.5, -0.5);
-            gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.5, 0.5);
-            gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(-0.5, 0.5);
-            gl::End();
-            gl::Disable(gl::TEXTURE_2D);
+        if let Some(texture) = &self.loading_texture {
+            unsafe {
+                gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+                
+                texture.bind();
+                gl::Enable(gl::TEXTURE_2D);
+                
+                gl::Begin(gl::QUADS);
+                gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(-0.5, -0.5);
+                gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.5, -0.5);
+                gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.5, 0.5);
+                gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(-0.5, 0.5);
+                gl::End();
+                
+                gl::Disable(gl::TEXTURE_2D);
+            }
         }
     }
 }
+
 }
 
 fn main() -> Result<()> {
-    SimpleLogger::new().with_level(LevelFilter::Info).init()?;
-    info!("Starting voxel engine...");
-
     let (mut app, event_loop) = App::new()?;
 
     event_loop.run(move |event, window_target| {
@@ -335,12 +319,8 @@ fn main() -> Result<()> {
                 Event::WindowEvent {
                     event: WindowEvent::RedrawRequested,
                     ..
-                } => {
-                    app.update();
-                }
-                Event::AboutToWait => {
-                    app.window.request_redraw();
-                }
+                } => app.update(),
+                Event::AboutToWait => app.window.request_redraw(),
                 _ => (),
             }
         }
