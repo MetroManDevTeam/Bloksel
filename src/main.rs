@@ -45,6 +45,7 @@ struct App {
     glow_context: Option<Arc<glow::Context>>,
      painter: Option<egui_glow::Painter>,
     menu_state: MenuState, 
+    is_loading: bool, 
 
 }
 
@@ -166,7 +167,8 @@ impl App {
                 egui_winit: Some(egui_winit),
                 glow_context: Some(glow_context),
                 painter: None,
-                menu_state: MenuState::new() ,  
+                menu_state: MenuState::new(),  
+                is_loading: true, 
             },
             event_loop,
         ))
@@ -197,211 +199,125 @@ impl App {
         }
     }
 
+
     fn update(&mut self) {
-        // Begin egui frame
-        if let (Some(egui_ctx), Some(egui_winit)) = (&self.egui_ctx, &mut self.egui_winit) {
-            let raw_input = egui_winit.take_egui_input(&self.window);
-            egui_ctx.begin_frame(raw_input);
-
-            if self.painter.is_none() {
-            self.painter = Some(egui_glow::Painter::new(
-                 self.glow_context.clone().expect("Failed"),
-                 
-                 "",
-                 None,
-
-             ).unwrap());
-            
-        }
-        }
-
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
-
-        // Render loading screen or main menu
-        if self.engine.is_none() {
-            self.render_loading_screen();
-            
-            if self.loading_start.elapsed().as_secs() >= 3 {
-                match VoxelEngine::new(EngineConfig {
-                    world_seed: 12345,
-                    render_distance: 8,
-                    lod_levels: [4, 8, 16],
-                    chunk_size: 32,
-                    texture_atlas_size: 1024,
-                    max_chunk_pool_size: 1000,
-                    vsync: true,
-                    async_loading: true,
-                    fov: 70.0,
-                    view_distance: 1000.0,
-                    save_interval: 300.0,
-                    terrain: TerrainConfig::default(),
-                    gameplay: GameplayConfig::default(),
-                    rendering: RenderConfig::default(),
-                    chunksys: ChunkSysConfig::default(),
-                    worldgen: WorldGenConfig::default(),
-                }) {
-                    Ok(engine) => {
-                        self.engine = Some(engine);
-                        self.loading_texture = None;
-                    }
-                    Err(e) => log::error!("Engine initialization failed: {}", e),
-                }
-            }
-        }
-
-        if let (Some(egui_ctx), Some(glow_context)) = (&self.egui_ctx, &self.glow_context) {
-            let full_output = egui_ctx.end_frame();
-            let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
-            
-            let screen_size = [
-                self.window.inner_size().width,
-                self.window.inner_size().height
-            ];
-            
-            let mut painter = egui_glow::Painter::new(
-                 glow_context.clone(),
-                 
-                 "",
-                 None,
-
-             ).unwrap();
-            
-            painter.paint_and_update_textures(
-                screen_size,
-                self.window.scale_factor() as f32,
-                &clipped_primitives,  // Pass as reference
-                &full_output.textures_delta,
-            );
-
-            if let Some(painter) = &mut self.painter {
-            let full_output = egui_ctx.end_frame();
-            let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
-            
-            painter.paint_and_update_textures(
-                [self.window.inner_size().width, self.window.inner_size().height],
-                self.window.scale_factor() as f32,
-                &clipped_primitives,
-                &full_output.textures_delta,
-            );
-            }
-
-            
-            
-            if let Some(egui_winit) = &mut self.egui_winit {
-                egui_winit.handle_platform_output(&self.window, full_output.platform_output);
-            }
-        }
-
-        
-    // Begin egui frame
-    if let (Some(egui_ctx), Some(egui_winit)) = (&self.egui_ctx, &mut self.egui_winit) {
-        let raw_input = egui_winit.take_egui_input(&self.window);
-        egui_ctx.begin_frame(raw_input);
-
-        // Initialize painter if needed
-        if self.painter.is_none() {
-            if let Some(glow_context) = &self.glow_context {
-                self.painter = Some(
-                    egui_glow::Painter::new(glow_context.clone(), "", None).unwrap()
-                );
-            }
-        }
-
-        // Show the appropriate menu screen
-        if let Some(engine) = &mut self.engine {
-            self.menu_state.show(egui_ctx, engine);
-        }
-
-        let full_output = egui_ctx.end_frame();
-        let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
-
-        if let Some(painter) = &mut self.painter {
-            painter.paint_and_update_textures(
-                [self.window.inner_size().width, self.window.inner_size().height],
-                self.window.scale_factor() as f32,
-                &clipped_primitives,
-                &full_output.textures_delta,
-            );
-        }
-
-        if let Some(egui_winit) = &mut self.egui_winit {
-            egui_winit.handle_platform_output(&self.window, full_output.platform_output);
-        }
-    }
-
+    // Clear the screen
     unsafe {
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 
-            
-
-        self.gl_surface.swap_buffers(&self.gl_context).unwrap();
-    }
-
-    fn render_loading_screen(&self) {
-        if let Some(texture) = &self.loading_texture {
-            unsafe {
-                gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-                
-                gl::Enable(gl::TEXTURE_2D);
-                texture.bind();
-                
-                // Modern OpenGL rendering of a quad with texture
-                let vertices: [f32; 20] = [
-                    // positions   // texture coords
-                    -0.5, -0.5, 0.0, 0.0, 0.0,
-                    0.5, -0.5, 0.0, 1.0, 0.0,
-                    0.5,  0.5, 0.0, 1.0, 1.0,
-                    -0.5,  0.5, 0.0, 0.0, 1.0,
-                ];
-                
-                let mut vao = 0;
-                let mut vbo = 0;
-                gl::GenVertexArrays(1, &mut vao);
-                gl::GenBuffers(1, &mut vbo);
-                
-                gl::BindVertexArray(vao);
-                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (vertices.len() * std::mem::size_of::<f32>()) as isize,
-                    vertices.as_ptr() as *const _,
-                    gl::STATIC_DRAW,
-                );
-                
-                // Position attribute
-                gl::VertexAttribPointer(
-                    0,
-                    3,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    5 * std::mem::size_of::<f32>() as i32,
-                    std::ptr::null(),
-                );
-                gl::EnableVertexAttribArray(0);
-                
-                // Texture coordinate attribute
-                gl::VertexAttribPointer(
-                    1,
-                    2,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    5 * std::mem::size_of::<f32>() as i32,
-                    (3 * std::mem::size_of::<f32>()) as *const _,
-                );
-                gl::EnableVertexAttribArray(1);
-                
-                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
-                
-                gl::DeleteVertexArrays(1, &vao);
-                gl::DeleteBuffers(1, &vbo);
-                
-                gl::Disable(gl::TEXTURE_2D);
+    // Handle loading state
+    if self.engine.is_none() {
+        self.render_loading_screen();
+        
+        if self.loading_start.elapsed().as_secs() >= 3 {
+            match VoxelEngine::new(EngineConfig {
+                world_seed: 12345,
+                render_distance: 8,
+                lod_levels: [4, 8, 16],
+                chunk_size: 32,
+                texture_atlas_size: 1024,
+                max_chunk_pool_size: 1000,
+                vsync: true,
+                async_loading: true,
+                fov: 70.0,
+                view_distance: 1000.0,
+                save_interval: 300.0,
+                terrain: TerrainConfig::default(),
+                gameplay: GameplayConfig::default(),
+                rendering: RenderConfig::default(),
+                chunksys: ChunkSysConfig::default(),
+                worldgen: WorldGenConfig::default(),
+            }) {
+                Ok(engine) => {
+                    self.engine = Some(engine);
+                    self.loading_texture = None;
+                }
+                Err(e) => log::error!("Engine initialization failed: {}", e),
             }
         }
+    } 
+    // Handle menu state after loading completes
+    else {
+        if let (Some(egui_ctx), Some(egui_winit)) = (&self.egui_ctx, &mut self.egui_winit) {
+            let raw_input = egui_winit.take_egui_input(&self.window);
+            egui_ctx.begin_frame(raw_input);
+
+            // Initialize painter if needed
+            if self.painter.is_none() {
+                if let Some(glow_context) = &self.glow_context {
+                    self.painter = Some(
+                        egui_glow::Painter::new(glow_context.clone(), "", None).unwrap()
+                    );
+                }
+            }
+
+            // Show menu
+            if let Some(engine) = &mut self.engine {
+                self.menu_state.show(egui_ctx, engine);
+            }
+
+            let full_output = egui_ctx.end_frame();
+            let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+
+            if let Some(painter) = &mut self.painter {
+                painter.paint_and_update_textures(
+                    [self.window.inner_size().width, self.window.inner_size().height],
+                    self.window.scale_factor() as f32,
+                    &clipped_primitives,
+                    &full_output.textures_delta,
+                );
+            }
+
+            if let Some(egui_winit) = &mut self.egui_winit {
+                egui_winit.handle_platform_output(&self.window, full_output.platform_output);
+            }
+        }
+    }
+
+    self.gl_surface.swap_buffers(&self.gl_context).unwrap();
+}
+
+
+    fn render_loading_screen(&self) {
+    if let Some(texture) = &self.loading_texture {
+        unsafe {
+            // Set up orthogonal projection
+            gl::MatrixMode(gl::PROJECTION);
+            gl::LoadIdentity();
+            gl::Ortho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+            gl::MatrixMode(gl::MODELVIEW);
+            gl::LoadIdentity();
+
+            gl::Enable(gl::TEXTURE_2D);
+            texture.bind();
+
+            // Simple quad rendering
+            gl::Begin(gl::QUADS);
+            gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(0.2, 0.2);
+            gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.8, 0.2);
+            gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.8, 0.8);
+            gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(0.2, 0.8);
+            gl::End();
+
+            gl::Disable(gl::TEXTURE_2D);
+        }
+    } else {
+        // Fallback loading text
+        unsafe {
+            gl::Color3f(1.0, 1.0, 1.0);
+            gl::RasterPos2f(0.4, 0.5);
+            for c in "Loading...".chars() {
+                glutin::glutin::glutBitmapCharacter(
+                    glutin::glutin::glutBitmap8By13(),
+                    c as u8
+                );
+            }
+        }
+    }
+}
+
+    
     }
 
     fn cleanup(&mut self) {
