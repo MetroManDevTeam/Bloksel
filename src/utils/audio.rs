@@ -14,6 +14,8 @@ use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use thiserror::Error;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::cell::{RefCell, RefMut};
+use std::ops::{Deref, DerefMut};
 
 // 1. Error Types ===============================================
 
@@ -64,11 +66,21 @@ impl Default for AudioSettings {
 
 // 3. Audio Handle ==============================================
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AudioHandle {
     id: usize,
     sink: Arc<Mutex<Option<Sink>>>,
-    volume: Arc<AtomicUsize>, // Stored as u16 fixed-point (0.0-1.0)
+    volume: Arc<AtomicUsize>,
+}
+
+// Manual Debug implementation that skips the sink
+impl std::fmt::Debug for AudioHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioHandle")
+            .field("id", &self.id)
+            .field("volume", &self.volume.load(Ordering::Relaxed))
+            .finish()
+    }
 }
 
 impl AudioHandle {
@@ -117,6 +129,7 @@ pub struct MusicSettings {
 
 // 5. Main Audio Player =========================================
 
+//#[derive(Clone)]
 pub struct AudioPlayer {
     _stream: OutputStream, // Kept to prevent the stream from being dropped
     stream_handle: rodio::OutputStreamHandle,
@@ -126,6 +139,25 @@ pub struct AudioPlayer {
     next_sfx_id: AtomicUsize,
     music_queue: RwLock<VecDeque<(PathBuf, MusicSettings)>>,
     current_music: RwLock<Option<(PathBuf, MusicSettings)>>,
+}
+
+impl Clone for AudioPlayer {
+    fn clone(&self) -> Self {
+        // Create new output stream (can't clone existing one)
+        let (_stream, stream_handle) = OutputStream::try_default()
+            .expect("Failed to create audio stream");
+        
+        Self {
+            _stream,
+            stream_handle,
+            music_sink: None, // Can't clone sinks - must create new when needed
+            settings: RwLock::new(self.settings.read().clone()),
+            sfx_handles: RwLock::new(self.sfx_handles.read().clone()),
+            next_sfx_id: AtomicUsize::new(self.next_sfx_id.load(Ordering::Relaxed)),
+            music_queue: RwLock::new(self.music_queue.read().clone()),
+            current_music: RwLock::new(self.current_music.read().clone()),
+        }
+    }
 }
 
 impl AudioPlayer {
@@ -167,22 +199,14 @@ impl AudioPlayer {
         
         // Load and play the source
         let file = File::open(path).map_err(|_| AudioError::FileNotFound(path.to_path_buf()))?;
+         
         let source = Decoder::new(BufReader::new(file))
             .map_err(|_| AudioError::InvalidFormat)?;
-            
-        // Apply settings
-        let mut processed_source = source.convert_samples::<f32>();
-        
-        if let Some(start_time) = settings.start_time {
-            processed_source = processed_source.skip_duration(start_time);
-        }
-        
-        if settings.looping {
-            processed_source = processed_source.repeat_infinite();
-        }
-        
-        sink.append(processed_source);
-        self.music_sink = Some(sink);
+    
+        // Explicitly specify f32 as the target sample type
+        sink.append(source.convert_samples::<f32>());
+
+
         
         // Update current music
         *self.current_music.write() = Some((path.to_path_buf(), settings));
@@ -195,14 +219,20 @@ impl AudioPlayer {
         Ok(())
     }
 
-    pub fn skip_to_next(&mut self) -> Result<(), AudioError> {
+   pub fn skip_to_next(&mut self) -> Result<(), AudioError> {
+    // Extract the next item from the queue in a separate scope
+    let next = {
         let mut queue = self.music_queue.write();
-        if let Some((path, settings)) = queue.pop_front() {
-            self.play_music(&path, settings)
-        } else {
-            Err(AudioError::SoundNotFound)
-        }
+        queue.pop_front()
+    };
+    
+    // Now we can mutate self since the queue lock is released
+    if let Some((path, settings)) = next {
+        self.play_music(&path, settings)
+    } else {
+        Err(AudioError::SoundNotFound)
     }
+}
 
     pub fn stop_music(&mut self) {
         if let Some(sink) = self.music_sink.take() {
@@ -249,7 +279,7 @@ impl AudioPlayer {
         let final_volume = settings.master_volume * settings.sfx_volume * volume;
         sink.set_volume(final_volume);
             
-        sink.append(source.convert_samples());
+        sink.append(source.convert_samples::<f32>());
         
         let id = self.next_sfx_id.fetch_add(1, Ordering::Relaxed);
         let sink_arc = Arc::new(Mutex::new(Some(sink)));
@@ -280,7 +310,7 @@ impl AudioPlayer {
         let final_volume = settings.master_volume * settings.voice_volume;
         sink.set_volume(final_volume);
             
-        sink.append(source.convert_samples());
+        sink.append(source.convert_samples::<f32>());
         
         let id = self.next_sfx_id.fetch_add(1, Ordering::Relaxed);
         let sink_arc = Arc::new(Mutex::new(Some(sink)));
@@ -371,26 +401,30 @@ impl AudioPlayer {
 
 // 6. Global Audio System =======================================
 
-lazy_static! {
-    static ref AUDIO_SYSTEM: RwLock<Option<AudioPlayer>> = RwLock::new(None);
+
+thread_local! {
+    static AUDIO_SYSTEM: RefCell<Option<AudioPlayer>> = RefCell::new(None);
 }
 
 pub fn init_audio(settings: AudioSettings) -> Result<(), AudioError> {
-    let mut system = AUDIO_SYSTEM.write();
-    if system.is_some() {
-        return Ok(()); // Already initialized
-    }
-    *system = Some(AudioPlayer::new(settings)?);
-    Ok(())
+    AUDIO_SYSTEM.with(|system| {
+        if system.borrow().is_some() {
+            return Ok(());
+        }
+        *system.borrow_mut() = Some(AudioPlayer::new(settings)?);
+        Ok(())
+    })
 }
 
-pub fn get_audio() -> Result<RwLockReadGuard<'static, Option<AudioPlayer>>, AudioError> {
-    Ok(AUDIO_SYSTEM.read())
+pub fn get_audio() -> Result<AudioPlayer, AudioError> {
+    AUDIO_SYSTEM.with(|system| {
+        // Use Option::take() to move the AudioPlayer out
+        system.borrow_mut()
+            .take()
+            .ok_or(AudioError::NotInitialized)
+    })
 }
 
-pub fn get_audio_mut() -> Result<RwLockWriteGuard<'static, Option<AudioPlayer>>, AudioError> {
-    Ok(AUDIO_SYSTEM.write())
-}
 
 // 7. Utility Functions =========================================
 
@@ -406,12 +440,23 @@ pub fn create_music_settings(
     }
 }
 
+pub fn with_audio_mut<F, R>(f: F) -> Result<R, AudioError>
+where
+    F: FnOnce(&mut AudioPlayer) -> Result<R, AudioError>,
+{
+    AUDIO_SYSTEM.with(|system| {
+        let mut borrow = system.borrow_mut();
+        match borrow.as_mut() {
+            Some(audio) => f(audio),
+            None => Err(AudioError::NotInitialized),
+        }
+    })
+}
+
 // 8. Test Sound ================================================
 
 pub fn play_test_sound() -> Result<(), AudioError> {
-    let audio = get_audio()?;
-    
-    if let Some(audio) = audio.as_ref() {
+    with_audio_mut(|audio| {
         let sink = Sink::try_new(&audio.stream_handle)
             .map_err(|_| AudioError::DeviceError)?;
         
@@ -421,7 +466,5 @@ pub fn play_test_sound() -> Result<(), AudioError> {
         
         sink.append(source);
         Ok(())
-    } else {
-        Err(AudioError::NotInitialized)
-    }
-    }
+    })
+}

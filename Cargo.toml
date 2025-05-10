@@ -11,7 +11,7 @@ bitflags = { version = "2.0", features = ["serde"] }
 crossbeam-channel = "0.5.15"
 egui = "0.26"
 egui-winit = "0.26"
-egui-glow = "0.26"
+egui_glow = "0.26"
 gl = "0.14"
 glam = "0.24"
 glutin = "0.31"
