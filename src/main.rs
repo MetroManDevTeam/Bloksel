@@ -1,8 +1,4 @@
-// Include the generated OpenGL bindings
-#[allow(unused_imports)]
-mod gl {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
+
 
 use anyhow::{Context, Result};
 use glutin::{
@@ -39,7 +35,7 @@ use bloksel::{
     render::texture::Texture,
     ui::menu::MenuState,
 };
-
+use gl::*;
 // Simple shader program implementation
 struct ShaderProgram {
     id: u32,
@@ -49,7 +45,9 @@ impl ShaderProgram {
     pub fn new(vertex_src: &str, fragment_src: &str) -> Result<Self> {
         let mut success = gl::FALSE as gl::types::GLint;
         let mut info_log = Vec::with_capacity(512);
-        info_log.set_len(512 - 1); // Ensure space for null terminator
+        unsafe {
+            info_log.set_len(512 - 1); // Ensure space for null terminator
+        }
 
         unsafe {
             // Vertex shader
@@ -293,13 +291,14 @@ impl App {
         }
 
         // Load loading screen texture
-        let loading_texture = match Texture::from_file("assets/images/organization.png") {
+        let loading_texture = match Texture::from_file("src/assets/images/organization.jpg") {
             Ok(texture) => {
-                info!("Loading texture loaded successfully");
+                info!("Loading texture loaded successfully, dimensions: {}x{}", 
+                    texture.width, texture.height);
                 Some(texture)
             },
             Err(e) => {
-                warn!("Failed to load loading texture: {}", e);
+                error!("Failed to load loading texture: {}", e);
                 None
             }
         };
@@ -373,28 +372,28 @@ impl App {
     // Initialize modern OpenGL resources for the loading screen
     fn init_loading_resources() -> Result<(ShaderProgram, u32, u32)> {
         // Simple vertex shader that transforms vertices and passes texture coordinates
+        // In init_loading_resources()
         let vertex_shader_src = r#"
             #version 330 core
             layout (location = 0) in vec3 aPos;
             layout (location = 1) in vec2 aTexCoord;
-            
+    
             out vec2 TexCoord;
             uniform mat4 projection;
-            
+    
             void main() {
                 gl_Position = projection * vec4(aPos, 1.0);
                 TexCoord = aTexCoord;
             }
         "#;
-        
-        // Simple fragment shader that samples from a texture
+
         let fragment_shader_src = r#"
             #version 330 core
             out vec4 FragColor;
+    
             in vec2 TexCoord;
-            
             uniform sampler2D texture1;
-            
+    
             void main() {
                 FragColor = texture(texture1, TexCoord);
             }
@@ -411,10 +410,10 @@ impl App {
         #[rustfmt::skip]
         let vertices: [f32; 20] = [
             // positions      // texture coords
-            0.2, 0.2, 0.0,    0.0, 0.0,  // bottom left
-            0.8, 0.2, 0.0,    1.0, 0.0,  // bottom right
-            0.8, 0.8, 0.0,    1.0, 1.0,  // top right
-            0.2, 0.8, 0.0,    0.0, 1.0,  // top left
+            -1.0, -1.0, 0.0,  0.0, 0.0,  // bottom left
+             1.0, -1.0, 0.0,  1.0, 0.0,  // bottom right
+             1.0,  1.0, 0.0,  1.0, 1.0,  // top right
+            -1.0,  1.0, 0.0,  0.0, 1.0,  // top left
         ];
         
         unsafe {
@@ -514,9 +513,8 @@ impl App {
                         NonZeroU32::new(size.width), 
                         NonZeroU32::new(size.height)
                     ) {
-                        if let Err(e) = self.gl_surface.resize(&self.gl_context, width, height) {
-                            error!("Failed to resize GL surface: {}", e);
-                        }
+                        self.gl_surface.resize(&self.gl_context, width, height);
+
                         
                         unsafe {
                             gl::Viewport(0, 0, size.width as i32, size.height as i32);
@@ -655,81 +653,68 @@ impl App {
     }
 
     fn render_loading_screen(&self) -> Result<()> {
-        // Set up orthographic projection matrix
+        unsafe {
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            Self::gl_check_error("Clear")?;
+        }
+
+        // Full-screen quad projection
         let projection = [
-            2.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 0.0, 0.0,
-            0.0, 0.0, -2.0, 0.0,
-            -1.0, -1.0, -1.0, 1.0,
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
         ];
-        
-        // If we have our shader, VAO, and texture ready, render with modern OpenGL
+
         if let (Some(shader), Some(vao), Some(texture)) = (&self.loading_shader, self.loading_vao, &self.loading_texture) {
             unsafe {
-                // Use our shader and set uniforms
+                // Enable blending for transparency if needed
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
                 shader.use_program();
+                Self::gl_check_error("UseProgram")?;
+
                 shader.set_uniform_mat4("projection", &projection);
-                shader.set_uniform_int("texture1", 0); // Texture unit 0
-                
-                // Bind texture
+                shader.set_uniform_int("texture1", 0);
+                Self::gl_check_error("SetUniforms")?;
+
+                gl::ActiveTexture(gl::TEXTURE0);
                 texture.bind();
-                
-                // Bind VAO and draw
-                gl::BindVertexArray(*vao);
+                Self::gl_check_error("BindTexture")?;
+
+                gl::BindVertexArray(vao);
+                Self::gl_check_error("BindVAO")?;
+
                 gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
+                Self::gl_check_error("DrawArrays")?;
+
+                // Cleanup
                 gl::BindVertexArray(0);
-            }
-        } 
-        // Fallback loading bar with modern OpenGL
-        else if let (Some(shader), Some(vao), Some(vbo)) = (&self.progress_shader, self.loading_vao, self.loading_vbo) {
-            let progress = (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0);
-            
-            // Generate vertices for progress bar
-            #[rustfmt::skip]
-            let vertices: [f32; 12] = [
-                0.3, 0.48, 0.0,                      // bottom left
-                0.3 + 0.4 * progress, 0.48, 0.0,     // bottom right
-                0.3 + 0.4 * progress, 0.52, 0.0,     // top right
-                0.3, 0.52, 0.0,                      // top left
-            ];
-            
-            unsafe {
-                // Update VBO with new vertices
-                gl::BindBuffer(gl::ARRAY_BUFFER, *vbo);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                    vertices.as_ptr() as *const gl::types::GLvoid,
-                    gl::STATIC_DRAW,
-                );
-                
-                // Use shader with white color
-                shader.use_program();
-                shader.set_uniform_mat4("projection", &projection);
-                shader.set_uniform_vec4("color", &[1.0, 1.0, 1.0, 1.0]);
-                
-                // Make sure VAO is set up for the progress bar vertices
-                gl::BindVertexArray(*vao);
-                gl::VertexAttribPointer(
-                    0,                  // attribute location
-                    3,                  // size (3 floats per vertex position)
-                    gl::FLOAT,          // type
-                    gl::FALSE,          // normalized?
-                    0,                  // stride (tightly packed)
-                    std::ptr::null(),   // offset
-                );
-                gl::EnableVertexAttribArray(0);
-                
-                // Draw progress bar as a triangle fan (rectangle)
-                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
-                gl::BindVertexArray(0);
+                gl::BindTexture(gl::TEXTURE_2D, 0);
             }
         } else {
-            // Absolute fallback using colored quad in modern OpenGL
-            // (This would require setting up a minimal VAO/VBO on the fly, which would be inefficient)
-            warn!("Unable to render loading screen: missing resources");
+            warn!("Loading resources not available for rendering");
         }
-        
+
+        Ok(())
+    }
+
+    fn gl_check_error(context: &str) -> Result<()> {
+        unsafe {
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                let error_str = match error {
+                    gl::INVALID_ENUM => "GL_INVALID_ENUM",
+                    gl::INVALID_VALUE => "GL_INVALID_VALUE",
+                    gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
+                    gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+                    _ => "Unknown GL error",
+                };
+                return Err(anyhow::anyhow!("OpenGL error in {}: {}", context, error_str));
+            }
+        }
         Ok(())
     }
 
@@ -794,9 +779,22 @@ fn main() -> Result<()> {
             event: WindowEvent::RedrawRequested,
             ..
         } => {
+                
+            println!("Frame rendered - Loading: {}", app.is_loading);
+
             if let Err(e) = app.update() {
                 error!("Error during update: {}", e);
                 if e.to_string().contains("failed to swap buffers") || 
                    e.to_string().contains("context lost") {
                     error!("Critical rendering error, exiting");
-                    app.cleanup();
+                   app.cleanup();
+                        elwt.exit(); // You probably want to exit here as well
+                    }
+                }
+            }
+            _ => {} // You should handle other events or add a default case
+        }
+    });
+    
+    Ok(()) // You need to return a Result
+}
