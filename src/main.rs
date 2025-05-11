@@ -1,3 +1,9 @@
+// Include the generated OpenGL bindings
+#[allow(unused_imports)]
+mod gl {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
 use anyhow::{Context, Result};
 use glutin::{
     config::ConfigTemplateBuilder,
@@ -13,6 +19,7 @@ use simple_logger::SimpleLogger;
 use std::{
     ffi::{CStr, CString},
     num::NonZeroU32,
+    ptr,
     sync::Arc,
     time::Instant,
 };
@@ -33,6 +40,136 @@ use bloksel::{
     ui::menu::MenuState,
 };
 
+// Simple shader program implementation
+struct ShaderProgram {
+    id: u32,
+}
+
+impl ShaderProgram {
+    pub fn new(vertex_src: &str, fragment_src: &str) -> Result<Self> {
+        let mut success = gl::FALSE as gl::types::GLint;
+        let mut info_log = Vec::with_capacity(512);
+        info_log.set_len(512 - 1); // Ensure space for null terminator
+
+        unsafe {
+            // Vertex shader
+            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+            let c_str_vert = CString::new(vertex_src.as_bytes()).unwrap();
+            gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
+            gl::CompileShader(vertex_shader);
+            
+            // Check compilation
+            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+            if success != gl::TRUE as gl::types::GLint {
+                gl::GetShaderInfoLog(
+                    vertex_shader,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
+                );
+                return Err(anyhow::anyhow!(
+                    "Vertex shader compilation failed: {}",
+                    String::from_utf8_lossy(&info_log)
+                ));
+            }
+
+            // Fragment shader
+            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+            let c_str_frag = CString::new(fragment_src.as_bytes()).unwrap();
+            gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
+            gl::CompileShader(fragment_shader);
+            
+            // Check compilation
+            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+            if success != gl::TRUE as gl::types::GLint {
+                gl::GetShaderInfoLog(
+                    fragment_shader,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
+                );
+                return Err(anyhow::anyhow!(
+                    "Fragment shader compilation failed: {}",
+                    String::from_utf8_lossy(&info_log)
+                ));
+            }
+
+            // Link shaders
+            let id = gl::CreateProgram();
+            gl::AttachShader(id, vertex_shader);
+            gl::AttachShader(id, fragment_shader);
+            gl::LinkProgram(id);
+            
+            // Check linking
+            gl::GetProgramiv(id, gl::LINK_STATUS, &mut success);
+            if success != gl::TRUE as gl::types::GLint {
+                gl::GetProgramInfoLog(
+                    id,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
+                );
+                return Err(anyhow::anyhow!(
+                    "Shader program linking failed: {}",
+                    String::from_utf8_lossy(&info_log)
+                ));
+            }
+
+            // Clean up
+            gl::DeleteShader(vertex_shader);
+            gl::DeleteShader(fragment_shader);
+
+            Ok(ShaderProgram { id })
+        }
+    }
+
+    pub fn use_program(&self) {
+        unsafe {
+            gl::UseProgram(self.id);
+        }
+    }
+
+    pub fn set_uniform_mat4(&self, name: &str, value: &[f32; 16]) {
+        unsafe {
+            let c_name = CString::new(name).unwrap();
+            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, value.as_ptr());
+        }
+    }
+    
+    pub fn set_uniform_int(&self, name: &str, value: i32) {
+        unsafe {
+            let c_name = CString::new(name).unwrap();
+            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            gl::Uniform1i(location, value);
+        }
+    }
+    
+    pub fn set_uniform_float(&self, name: &str, value: f32) {
+        unsafe {
+            let c_name = CString::new(name).unwrap();
+            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            gl::Uniform1f(location, value);
+        }
+    }
+    
+    pub fn set_uniform_vec4(&self, name: &str, values: &[f32; 4]) {
+        unsafe {
+            let c_name = CString::new(name).unwrap();
+            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            gl::Uniform4fv(location, 1, values.as_ptr());
+        }
+    }
+}
+
+impl Drop for ShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
+    }
+}
+
 struct App {
     window: Window,
     gl_context: PossiblyCurrentContext,
@@ -47,6 +184,12 @@ struct App {
     menu_state: MenuState,
     is_loading: bool,
     window_size: (u32, u32),
+    // New fields for modern OpenGL
+    loading_shader: Option<ShaderProgram>,
+    loading_vao: Option<u32>,
+    loading_vbo: Option<u32>,
+    // Shader for progress bar
+    progress_shader: Option<ShaderProgram>,
 }
 
 impl App {
@@ -96,7 +239,8 @@ impl App {
 
         let context_attributes = ContextAttributesBuilder::new()
             .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
-            .with_profile(GlProfile::Compatibility)
+            // Use Core profile for modern OpenGL
+            .with_profile(GlProfile::Core)
             .build(Some(raw_window_handle));
 
         let gl_display = gl_config.display();
@@ -120,13 +264,16 @@ impl App {
             .context("Failed to make context current")?;
 
         // Load OpenGL functions
-        gl::load_with(|symbol| {
+        let gl_loader = |symbol| {
             let symbol = CString::new(symbol).unwrap_or_else(|_| {
                 warn!("Failed to create CString for GL symbol");
                 CString::new("").unwrap()
             });
             gl_display.get_proc_address(symbol.as_c_str()) as *const _
-        });
+        };
+        
+        // Initialize OpenGL bindings
+        gl::load_with(gl_loader);
 
         // Initialize OpenGL state safely with error checking
         unsafe {
@@ -174,6 +321,30 @@ impl App {
                 gl_display.get_proc_address(c_str) as *const _
             })
         });
+        
+        // Initialize loading shaders and VAO/VBO
+        let (loading_shader, loading_vao, loading_vbo) = match Self::init_loading_resources() {
+            Ok((shader, vao, vbo)) => {
+                info!("Loading resources initialized successfully");
+                (Some(shader), Some(vao), Some(vbo))
+            },
+            Err(e) => {
+                warn!("Failed to initialize loading resources: {}", e);
+                (None, None, None)
+            }
+        };
+        
+        // Initialize progress bar shader
+        let progress_shader = match Self::init_progress_shader() {
+            Ok(shader) => {
+                info!("Progress bar shader initialized successfully");
+                Some(shader)
+            },
+            Err(e) => {
+                warn!("Failed to initialize progress bar shader: {}", e);
+                None
+            }
+        };
 
         Ok((
             Self {
@@ -190,9 +361,137 @@ impl App {
                 menu_state: MenuState::new(),
                 is_loading: true,
                 window_size,
+                loading_shader,
+                loading_vao,
+                loading_vbo,
+                progress_shader,
             },
             event_loop,
         ))
+    }
+    
+    // Initialize modern OpenGL resources for the loading screen
+    fn init_loading_resources() -> Result<(ShaderProgram, u32, u32)> {
+        // Simple vertex shader that transforms vertices and passes texture coordinates
+        let vertex_shader_src = r#"
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec2 aTexCoord;
+            
+            out vec2 TexCoord;
+            uniform mat4 projection;
+            
+            void main() {
+                gl_Position = projection * vec4(aPos, 1.0);
+                TexCoord = aTexCoord;
+            }
+        "#;
+        
+        // Simple fragment shader that samples from a texture
+        let fragment_shader_src = r#"
+            #version 330 core
+            out vec4 FragColor;
+            in vec2 TexCoord;
+            
+            uniform sampler2D texture1;
+            
+            void main() {
+                FragColor = texture(texture1, TexCoord);
+            }
+        "#;
+        
+        // Create shader program
+        let shader = ShaderProgram::new(vertex_shader_src, fragment_shader_src)?;
+        
+        // Create VAO and VBO
+        let mut vao = 0;
+        let mut vbo = 0;
+        
+        // Set up quad vertices with positions and texture coordinates
+        #[rustfmt::skip]
+        let vertices: [f32; 20] = [
+            // positions      // texture coords
+            0.2, 0.2, 0.0,    0.0, 0.0,  // bottom left
+            0.8, 0.2, 0.0,    1.0, 0.0,  // bottom right
+            0.8, 0.8, 0.0,    1.0, 1.0,  // top right
+            0.2, 0.8, 0.0,    0.0, 1.0,  // top left
+        ];
+        
+        unsafe {
+            // Generate and bind VAO
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            
+            // Generate and bind VBO
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            
+            // Fill buffer with vertex data
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                vertices.as_ptr() as *const gl::types::GLvoid,
+                gl::STATIC_DRAW,
+            );
+            
+            // Position attribute
+            gl::VertexAttribPointer(
+                0,                           // attribute location
+                3,                           // size (3 floats per vertex position)
+                gl::FLOAT,                   // type
+                gl::FALSE,                   // normalized?
+                (5 * std::mem::size_of::<f32>()) as gl::types::GLsizei, // stride
+                std::ptr::null(),            // offset of first component
+            );
+            gl::EnableVertexAttribArray(0);
+            
+            // Texture coordinate attribute
+            gl::VertexAttribPointer(
+                1,                           // attribute location
+                2,                           // size (2 floats per texture coord)
+                gl::FLOAT,                   // type
+                gl::FALSE,                   // normalized?
+                (5 * std::mem::size_of::<f32>()) as gl::types::GLsizei, // stride
+                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
+            );
+            gl::EnableVertexAttribArray(1);
+            
+            // Unbind
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+        }
+        
+        Ok((shader, vao, vbo))
+    }
+    
+    // Initialize a simple colored shader for progress bar
+    fn init_progress_shader() -> Result<ShaderProgram> {
+        // Simple vertex shader that transforms vertices and forwards color
+        let vertex_shader_src = r#"
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            
+            uniform mat4 projection;
+            
+            void main() {
+                gl_Position = projection * vec4(aPos, 1.0);
+            }
+        "#;
+        
+        // Simple fragment shader with a solid color
+        let fragment_shader_src = r#"
+            #version 330 core
+            out vec4 FragColor;
+            
+            uniform vec4 color;
+            
+            void main() {
+                FragColor = color;
+            }
+        "#;
+        
+        // Create shader program
+        ShaderProgram::new(vertex_shader_src, fragment_shader_src)
     }
 
     fn handle_window_event(&mut self, event: &WindowEvent) -> bool {
@@ -355,231 +654,102 @@ impl App {
         Ok(())
     }
 
-
-    // This is a replacement for the `render_loading_screen` method that uses modern OpenGL
-// instead of the fixed-function pipeline that may not be supported in core profile contexts.
-
-fn render_loading_screen(&self) -> Result<()> {
-    // Simple shader program for rendering textured quads
-    static mut SHADER_PROGRAM: Option<u32> = None;
-    static mut VAO: Option<u32> = None;
-    static mut VBO: Option<u32> = None;
-    
-    unsafe {
-        // Initialize shaders if not already done
-        if SHADER_PROGRAM.is_none() {
-            // Vertex shader
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            let vertex_src = CString::new(r#"
-                #version 330 core
-                layout (location = 0) in vec3 aPos;
-                layout (location = 1) in vec2 aTexCoord;
-                
-                out vec2 TexCoord;
-                
-                void main() {
-                    gl_Position = vec4(aPos, 1.0);
-                    TexCoord = aTexCoord;
-                }
-            "#).unwrap();
-            
-            gl::ShaderSource(vertex_shader, 1, &vertex_src.as_ptr(), std::ptr::null());
-            gl::CompileShader(vertex_shader);
-            
-            // Check for vertex shader compilation errors
-            let mut success = 0;
-            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
-            if success == 0 {
-                let mut info_log = vec![0u8; 512];
-                let mut log_len = 0;
-                gl::GetShaderInfoLog(vertex_shader, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
-                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
-                error!("Vertex shader compilation failed: {}", error_msg);
-                return Err(anyhow::anyhow!("Shader compilation failed"));
-            }
-            
-            // Fragment shader
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            let fragment_src = CString::new(r#"
-                #version 330 core
-                out vec4 FragColor;
-                
-                in vec2 TexCoord;
-                
-                uniform sampler2D texture1;
-                
-                void main() {
-                    FragColor = texture(texture1, TexCoord);
-                }
-            "#).unwrap();
-            
-            gl::ShaderSource(fragment_shader, 1, &fragment_src.as_ptr(), std::ptr::null());
-            gl::CompileShader(fragment_shader);
-            
-            // Check for fragment shader compilation errors
-            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-            if success == 0 {
-                let mut info_log = vec![0u8; 512];
-                let mut log_len = 0;
-                gl::GetShaderInfoLog(fragment_shader, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
-                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
-                error!("Fragment shader compilation failed: {}", error_msg);
-                return Err(anyhow::anyhow!("Shader compilation failed"));
-            }
-            
-            // Link shaders
-            let shader_program = gl::CreateProgram();
-            gl::AttachShader(shader_program, vertex_shader);
-            gl::AttachShader(shader_program, fragment_shader);
-            gl::LinkProgram(shader_program);
-            
-            // Check for linking errors
-            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
-            if success == 0 {
-                let mut info_log = vec![0u8; 512];
-                let mut log_len = 0;
-                gl::GetProgramInfoLog(shader_program, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
-                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
-                error!("Shader program linking failed: {}", error_msg);
-                return Err(anyhow::anyhow!("Shader linking failed"));
-            }
-            
-            // Clean up shaders
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
-            
-            // Save program ID
-            SHADER_PROGRAM = Some(shader_program);
-            
-            // Set up vertex data
-            let vertices: [f32; 20] = [
-                // positions     // texture coords
-                0.2, 0.2, 0.0,   0.0, 0.0, // bottom left
-                0.8, 0.2, 0.0,   1.0, 0.0, // bottom right
-                0.8, 0.8, 0.0,   1.0, 1.0, // top right
-                0.2, 0.8, 0.0,   0.0, 1.0  // top left
-            ];
-            
-            let indices: [u32; 6] = [
-                0, 1, 2,  // first triangle
-                2, 3, 0   // second triangle
-            ];
-            
-            // Create VAO, VBO, EBO
-            let (mut vao, mut vbo, mut ebo) = (0, 0, 0);
-            gl::GenVertexArrays(1, &mut vao);
-            gl::GenBuffers(1, &mut vbo);
-            gl::GenBuffers(1, &mut ebo);
-            
-            // Bind VAO
-            gl::BindVertexArray(vao);
-            
-            // Bind VBO and copy vertex data
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (vertices.len() * std::mem::size_of::<f32>()) as isize,
-                vertices.as_ptr() as *const _,
-                gl::STATIC_DRAW
-            );
-            
-            // Bind EBO and copy index data
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (indices.len() * std::mem::size_of::<u32>()) as isize,
-                indices.as_ptr() as *const _,
-                gl::STATIC_DRAW
-            );
-            
-            // Set up vertex attributes
-            // Position attribute
-            gl::VertexAttribPointer(
-                0, 
-                3, 
-                gl::FLOAT, 
-                gl::FALSE, 
-                5 * std::mem::size_of::<f32>() as i32, 
-                std::ptr::null()
-            );
-            gl::EnableVertexAttribArray(0);
-            
-            // Texture coord attribute
-            gl::VertexAttribPointer(
-                1, 
-                2, 
-                gl::FLOAT, 
-                gl::FALSE, 
-                5 * std::mem::size_of::<f32>() as i32, 
-                (3 * std::mem::size_of::<f32>()) as *const () as *const _
-            );
-            gl::EnableVertexAttribArray(1);
-            
-            // Unbind
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-            
-            // Save VAO and VBO
-            VAO = Some(vao);
-            VBO = Some(vbo);
-        }
+    fn render_loading_screen(&self) -> Result<()> {
+        // Set up orthographic projection matrix
+        let projection = [
+            2.0, 0.0, 0.0, 0.0,
+            0.0, 2.0, 0.0, 0.0,
+            0.0, 0.0, -2.0, 0.0,
+            -1.0, -1.0, -1.0, 1.0,
+        ];
         
-        // Actual drawing
-        if let Some(texture) = &self.loading_texture {
-            // Use shader program
-            gl::UseProgram(SHADER_PROGRAM.unwrap());
-            
-            // Bind texture
-            texture.bind();
-            
-            // Draw
-            gl::BindVertexArray(VAO.unwrap());
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
-            gl::BindVertexArray(0);
-        } else {
-            // No texture available, draw simple progress bar
-            // Use shader program (but without texture)
-            gl::UseProgram(SHADER_PROGRAM.unwrap());
-            
-            // Calculate progress
+        // If we have our shader, VAO, and texture ready, render with modern OpenGL
+        if let (Some(shader), Some(vao), Some(texture)) = (&self.loading_shader, self.loading_vao, &self.loading_texture) {
+            unsafe {
+                // Use our shader and set uniforms
+                shader.use_program();
+                shader.set_uniform_mat4("projection", &projection);
+                shader.set_uniform_int("texture1", 0); // Texture unit 0
+                
+                // Bind texture
+                texture.bind();
+                
+                // Bind VAO and draw
+                gl::BindVertexArray(*vao);
+                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
+                gl::BindVertexArray(0);
+            }
+        } 
+        // Fallback loading bar with modern OpenGL
+        else if let (Some(shader), Some(vao), Some(vbo)) = (&self.progress_shader, self.loading_vao, self.loading_vbo) {
             let progress = (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0);
             
-            // Create progress bar vertices
+            // Generate vertices for progress bar
+            #[rustfmt::skip]
             let vertices: [f32; 12] = [
-                // positions (no texture coords for simple colored bar)
-                0.3, 0.48, 0.0,                    // bottom left
-                0.3 + 0.4 * progress, 0.48, 0.0,   // bottom right
-                0.3 + 0.4 * progress, 0.52, 0.0,   // top right
-                0.3, 0.52, 0.0                     // top left
+                0.3, 0.48, 0.0,                      // bottom left
+                0.3 + 0.4 * progress, 0.48, 0.0,     // bottom right
+                0.3 + 0.4 * progress, 0.52, 0.0,     // top right
+                0.3, 0.52, 0.0,                      // top left
             ];
             
-            // Update VBO with new vertices
-            gl::BindBuffer(gl::ARRAY_BUFFER, VBO.unwrap());
-            gl::BufferSubData(
-                gl::ARRAY_BUFFER,
-                0,
-                (12 * std::mem::size_of::<f32>()) as isize,
-                vertices.as_ptr() as *const _
-            );
-            
-            // Draw progress bar
-            gl::BindVertexArray(VAO.unwrap());
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
-            gl::BindVertexArray(0);
+            unsafe {
+                // Update VBO with new vertices
+                gl::BindBuffer(gl::ARRAY_BUFFER, *vbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                    vertices.as_ptr() as *const gl::types::GLvoid,
+                    gl::STATIC_DRAW,
+                );
+                
+                // Use shader with white color
+                shader.use_program();
+                shader.set_uniform_mat4("projection", &projection);
+                shader.set_uniform_vec4("color", &[1.0, 1.0, 1.0, 1.0]);
+                
+                // Make sure VAO is set up for the progress bar vertices
+                gl::BindVertexArray(*vao);
+                gl::VertexAttribPointer(
+                    0,                  // attribute location
+                    3,                  // size (3 floats per vertex position)
+                    gl::FLOAT,          // type
+                    gl::FALSE,          // normalized?
+                    0,                  // stride (tightly packed)
+                    std::ptr::null(),   // offset
+                );
+                gl::EnableVertexAttribArray(0);
+                
+                // Draw progress bar as a triangle fan (rectangle)
+                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
+                gl::BindVertexArray(0);
+            }
+        } else {
+            // Absolute fallback using colored quad in modern OpenGL
+            // (This would require setting up a minimal VAO/VBO on the fly, which would be inefficient)
+            warn!("Unable to render loading screen: missing resources");
         }
         
-        // Unbind shader
-        gl::UseProgram(0);
+        Ok(())
     }
-    
-    Ok(())
-}
 
     fn cleanup(&mut self) {
         info!("Cleaning up resources...");
         
         // Make sure context is current before cleanup
         let _ = self.gl_context.make_current(&self.gl_surface);
+        
+        // Clean up OpenGL resources
+        unsafe {
+            // Clean up VAO and VBO
+            if let Some(vao) = self.loading_vao {
+                gl::DeleteVertexArrays(1, &vao);
+            }
+            
+            if let Some(vbo) = self.loading_vbo {
+                gl::DeleteBuffers(1, &vbo);
+            }
+        }
         
         // Clean up egui painter
         if let Some(mut painter) = self.painter.take() {
@@ -594,6 +764,8 @@ fn render_loading_screen(&self) -> Result<()> {
         
         // Clean up other resources
         self.loading_texture = None;
+        self.loading_shader = None;
+        self.progress_shader = None;
         self.egui_ctx = None;
         self.egui_winit = None;
         self.glow_context = None;
@@ -628,16 +800,3 @@ fn main() -> Result<()> {
                    e.to_string().contains("context lost") {
                     error!("Critical rendering error, exiting");
                     app.cleanup();
-                    elwt.exit();
-                }
-            }
-        }
-        Event::LoopExiting => {
-            app.cleanup();
-        }
-        _ => (),
-    }
-}).context("Event loop terminated unexpectedly")?;
-
-    Ok(())
-            }
