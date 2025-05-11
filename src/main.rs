@@ -355,68 +355,225 @@ impl App {
         Ok(())
     }
 
-    fn render_loading_screen(&self) -> Result<()> {
-        if let Some(texture) = &self.loading_texture {
-            unsafe {
-                // Set up orthogonal projection using modern GL
-                let projection = [
-                    2.0, 0.0, 0.0, 0.0,
-                    0.0, 2.0, 0.0, 0.0,
-                    0.0, 0.0, -2.0, 0.0,
-                    -1.0, -1.0, -1.0, 1.0,
-                ];
-            
-                gl::UseProgram(0); // Use fixed-function pipeline
-                gl::MatrixMode(gl::PROJECTION);
-                gl::LoadMatrixf(projection.as_ptr());
-                gl::MatrixMode(gl::MODELVIEW);
-                gl::LoadIdentity();
-            
-                texture.bind();
-            
-                // Draw quad using modern GL
-                let vertices = [
-                    0.2, 0.2, 0.0, 0.0, 0.0,
-                    0.8, 0.2, 0.0, 1.0, 0.0,
-                    0.8, 0.8, 0.0, 1.0, 1.0,
-                    0.2, 0.8, 0.0, 0.0, 1.0,
-                ];
-            
-                
 
-                gl::EnableClientState(gl::VERTEX_ARRAY);
-                gl::EnableClientState(gl::TEXTURE_COORD_ARRAY);
+    // This is a replacement for the `render_loading_screen` method that uses modern OpenGL
+// instead of the fixed-function pipeline that may not be supported in core profile contexts.
+
+fn render_loading_screen(&self) -> Result<()> {
+    // Simple shader program for rendering textured quads
+    static mut SHADER_PROGRAM: Option<u32> = None;
+    static mut VAO: Option<u32> = None;
+    static mut VBO: Option<u32> = None;
+    
+    unsafe {
+        // Initialize shaders if not already done
+        if SHADER_PROGRAM.is_none() {
+            // Vertex shader
+            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+            let vertex_src = CString::new(r#"
+                #version 330 core
+                layout (location = 0) in vec3 aPos;
+                layout (location = 1) in vec2 aTexCoord;
+                
+                out vec2 TexCoord;
+                
+                void main() {
+                    gl_Position = vec4(aPos, 1.0);
+                    TexCoord = aTexCoord;
+                }
+            "#).unwrap();
             
-                gl::VertexPointer(3, gl::FLOAT, 5 * 4, vertices.as_ptr());
-                gl::TexCoordPointer(2, gl::FLOAT, 5 * 4, vertices[3..].as_ptr());
+            gl::ShaderSource(vertex_shader, 1, &vertex_src.as_ptr(), std::ptr::null());
+            gl::CompileShader(vertex_shader);
             
-                gl::DrawArrays(gl::QUADS, 0, 4);
-            
-                gl::DisableClientState(gl::VERTEX_ARRAY);
-                gl::DisableClientState(gl::TEXTURE_COORD_ARRAY);
+            // Check for vertex shader compilation errors
+            let mut success = 0;
+            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+            if success == 0 {
+                let mut info_log = vec![0u8; 512];
+                let mut log_len = 0;
+                gl::GetShaderInfoLog(vertex_shader, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
+                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
+                error!("Vertex shader compilation failed: {}", error_msg);
+                return Err(anyhow::anyhow!("Shader compilation failed"));
             }
-        } else {
-            // Fallback loading bar
-            unsafe {
-                let progress = (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0);
-                let vertices = [
-                    0.3, 0.48, 0.0,
-                    0.3 + 0.4 * progress, 0.48, 0.0,
-                    0.3 + 0.4 * progress, 0.52, 0.0,
-                    0.3, 0.52, 0.0,
-                ];
             
-                gl::UseProgram(0);
-                gl::Color3f(1.0, 1.0, 1.0);
+            // Fragment shader
+            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+            let fragment_src = CString::new(r#"
+                #version 330 core
+                out vec4 FragColor;
+                
+                in vec2 TexCoord;
+                
+                uniform sampler2D texture1;
+                
+                void main() {
+                    FragColor = texture(texture1, TexCoord);
+                }
+            "#).unwrap();
             
-                gl::EnableClientState(gl::VERTEX_ARRAY);
-                gl::VertexPointer(3, gl::FLOAT, 0, vertices.as_ptr());
-                gl::DrawArrays(gl::QUADS, 0, 4);
-                gl::DisableClientState(gl::VERTEX_ARRAY);
+            gl::ShaderSource(fragment_shader, 1, &fragment_src.as_ptr(), std::ptr::null());
+            gl::CompileShader(fragment_shader);
+            
+            // Check for fragment shader compilation errors
+            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+            if success == 0 {
+                let mut info_log = vec![0u8; 512];
+                let mut log_len = 0;
+                gl::GetShaderInfoLog(fragment_shader, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
+                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
+                error!("Fragment shader compilation failed: {}", error_msg);
+                return Err(anyhow::anyhow!("Shader compilation failed"));
             }
+            
+            // Link shaders
+            let shader_program = gl::CreateProgram();
+            gl::AttachShader(shader_program, vertex_shader);
+            gl::AttachShader(shader_program, fragment_shader);
+            gl::LinkProgram(shader_program);
+            
+            // Check for linking errors
+            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
+            if success == 0 {
+                let mut info_log = vec![0u8; 512];
+                let mut log_len = 0;
+                gl::GetProgramInfoLog(shader_program, 512, &mut log_len, info_log.as_mut_ptr() as *mut i8);
+                let error_msg = String::from_utf8_lossy(&info_log[0..log_len as usize]);
+                error!("Shader program linking failed: {}", error_msg);
+                return Err(anyhow::anyhow!("Shader linking failed"));
+            }
+            
+            // Clean up shaders
+            gl::DeleteShader(vertex_shader);
+            gl::DeleteShader(fragment_shader);
+            
+            // Save program ID
+            SHADER_PROGRAM = Some(shader_program);
+            
+            // Set up vertex data
+            let vertices: [f32; 20] = [
+                // positions     // texture coords
+                0.2, 0.2, 0.0,   0.0, 0.0, // bottom left
+                0.8, 0.2, 0.0,   1.0, 0.0, // bottom right
+                0.8, 0.8, 0.0,   1.0, 1.0, // top right
+                0.2, 0.8, 0.0,   0.0, 1.0  // top left
+            ];
+            
+            let indices: [u32; 6] = [
+                0, 1, 2,  // first triangle
+                2, 3, 0   // second triangle
+            ];
+            
+            // Create VAO, VBO, EBO
+            let (mut vao, mut vbo, mut ebo) = (0, 0, 0);
+            gl::GenVertexArrays(1, &mut vao);
+            gl::GenBuffers(1, &mut vbo);
+            gl::GenBuffers(1, &mut ebo);
+            
+            // Bind VAO
+            gl::BindVertexArray(vao);
+            
+            // Bind VBO and copy vertex data
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertices.len() * std::mem::size_of::<f32>()) as isize,
+                vertices.as_ptr() as *const _,
+                gl::STATIC_DRAW
+            );
+            
+            // Bind EBO and copy index data
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (indices.len() * std::mem::size_of::<u32>()) as isize,
+                indices.as_ptr() as *const _,
+                gl::STATIC_DRAW
+            );
+            
+            // Set up vertex attributes
+            // Position attribute
+            gl::VertexAttribPointer(
+                0, 
+                3, 
+                gl::FLOAT, 
+                gl::FALSE, 
+                5 * std::mem::size_of::<f32>() as i32, 
+                std::ptr::null()
+            );
+            gl::EnableVertexAttribArray(0);
+            
+            // Texture coord attribute
+            gl::VertexAttribPointer(
+                1, 
+                2, 
+                gl::FLOAT, 
+                gl::FALSE, 
+                5 * std::mem::size_of::<f32>() as i32, 
+                (3 * std::mem::size_of::<f32>()) as *const () as *const _
+            );
+            gl::EnableVertexAttribArray(1);
+            
+            // Unbind
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            
+            // Save VAO and VBO
+            VAO = Some(vao);
+            VBO = Some(vbo);
         }
-        Ok(())
+        
+        // Actual drawing
+        if let Some(texture) = &self.loading_texture {
+            // Use shader program
+            gl::UseProgram(SHADER_PROGRAM.unwrap());
+            
+            // Bind texture
+            texture.bind();
+            
+            // Draw
+            gl::BindVertexArray(VAO.unwrap());
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+            gl::BindVertexArray(0);
+        } else {
+            // No texture available, draw simple progress bar
+            // Use shader program (but without texture)
+            gl::UseProgram(SHADER_PROGRAM.unwrap());
+            
+            // Calculate progress
+            let progress = (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0);
+            
+            // Create progress bar vertices
+            let vertices: [f32; 12] = [
+                // positions (no texture coords for simple colored bar)
+                0.3, 0.48, 0.0,                    // bottom left
+                0.3 + 0.4 * progress, 0.48, 0.0,   // bottom right
+                0.3 + 0.4 * progress, 0.52, 0.0,   // top right
+                0.3, 0.52, 0.0                     // top left
+            ];
+            
+            // Update VBO with new vertices
+            gl::BindBuffer(gl::ARRAY_BUFFER, VBO.unwrap());
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                (12 * std::mem::size_of::<f32>()) as isize,
+                vertices.as_ptr() as *const _
+            );
+            
+            // Draw progress bar
+            gl::BindVertexArray(VAO.unwrap());
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+            gl::BindVertexArray(0);
+        }
+        
+        // Unbind shader
+        gl::UseProgram(0);
     }
+    
+    Ok(())
+}
 
     fn cleanup(&mut self) {
         info!("Cleaning up resources...");
