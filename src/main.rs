@@ -74,7 +74,7 @@ impl App {
 
         let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
 
-        let (window, gl_config) = display_builder
+         let (window, gl_config) = display_builder
             .build(&event_loop, template, |configs| {
                 configs
                     .reduce(|accum, config| {
@@ -86,9 +86,9 @@ impl App {
                             accum
                         }
                     })
-                    .ok_or_else(|| anyhow::anyhow!("No suitable OpenGL configurations found"))
+                    .expect("No suitable OpenGL configurations found")
             })
-            .context("Failed to build display")?;
+            .map_err(|e| anyhow::anyhow!("Failed to build display: {}", e))?;
 
         let window = window.context("Failed to create window")?;
         let raw_window_handle = window.raw_window_handle();
@@ -358,72 +358,63 @@ impl App {
     fn render_loading_screen(&self) -> Result<()> {
         if let Some(texture) = &self.loading_texture {
             unsafe {
-                // Set up orthogonal projection
+                // Set up orthogonal projection using modern GL
+                let projection = [
+                    2.0, 0.0, 0.0, 0.0,
+                    0.0, 2.0, 0.0, 0.0,
+                    0.0, 0.0, -2.0, 0.0,
+                    -1.0, -1.0, -1.0, 1.0,
+                ];
+            
+                gl::UseProgram(0); // Use fixed-function pipeline
                 gl::MatrixMode(gl::PROJECTION);
-                gl::LoadIdentity();
-                gl::Ortho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+                gl::LoadMatrixf(projection.as_ptr());
                 gl::MatrixMode(gl::MODELVIEW);
                 gl::LoadIdentity();
-
-                gl::Enable(gl::TEXTURE_2D);
+            
                 texture.bind();
-
-                // Simple quad rendering
-                gl::Begin(gl::QUADS);
-                gl::TexCoord2f(0.0, 0.0); gl::Vertex2f(0.2, 0.2);
-                gl::TexCoord2f(1.0, 0.0); gl::Vertex2f(0.8, 0.2);
-                gl::TexCoord2f(1.0, 1.0); gl::Vertex2f(0.8, 0.8);
-                gl::TexCoord2f(0.0, 1.0); gl::Vertex2f(0.2, 0.8);
-                gl::End();
-
-                gl::Disable(gl::TEXTURE_2D);
+            
+                // Draw quad using modern GL
+                let vertices = [
+                    0.2, 0.2, 0.0, 0.0, 0.0,
+                    0.8, 0.2, 0.0, 1.0, 0.0,
+                    0.8, 0.8, 0.0, 1.0, 1.0,
+                    0.2, 0.8, 0.0, 0.0, 1.0,
+                ];
+            
                 
-                // Check for OpenGL errors
-                let gl_error = gl::GetError();
-                if gl_error != gl::NO_ERROR {
-                    warn!("OpenGL error during loading screen render: 0x{:X}", gl_error);
-                }
+
+                gl::EnableClientState(gl::VERTEX_ARRAY);
+                gl::EnableClientState(gl::TEXTURE_COORD_ARRAY);
+            
+                gl::VertexPointer(3, gl::FLOAT, 5 * 4, vertices.as_ptr());
+                gl::TexCoordPointer(2, gl::FLOAT, 5 * 4, vertices[3..].as_ptr());
+            
+                gl::DrawArrays(gl::QUADS, 0, 4);
+            
+                gl::DisableClientState(gl::VERTEX_ARRAY);
+                gl::DisableClientState(gl::TEXTURE_COORD_ARRAY);
             }
         } else {
-            // Fallback loading text using a safer approach
+            // Fallback loading bar
             unsafe {
+                let progress = (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0);
+                let vertices = [
+                    0.3, 0.48, 0.0,
+                    0.3 + 0.4 * progress, 0.48, 0.0,
+                    0.3 + 0.4 * progress, 0.52, 0.0,
+                    0.3, 0.52, 0.0,
+                ];
+            
+                gl::UseProgram(0);
                 gl::Color3f(1.0, 1.0, 1.0);
-                gl::RasterPos2f(0.4, 0.5);
-                
-                // Check if the glutBitmap functions are available
-                #[cfg(feature = "glutin_text")]
-                {
-                    for c in "Loading...".chars() {
-                        if let Ok(c_u8) = u8::try_from(c as u32) {
-                            glutin::glutin::glutBitmapCharacter(
-                                glutin::glutin::glutBitmap8By13(),
-                                c_u8
-                            );
-                        }
-                    }
-                }
-                
-                // Alternative if no glutBitmap
-                #[cfg(not(feature = "glutin_text"))]
-                {
-                    debug!("glutBitmap functions not available, not rendering text");
-                    // Draw a loading bar instead
-                    gl::Begin(gl::QUADS);
-                    gl::Vertex2f(0.3, 0.48);
-                    gl::Vertex2f(0.3 + 0.4 * (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0), 0.48);
-                    gl::Vertex2f(0.3 + 0.4 * (self.loading_start.elapsed().as_secs_f32() / 3.0).min(1.0), 0.52);
-                    gl::Vertex2f(0.3, 0.52);
-                    gl::End();
-                }
-                
-                // Check for OpenGL errors
-                let gl_error = gl::GetError();
-                if gl_error != gl::NO_ERROR {
-                    warn!("OpenGL error during fallback loading render: 0x{:X}", gl_error);
-                }
+            
+                gl::EnableClientState(gl::VERTEX_ARRAY);
+                gl::VertexPointer(3, gl::FLOAT, 0, vertices.as_ptr());
+                gl::DrawArrays(gl::QUADS, 0, 4);
+                gl::DisableClientState(gl::VERTEX_ARRAY);
             }
         }
-        
         Ok(())
     }
 
@@ -434,10 +425,10 @@ impl App {
         let _ = self.gl_context.make_current(&self.gl_surface);
         
         // Clean up egui painter
-        if let Some(painter) = self.painter.take() {
+        if let Some(mut painter) = self.painter.take() {
             painter.destroy();
         }
-        
+ 
         // Clean up engine resources
         if let Some(engine) = self.engine.take() {
             // Assuming VoxelEngine implements Drop, otherwise add explicit cleanup
@@ -459,42 +450,37 @@ fn main() -> Result<()> {
     info!("Application initialized, starting event loop");
 
     event_loop.run(move |event, elwt| {
-        match event {
-            Event::WindowEvent { event, .. } => {
-                if app.handle_window_event(&event) {
-                    info!("Window close requested");
+    match event {
+        Event::WindowEvent { event, .. } => {
+            if app.handle_window_event(&event) {
+                info!("Window close requested");
+                app.cleanup();
+                elwt.exit();
+            }
+        }
+        Event::AboutToWait => {
+            app.window.request_redraw();
+        }
+        Event::WindowEvent {
+            event: WindowEvent::RedrawRequested,
+            ..
+        } => {
+            if let Err(e) = app.update() {
+                error!("Error during update: {}", e);
+                if e.to_string().contains("failed to swap buffers") || 
+                   e.to_string().contains("context lost") {
+                    error!("Critical rendering error, exiting");
                     app.cleanup();
                     elwt.exit();
                 }
             }
-            Event::AboutToWait => {
-                // Check exit condition before requesting redraw
-                    if !app.engine.running.load(Ordering::Relaxed) {
-                        *control_flow = ControlFlow::Exit;
-                        return;
-                    }
-                    app.window.request_redraw();
-            }
-            Event::RedrawRequested(..) => {
-                if let Err(e) = app.update() {
-                    error!("Error during update: {}", e);
-                    // Only exit on critical errors
-                    if e.to_string().contains("failed to swap buffers") || 
-                       e.to_string().contains("context lost") {
-                        error!("Critical rendering error, exiting");
-                        app.cleanup();
-                        elwt.exit();
-                    }
-                }
-            }
-            Event::LoopExiting => {
-                    app.cleanup();
-                        
-            
-            }
-            _ => (),
         }
-    }).context("Event loop terminated unexpectedly")?;
+        Event::LoopExiting => {
+            app.cleanup();
+        }
+        _ => (),
+    }
+}).context("Event loop terminated unexpectedly")?;
 
     Ok(())
             }
