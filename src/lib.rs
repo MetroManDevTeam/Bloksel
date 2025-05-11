@@ -25,4 +25,4 @@ pub use world::chunk::{Chunk, SerializedChunk};
 pub use world::chunk_coord::ChunkCoord;
 pub use world::generator::terrain::TerrainGenerator;
 pub use world::spatial::SpatialPartition;
-pub use ui::menu:MenuState;
+pub use ui::menu::MenuState;

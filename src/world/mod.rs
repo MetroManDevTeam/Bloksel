@@ -32,16 +32,17 @@ pub use generator::TerrainGenerator;
 pub use pool::ChunkPool;
 pub use spatial::SpatialIndex;
 pub use storage::ChunkStorage;
+use crate::ui::menu::{Difficulty,WorldType };
 
 use serde::{Deserialize, Serialize};
-
+/*
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WorldType {
     Normal,
     Flat,
     Superflat,
     Void,
-}
+}*/
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldMeta {
@@ -52,7 +53,7 @@ pub struct WorldMeta {
     pub spawn_point: [f32; 3],
     pub last_played: i64,
 }
-
+/*
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Difficulty {
     Peaceful,
@@ -60,3 +61,4 @@ pub enum Difficulty {
     Normal,
     Hard,
 }
+*/  

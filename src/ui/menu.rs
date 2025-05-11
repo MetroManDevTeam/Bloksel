@@ -1,6 +1,7 @@
 use crate::{VoxelEngine, world::WorldMeta};
 use egui::{CentralPanel, ComboBox, Context, Grid, Spinner, Window, Align, Layout, Rect, Vec2, Ui};
 use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MenuScreen {
@@ -398,27 +399,28 @@ impl MenuState {
             });
     }
 
+    // Fix for the loading screen task selection
     fn show_loading_screen(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 let available_size = ui.available_size();
-                
+            
                 ui.add_space(available_size.y * 0.3);
                 ui.heading("Loading World...");
                 ui.add_space(20.0);
                 ui.add(Spinner::new().size(50.0));
-                
+            
                 // Loading progress bar
                 ui.add_space(30.0);
                 let progress = (ctx.frame_nr() as f32 % 100.0) / 100.0; // Simulate progress
                 ui.add(egui::ProgressBar::new(progress)
                     .show_percentage()
                     .animate(true));
-                    
+                
                 // Loading task description
                 ui.add_space(10.0);
                 let tasks = ["Generating terrain", "Loading chunks", "Spawning entities", "Preparing world"];
-                let current_task = tasks[(ctx.frame_nr() / 50) % tasks.len()];
+                let current_task = tasks[(ctx.frame_nr() as usize / 50) % tasks.len()];
                 ui.label(current_task);
             });
         });
@@ -464,23 +466,30 @@ impl MenuState {
         }
     }
     
-    // Method to scan for existing worlds
     pub fn scan_for_worlds(&mut self) {
-        // In a real implementation, this would scan the worlds directory
-        // and populate self.worlds_list with WorldMeta objects
-        
-        // Example placeholder implementation:
-        self.worlds_list = vec![
-            WorldMeta { 
-                name: "Test World".to_string(),
-                // other fields would be here
-            },
-            WorldMeta {
-                name: "Creative Build".to_string(),
-                // other fields would be here
-            }
-        ];
-    }
+    // In a real implementation, this would scan the worlds directory
+    // and populate self.worlds_list with WorldMeta objects
+    
+    // Example placeholder implementation with all required fields:
+    self.worlds_list = vec![
+        WorldMeta { 
+            name: "Test World".to_string(),
+            difficulty: Difficulty::Normal,
+            spawn_point: (0.0,0.0,0.0).into(),
+            world_type: WorldType::Normal,
+            seed: 12345,
+            last_played: 0, // Timestamp placeholder
+        },
+        WorldMeta {
+            name: "Creative Build".to_string(),
+            difficulty: Difficulty::Peaceful,
+            spawn_point: (0.0,0.0,0.0).into(),
+            world_type: WorldType::Superflat,
+            seed: 67890,
+            last_played: 0, // Timestamp placeholder
+        }
+    ];
+}
 }
 
 #[derive(Debug, Default)]
@@ -492,7 +501,7 @@ pub struct CreateWorldState {
     pub seed: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize,Serialize)]
 pub enum WorldType {
     Normal,
     Superflat,
@@ -505,7 +514,8 @@ impl Default for WorldType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+
 pub enum Difficulty {
     Peaceful,
     Easy,
@@ -532,6 +542,8 @@ impl Default for GameMode {
     }
 }
 
+
+/*
 // For demonstration purposes, let's assume WorldMeta has this structure
 // In a real implementation, this would be imported from the world module
 impl WorldMeta {
@@ -553,4 +565,4 @@ impl WorldMeta {
 pub struct WorldMeta {
     pub name: String,
     // Other fields would be here in a real implementation
-                                    }
+                                    }*/

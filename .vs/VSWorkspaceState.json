@@ -6,10 +6,11 @@
     "\\src\\config",
     "\\src\\player",
     "\\src\\render",
-    "\\src\\render\\shaders",
     "\\src\\ui",
+    "\\src\\utils",
     "\\src\\world",
     "\\src\\world\\generator"
   ],
+  "SelectedNode": "\\src\\main.rs",
   "PreviewInSolutionExplorer": false
 }

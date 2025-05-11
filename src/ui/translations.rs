@@ -156,20 +156,22 @@ pub fn get_translation(key: &str) -> Result<String, TranslationError> {
         .get(lang)
         .ok_or_else(|| TranslationError::UnsupportedLanguage(lang.to_string()))?;
 
-    translation_file.translations
-        .get(key)
-        .map(|s| s.to_string())
-        .ok_or_else(|| {
-            if let Some(fallback) = &lang_config.fallback {
-                if let Some(fallback_translation) = cache.translations
-                    .get(fallback)
-                    .and_then(|f| f.translations.get(key))
-                {
-                    return Ok(fallback_translation.clone());
-                }
+    // Check the main language first
+    if let Some(value) = translation_file.translations.get(key) {
+        return Ok(value.to_string());
+    }
+
+    // Check fallback language if configured
+    if let Some(fallback) = &lang_config.fallback {
+        if let Some(fallback_translation) = cache.translations.get(fallback) {
+            if let Some(value) = fallback_translation.translations.get(key) {
+                return Ok(value.to_string());
             }
-            TranslationError::KeyNotFound(key.to_string(), lang.to_string())
-        })
+        }
+    }
+
+    // Return error if key not found in both main and fallback
+    Err(TranslationError::KeyNotFound(key.to_string(), lang.to_string()))
 }
 
 pub fn get_translation_with_params(
