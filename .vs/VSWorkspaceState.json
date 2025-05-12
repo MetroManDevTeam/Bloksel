@@ -6,7 +6,6 @@
     "\\src\\config",
     "\\src\\player",
     "\\src\\render",
-    "\\src\\ui",
     "\\src\\utils",
     "\\src\\world",
     "\\src\\world\\generator"
