@@ -1,0 +1,38 @@
+{
+
+    "translations" :{
+
+
+      "menu.create.world" :"Crear Mundo",
+      "menu.load.world" :"Cargar Mundo", 
+      "menu.start.game":"Iniciar Partida",
+      "menu.settings":"Ajustes",
+      
+      "common.world.one":"Mundo",
+      "common.world.many":"Mundos",
+      "common.accept": "Aceptar", 
+      "common.confirm": "Confirmar", 
+      "common.cancel" : "Cancelar", 
+      "common.exit" : "Salir",
+      "common.exit.game": "Salir del Juego", 
+      "menu.save.game":"Guardar Partida",
+
+      
+      
+      "menu.save":"Guardar",
+      "menu.save.world":"Guardar Mundo",
+      "menu.settings.graphics":"Ajustes Gráficos",
+
+
+
+      "blocks.dirt":"Tierra",
+      "blocks.stone":"Piedra",
+      "blocks.air":"Aire"
+      
+
+      
+
+ } 
+
+
+} 

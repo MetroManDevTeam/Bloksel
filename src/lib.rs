@@ -4,6 +4,7 @@ pub mod player;
 pub mod render;
 pub mod utils;
 pub mod world;
+pub mod ui;
 
 // Re-export commonly used types
 pub use config::chunksys::ChunkSysConfig;
@@ -24,3 +25,4 @@ pub use world::chunk::{Chunk, SerializedChunk};
 pub use world::chunk_coord::ChunkCoord;
 pub use world::generator::terrain::TerrainGenerator;
 pub use world::spatial::SpatialPartition;
+pub use ui::menu::MenuState;
