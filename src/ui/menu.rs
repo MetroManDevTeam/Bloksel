@@ -1,6 +1,18 @@
-use crate::{VoxelEngine, world::WorldMeta};
-use egui::{CentralPanel, ComboBox, Context, Grid, Spinner, Window, Align, Layout, Rect, Vec2, Ui};
-use std::path::PathBuf;
+use crate::{
+    render::vulkan::VulkanContext,
+    ui::egui_render::EguiRenderer,
+    VoxelEngine, 
+    world::WorldMeta,
+    config::{core::EngineConfig, worldgen::WorldGenConfig}
+};
+use ash::vk;
+use egui::{
+    CentralPanel, ComboBox, Context, Grid, Spinner, Window, 
+    Align, Layout, Rect, Vec2, Ui, ClippedPrimitive, TexturesDelta,
+    Color32, ProgressBar
+};
+use egui_winit::State as EguiWinitState;
+use std::{path::PathBuf, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -13,22 +25,140 @@ pub enum MenuScreen {
     Loading,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum WorldType {
+    Normal,
+    Superflat,
+    Void,
+}
+
+impl Default for WorldType {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Difficulty {
+    Peaceful,
+    Easy,
+    Normal,
+    Hard,
+}
+
+impl Default for Difficulty {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GameMode {
+    Survival,
+    Creative,
+    Adventure,
+}
+
+impl Default for GameMode {
+    fn default() -> Self {
+        Self::Survival
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct CreateWorldState {
+    pub name: String,
+    pub world_type: WorldType,
+    pub difficulty: Difficulty,
+    pub game_mode: GameMode,
+    pub seed: String,
+}
+
 #[derive(Debug)]
 pub struct MenuState {
     current_screen: MenuScreen,
     create_world_state: CreateWorldState,
     selected_world: Option<WorldMeta>,
-    worlds_list: Vec<WorldMeta>, // Store discovered worlds
+    worlds_list: Vec<WorldMeta>,
+    egui_renderer: Option<Arc<EguiRenderer>>,
+    egui_context: Context,
+    egui_winit_state: EguiWinitState,
 }
 
 impl MenuState {
-    pub fn new() -> Self {
+    pub fn new(vulkan_context: Arc<VulkanContext>, render_pass: vk::RenderPass) -> Self {
+        let egui_context = Context::default();
+        let egui_winit_state = EguiWinitState::new(
+            1280, // Default window width
+            720,  // Default window height
+            1.0,  // Default pixels per point
+        );
+        
+        let egui_renderer = EguiRenderer::new(&vulkan_context, render_pass)
+            .expect("Failed to create egui renderer");
+
         Self {
             current_screen: MenuScreen::Main,
             create_world_state: CreateWorldState::default(),
             selected_world: None,
-            worlds_list: Vec::new(), // Will be populated when worlds are discovered
+            worlds_list: Vec::new(),
+            egui_renderer: Some(Arc::new(egui_renderer)),
+            egui_context,
+            egui_winit_state,
         }
+    }
+
+    pub fn dummy() -> Self {
+        Self {
+            current_screen: MenuScreen::Main,
+            create_world_state: CreateWorldState::default(),
+            selected_world: None,
+            worlds_list: Vec::new(),
+            egui_renderer: None,
+            egui_context: Context::default(),
+            egui_winit_state: EguiWinitState::new(0, 0, 1.0),
+        }
+    }
+
+    pub fn handle_event(&mut self, event: &winit::event::WindowEvent<'_>) -> bool {
+        self.egui_winit_state.on_event(&self.egui_context, event).consumed
+    }
+
+    pub fn update(&mut self, window: &winit::window::Window) {
+        let raw_input = self.egui_winit_state.take_egui_input(window);
+        self.egui_context.begin_frame(raw_input);
+    }
+
+    pub fn render(
+        &mut self,
+        vulkan_context: &Arc<VulkanContext>,
+        command_buffer: vk::CommandBuffer,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.egui_winit_state.set_pixels_per_point(1.0);
+
+        // Run UI logic with dummy engine if no renderer available
+        if self.egui_renderer.is_none() {
+            self.show(&self.egui_context, &mut VoxelEngine::dummy());
+        }
+
+        let full_output = self.egui_context.end_frame();
+        let clipped_primitives = self.egui_context.tessellate(full_output.shapes);
+        let textures_delta = full_output.textures_delta;
+
+        if let Some(renderer) = &self.egui_renderer {
+            renderer.render(
+                vulkan_context,
+                command_buffer,
+                &clipped_primitives,
+                &textures_delta,
+                viewport_width,
+                viewport_height,
+            )?;
+        }
+
+        Ok(())
     }
 
     pub fn show(&mut self, ctx: &Context, engine: &mut VoxelEngine) {
@@ -46,23 +176,21 @@ impl MenuState {
 
     fn show_main_menu(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
-            // Full screen layout with centered content
             let available_size = ui.available_size();
             
-            // Title at the top (centered)
             ui.vertical_centered(|ui| {
-                ui.add_space(available_size.y * 0.1); // Top spacing
+                ui.add_space(available_size.y * 0.1);
                 ui.heading("Bloksel");
-                ui.add_space(available_size.y * 0.15); // Space after title
+                ui.add_space(available_size.y * 0.15);
             });
             
-            // Center buttons
             ui.vertical_centered(|ui| {
                 let button_width = available_size.x * 0.3;
                 
                 ui.set_width(button_width);
                 if ui.button("Load World").clicked() {
                     self.current_screen = MenuScreen::LoadWorld;
+                    self.scan_for_worlds();
                 }
                 
                 ui.add_space(20.0);
@@ -72,26 +200,20 @@ impl MenuState {
                 }
             });
             
-            // Space to push bottom buttons
             ui.add_space(available_size.y * 0.3);
             
-            // Bottom row with Settings and Credits buttons
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
-                ui.add_space(20.0); // Bottom margin
+                ui.add_space(20.0);
                 
-                // Create a horizontal layout for the bottom buttons
                 ui.horizontal(|ui| {
-                    // Forces left alignment for Settings button
                     ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
                         if ui.button("Settings").clicked() {
                             self.current_screen = MenuScreen::Settings;
                         }
                     });
                     
-                    // Add expanding space between buttons
                     ui.add_space(available_size.x * 0.6);
                     
-                    // Forces right alignment for Credits button
                     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                         if ui.button("Credits").clicked() {
                             self.current_screen = MenuScreen::Credits;
@@ -99,7 +221,6 @@ impl MenuState {
                     });
                 });
                 
-                // Copyright text at the very bottom
                 ui.add_space(10.0);
                 ui.label("MetroManDevTeam 2025");
             });
@@ -115,7 +236,6 @@ impl MenuState {
                 ui.heading("Select a World");
                 ui.add_space(10.0);
                 
-                // World listing area with scrolling
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     if self.worlds_list.is_empty() {
                         ui.label("No worlds found. Create a new world!");
@@ -146,7 +266,7 @@ impl MenuState {
                     ui.add_space(10.0);
                     
                     if ui.add_sized([button_width, 30.0], egui::Button::new("Delete")).clicked() {
-                        // TODO: Implement world deletion with confirmation dialog
+                        // TODO: Implement world deletion
                     }
                     
                     ui.add_space(10.0);
@@ -243,7 +363,7 @@ impl MenuState {
                                     "Creative",
                                 );
                                 ui.selectable_value(
-                                    &mut self.create_world_state.game_mode, 
+                                    &mut self.create_world_state.game_mode,
                                     GameMode::Adventure,
                                     "Adventure",
                                 );
@@ -253,9 +373,8 @@ impl MenuState {
 
                 ui.add_space(30.0);
 
-                // Validation warning if name is empty
                 if self.create_world_state.name.trim().is_empty() {
-                    ui.colored_label(egui::Color32::from_rgb(255, 100, 100), 
+                    ui.colored_label(Color32::from_rgb(255, 100, 100), 
                         "⚠ World name cannot be empty");
                     ui.add_space(10.0);
                 }
@@ -286,7 +405,6 @@ impl MenuState {
                 ui.heading("Game Settings");
                 ui.add_space(20.0);
                 
-                // Settings tabs
                 ui.horizontal(|ui| {
                     ui.selectable_label(true, "General");
                     ui.selectable_label(false, "Graphics");
@@ -297,13 +415,11 @@ impl MenuState {
                 ui.separator();
                 ui.add_space(10.0);
                 
-                // Example settings for the selected tab
                 Grid::new("settings_grid")
                     .num_columns(2)
                     .spacing([40.0, 10.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        // Graphics settings examples
                         ui.label("Render Distance:");
                         ui.add(egui::Slider::new(&mut 12, 2..=32).suffix(" chunks"));
                         ui.end_row();
@@ -327,11 +443,9 @@ impl MenuState {
                 
                 ui.add_space(20.0);
                 
-                // Bottom buttons
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Save").clicked() {
-                            // Save settings
                             self.current_screen = MenuScreen::Main;
                         }
                         
@@ -399,7 +513,6 @@ impl MenuState {
             });
     }
 
-    // Fix for the loading screen task selection
     fn show_loading_screen(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -410,14 +523,11 @@ impl MenuState {
                 ui.add_space(20.0);
                 ui.add(Spinner::new().size(50.0));
             
-                // Loading progress bar
-                ui.add_space(30.0);
-                let progress = (ctx.frame_nr() as f32 % 100.0) / 100.0; // Simulate progress
-                ui.add(egui::ProgressBar::new(progress)
+                let progress = (ctx.frame_nr() as f32 % 100.0) / 100.0;
+                ui.add(ProgressBar::new(progress)
                     .show_percentage()
                     .animate(true));
                 
-                // Loading task description
                 ui.add_space(10.0);
                 let tasks = ["Generating terrain", "Loading chunks", "Spawning entities", "Preparing world"];
                 let current_task = tasks[(ctx.frame_nr() as usize / 50) % tasks.len()];
@@ -429,16 +539,15 @@ impl MenuState {
     fn handle_transitions(&mut self, engine: &mut VoxelEngine) {
         match self.current_screen {
             MenuScreen::Loading => {
-                // Handle loading based on context (new world or loading existing)
                 if let Some(selected_world) = &self.selected_world {
-                    // Load existing world
-                    engine.load_world(&PathBuf::from(format!("worlds/{}", selected_world.name)));
+                    if let Err(e) = engine.load_world(&PathBuf::from(format!("worlds/{}", selected_world.name))) {
+                        log::error!("Failed to load world: {}", e);
+                        self.current_screen = MenuScreen::LoadWorld;
+                    }
                 } else {
-                    // Create new world with proper error handling for the seed
                     let seed = match self.create_world_state.seed.parse::<u64>() {
-                        Ok(s) => s, 
+                        Ok(s) => s,
                         Err(_) => {
-                            // Use a hash of the world name if seed is invalid
                             use std::collections::hash_map::DefaultHasher;
                             use std::hash::{Hash, Hasher};
                             
@@ -453,116 +562,38 @@ impl MenuState {
                         seed,
                     );
                     
-                    // Additional world parameters would be set here
-                    
-                    engine.load_world(&PathBuf::from(format!("worlds/{}", self.create_world_state.name)));
+                    if let Err(e) = engine.load_world(&PathBuf::from(format!("worlds/{}", self.create_world_state.name))) {
+                        log::error!("Failed to create world: {}", e);
+                        self.current_screen = MenuScreen::CreateWorld;
+                    }
                 }
                 
-                // Simulating loading time - in a real implementation you'd check if loading is complete
-                // and then transition to the game state
-                self.current_screen = MenuScreen::Main; // Change this to actual game state
+                // Reset create world state after loading
+                self.create_world_state = CreateWorldState::default();
             }
             _ => {}
         }
     }
     
     pub fn scan_for_worlds(&mut self) {
-    // In a real implementation, this would scan the worlds directory
-    // and populate self.worlds_list with WorldMeta objects
-    
-    // Example placeholder implementation with all required fields:
-    self.worlds_list = vec![
-        WorldMeta { 
-            name: "Test World".to_string(),
-            difficulty: Difficulty::Normal,
-            spawn_point: (0.0,0.0,0.0).into(),
-            world_type: WorldType::Normal,
-            seed: 12345,
-            last_played: 0, // Timestamp placeholder
-        },
-        WorldMeta {
-            name: "Creative Build".to_string(),
-            difficulty: Difficulty::Peaceful,
-            spawn_point: (0.0,0.0,0.0).into(),
-            world_type: WorldType::Superflat,
-            seed: 67890,
-            last_played: 0, // Timestamp placeholder
-        }
-    ];
-}
-}
-
-#[derive(Debug, Default)]
-pub struct CreateWorldState {
-    pub name: String,
-    pub world_type: WorldType,
-    pub difficulty: Difficulty,
-    pub game_mode: GameMode,
-    pub seed: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize,Serialize)]
-pub enum WorldType {
-    Normal,
-    Superflat,
-    Void,
-}
-
-impl Default for WorldType {
-    fn default() -> Self {
-        Self::Normal
+        // Placeholder implementation - in a real app this would scan the worlds directory
+        self.worlds_list = vec![
+            WorldMeta { 
+                name: "Test World".to_string(),
+                difficulty: Difficulty::Normal,
+                spawn_point: (0.0, 0.0, 0.0).into(),
+                world_type: WorldType::Normal,
+                seed: 12345,
+                last_played: 0,
+            },
+            WorldMeta {
+                name: "Creative Build".to_string(),
+                difficulty: Difficulty::Peaceful,
+                spawn_point: (0.0, 0.0, 0.0).into(),
+                world_type: WorldType::Superflat,
+                seed: 67890,
+                last_played: 0,
+            }
+        ];
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-
-pub enum Difficulty {
-    Peaceful,
-    Easy,
-    Normal,
-    Hard,
-}
-
-impl Default for Difficulty {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum GameMode {
-    Survival,
-    Creative,
-    Adventure,
-}
-
-impl Default for GameMode {
-    fn default() -> Self {
-        Self::Survival
-    }
-}
-
-
-/*
-// For demonstration purposes, let's assume WorldMeta has this structure
-// In a real implementation, this would be imported from the world module
-impl WorldMeta {
-    // Mock implementation for the world metadata
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
-}
-
-// Mock implementation for display purposes
-impl WorldMeta {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-}
-
-// Adding this field to WorldMeta to match the code
-#[derive(Debug, Clone)]
-pub struct WorldMeta {
-    pub name: String,
-    // Other fields would be here in a real implementation
-                                    }*/
