@@ -1,38 +1,106 @@
-#version 330 core
-in vec3 FragPos;
-in vec3 Normal;
-in vec2 TexCoord;
-flat in uint BlockId;
-flat in uint VariantData;
+#version 450
+layout(location = 0) out vec4 fragColor;
 
-out vec4 FragColor;
+layout(set = 0, binding = 1) uniform Material {
+    vec3 albedo;
+    float roughness;
+    float metallic;
+    int hasVariants;
+    vec3 variantAlbedoMod;
+    float roughnessMod;
+    float metallicMod;
+} material;
 
-uniform sampler2D textureAtlas;
-uniform vec3 lightPos;
-uniform vec3 viewPos;
+layout(set = 0, binding = 2) uniform sampler2DArray textureAtlas;
+
+layout(set = 0, binding = 3) uniform LightData {
+    vec3 viewPos;
+    vec3 lightPos;
+    float time;
+    int connectedDirections;
+} light;
+
+layout(location = 0) in vec3 fragPos;
+layout(location = 1) in vec3 normal;
+layout(location = 2) in vec2 texCoord;
+layout(location = 3) flat in uint blockId;
+layout(location = 4) flat in uint variantData;
+
+const float PI = 3.14159265359;
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+    return a2 / (PI * pow(NdotH2 * (a2 - 1.0) + 1.0, 2.0));
+}
+
+vec2 get_connected_uv(uint connections, vec2 uv) {
+    ivec2 texSize = textureSize(textureAtlas, 0).xy;
+    vec2 pixelUV = uv * texSize;
+    
+    // Horizontal connections
+    if ((connections & 0x3u) != 0u) {
+        if (pixelUV.x < 2.0) pixelUV.x += 2.0;
+        if (pixelUV.x > texSize.x - 2.0) pixelUV.x -= 2.0;
+    }
+    
+    // Vertical connections
+    if ((connections & 0xCu) != 0u) {
+        if (pixelUV.y < 2.0) pixelUV.y += 2.0;
+        if (pixelUV.y > texSize.y - 2.0) pixelUV.y -= 2.0;
+    }
+    
+    return pixelUV / texSize;
+}
 
 void main() {
-    // Basic lighting
-    vec3 lightDir = normalize(lightPos - FragPos);
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 normal = normalize(Normal);
+    // Extract variant data
+    uint variantId = (variantData >> 16) & 0xFFFFu;
+    uint facingBits = variantData & 0xFFFFu;
     
-    // Ambient
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * vec3(1.0);
+    // Calculate final material properties
+    vec3 finalAlbedo = material.albedo;
+    float finalRoughness = material.roughness;
+    float finalMetallic = material.metallic;
     
-    // Diffuse
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * vec3(1.0);
+    if (material.hasVariants == 1) {
+        finalAlbedo *= material.variantAlbedoMod;
+        finalRoughness = clamp(finalRoughness + material.roughnessMod, 0.0, 1.0);
+        finalMetallic = clamp(finalMetallic + material.metallicMod, 0.0, 1.0);
+    }
+
+    // Calculate connected texture coordinates
+    vec2 adjustedUV = get_connected_uv(uint(light.connectedDirections), texCoord);
     
-    // Specular
-    float specularStrength = 0.5;
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * vec3(1.0);
+    // Sample texture array using combined ID
+    uint textureIndex = blockId * 16u + variantId;
+    vec4 texColor = texture(textureAtlas, vec3(adjustedUV, float(textureIndex)));
     
-    // Combine lighting with texture
-    vec4 texColor = texture(textureAtlas, TexCoord);
-    vec3 result = (ambient + diffuse + specular) * texColor.rgb;
-    FragColor = vec4(result, texColor.a);
-} 
+    // PBR lighting calculations
+    vec3 N = normalize(normal);
+    vec3 V = normalize(light.viewPos - fragPos);
+    vec3 F0 = mix(vec3(0.04), finalAlbedo, finalMetallic);
+
+    // Direct lighting
+    vec3 L = normalize(light.lightPos - fragPos);
+    vec3 H = normalize(V + L);
+    float NDF = DistributionGGX(N, H, finalRoughness);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    vec3 kS = F;
+    vec3 kD = (vec3(1.0) - kS) * (1.0 - finalMetallic);
+
+    float NdotL = max(dot(N, L), 0.0);
+    vec3 radiance = vec3(1.0) * NdotL;
+
+    vec3 Lo = (kD * finalAlbedo / PI + NDF * F) * radiance;
+    vec3 ambient = vec3(0.03) * finalAlbedo;
+    vec3 color = ambient + Lo;
+
+    fragColor = vec4(color * texColor.rgb, texColor.a);
+}
