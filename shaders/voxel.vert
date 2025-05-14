@@ -1,25 +1,27 @@
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aTexCoord;
-layout (location = 3) in uint aBlockId;
-layout (location = 4) in uint aVariantData;
+#version 450
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoord;
+layout(location = 3) in uint aBlockId;
+layout(location = 4) in uint aVariantData;
 
-out vec3 FragPos;
-out vec3 Normal;
-out vec2 TexCoord;
-flat out uint BlockId;
-flat out uint VariantData;
+layout(set = 0, binding = 0) uniform UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+} ubo;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+layout(location = 0) out vec3 fragPos;
+layout(location = 1) out vec3 normal;
+layout(location = 2) out vec2 texCoord;
+layout(location = 3) flat out uint blockId;
+layout(location = 4) flat out uint variantData;
 
 void main() {
-    FragPos = vec3(model * vec4(aPos, 1.0));
-    Normal = mat3(transpose(inverse(model))) * aNormal;
-    TexCoord = aTexCoord;
-    BlockId = aBlockId;
-    VariantData = aVariantData;
-    gl_Position = projection * view * vec4(FragPos, 1.0);
-} 
+    fragPos = vec3(ubo.model * vec4(aPos, 1.0));
+    normal = mat3(transpose(inverse(ubo.model))) * aNormal;
+    texCoord = aTexCoord;
+    blockId = aBlockId;
+    variantData = aVariantData;
+    gl_Position = ubo.projection * ubo.view * vec4(fragPos, 1.0);
+}
