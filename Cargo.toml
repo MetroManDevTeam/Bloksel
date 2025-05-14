@@ -1,6 +1,9 @@
 [package]
 name = "bloksel"
 version = "0.0.99"
+authors = ["MetroManDevTeam"] 
+description = "A Voxel Engine designed to be able to generate the terrain of the real world" 
+homepage = "https://www.bloksel.com" 
 edition = "2021"
 
 [dependencies]
