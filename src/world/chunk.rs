@@ -12,12 +12,12 @@ use crate::world::chunk_coord::ChunkCoord;
 use crate::world::generator::terrain::BiomeType;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use bincode::{deserialize_from, serialize_into};
-use glam::{IVec3, Mat4, Vec3};
+use glam::{IVec3, Mat4, Vec2, Vec3, Vec4};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
@@ -100,21 +100,78 @@ impl ChunkMesh {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Frustum {
+    planes: [Vec4; 6],
+}
+
+impl Frustum {
+    pub fn from_view_projection(view_proj: &Mat4) -> Self {
+        let mut planes = [Vec4::ZERO; 6];
+        let m = view_proj.to_cols_array_2d();
+
+        // Extract frustum planes from view-projection matrix
+        planes[0] = Vec4::new(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0], m[3][3] + m[3][0]); // Left
+        planes[1] = Vec4::new(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0], m[3][3] - m[3][0]); // Right
+        planes[2] = Vec4::new(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1], m[3][3] + m[3][1]); // Bottom
+        planes[3] = Vec4::new(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1], m[3][3] - m[3][1]); // Top
+        planes[4] = Vec4::new(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2], m[3][3] + m[3][2]); // Near
+        planes[5] = Vec4::new(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2], m[3][3] - m[3][2]); // Far
+
+        // Normalize planes
+        for plane in &mut planes {
+            let length = Vec3::new(plane.x, plane.y, plane.z).length();
+            *plane = *plane / length;
+        }
+
+        Self { planes }
+    }
+
+    pub fn intersects_aabb(&self, min: Vec3, max: Vec3) -> bool {
+        for plane in &self.planes {
+            let p = Vec3::new(plane.x, plane.y, plane.z);
+            let d = plane.w;
+
+            // Find the farthest point in the negative direction of the plane normal
+            let mut farthest = min;
+            if p.x > 0.0 { farthest.x = max.x; }
+            if p.y > 0.0 { farthest.y = max.y; }
+            if p.z > 0.0 { farthest.z = max.z; }
+
+            // If the farthest point is outside the plane, the AABB is outside the frustum
+            if p.dot(farthest) + d < 0.0 {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     pub position: ChunkCoord,
     pub blocks: Vec<Option<Block>>,
     pub mesh: Option<ChunkMesh>,
     pub needs_remesh: bool,
+    #[serde(skip)]
+    pub bounds: (Vec3, Vec3), // (min, max) world-space AABB
 }
 
 impl Chunk {
     pub fn new(position: ChunkCoord) -> Self {
+        let min = Vec3::new(
+            position.x() as f32 * CHUNK_SIZE as f32,
+            position.y() as f32 * CHUNK_SIZE as f32,
+            position.z() as f32 * CHUNK_SIZE as f32,
+        );
+        let max = min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32);
+
         Self {
             position,
             blocks: vec![None; CHUNK_VOLUME],
             mesh: None,
             needs_remesh: true,
+            bounds: (min, max),
         }
     }
 
@@ -196,8 +253,18 @@ impl Chunk {
     }
 
     pub fn load_from_reader(mut reader: impl io::Read) -> io::Result<Self> {
-        bincode::deserialize_from(&mut reader)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        let mut chunk: Self = bincode::deserialize_from(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        
+        // Recalculate bounds after loading
+        let min = Vec3::new(
+            chunk.position.x() as f32 * CHUNK_SIZE as f32,
+            chunk.position.y() as f32 * CHUNK_SIZE as f32,
+            chunk.position.z() as f32 * CHUNK_SIZE as f32,
+        );
+        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
+        
+        Ok(chunk)
     }
 
     pub fn generate_mesh(&mut self, renderer: &ChunkRenderer) -> Result<(), RenderError> {
@@ -350,9 +417,64 @@ impl Chunk {
         Mat4::from_translation(pos)
     }
 
+    pub fn is_visible(&self, frustum: &Frustum) -> bool {
+        frustum.intersects_aabb(self.bounds.0, self.bounds.1)
+    }
+
+    pub fn get_aabb_corners(&self) -> [Vec3; 8] {
+        let (min, max) = self.bounds;
+        [
+            Vec3::new(min.x, min.y, min.z),
+            Vec3::new(max.x, min.y, min.z),
+            Vec3::new(max.x, max.y, min.z),
+            Vec3::new(min.x, max.y, min.z),
+            Vec3::new(min.x, min.y, max.z),
+            Vec3::new(max.x, min.y, max.z),
+            Vec3::new(max.x, max.y, max.z),
+            Vec3::new(min.x, max.y, max.z),
+        ]
+    }
+
     pub fn is_solid_at(&self, world_x: i32, world_y: i32, world_z: i32) -> bool {
         self.get_block_at(world_x, world_y, world_z)
             .map_or(false, |block| block.is_solid())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedChunk {
+    pub coord: ChunkCoord,
+    pub blocks: Vec<Option<Block>>,
+}
+
+impl SerializedChunk {
+    pub fn from_chunk(coord: ChunkCoord, chunk: &Chunk) -> Self {
+        Self {
+            coord,
+            blocks: chunk.blocks.clone(),
+        }
+    }
+}
+
+impl Chunk {
+    pub fn from_serialized(serialized: SerializedChunk) -> Result<Self, std::io::Error> {
+        let mut chunk = Self {
+            position: serialized.coord,
+            blocks: serialized.blocks,
+            mesh: None,
+            needs_remesh: true,
+            bounds: (Vec3::ZERO, Vec3::ZERO),
+        };
+        
+        // Recalculate bounds
+        let min = Vec3::new(
+            chunk.position.x() as f32 * CHUNK_SIZE as f32,
+            chunk.position.y() as f32 * CHUNK_SIZE as f32,
+            chunk.position.z() as f32 * CHUNK_SIZE as f32,
+        );
+        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
+        
+        Ok(chunk)
     }
 }
 
@@ -362,6 +484,8 @@ pub struct ChunkManager {
     world_config: WorldGenConfig,
     compressed_cache: HashMap<ChunkCoord, Vec<CompressedBlock>>,
     block_registry: Arc<BlockRegistry>,
+    visible_chunks: Vec<Arc<Chunk>>,
+    last_view_proj: Option<Mat4>,
 }
 
 impl ChunkManager {
@@ -376,6 +500,8 @@ impl ChunkManager {
             world_config,
             compressed_cache: HashMap::new(),
             block_registry,
+            visible_chunks: Vec::new(),
+            last_view_proj: None,
         }
     }
 
@@ -449,4 +575,111 @@ impl ChunkManager {
         }
         Ok(())
     }
+
+    pub fn update_visibility(&mut self, view_proj: &Mat4) {
+        // Only recalculate if view-projection matrix changed
+        if let Some(last) = &self.last_view_proj {
+            if last.abs_diff_eq(*view_proj, 0.001) {
+                return;
+            }
+        }
+        self.last_view_proj = Some(*view_proj);
+
+        let frustum = Frustum::from_view_projection(view_proj);
+        self.visible_chunks.clear();
+
+        for chunk in self.chunks.values() {
+            if chunk.is_visible(&frustum) {
+                self.visible_chunks.push(chunk.clone());
+            }
+        }
     }
+
+    pub fn render_visible_chunks(
+        &self,
+        device: &ash::Device,
+        command_buffer: vk::CommandBuffer,
+        camera: &Camera,
+    ) {
+        for chunk in &self.visible_chunks {
+            if let Some(mesh) = &chunk.mesh {
+                if !mesh.is_empty() {
+                    self.renderer.render_chunk(device, command_buffer, chunk, camera);
+                }
+            }
+        }
+    }
+
+    pub fn save_world(&self) -> std::io::Result<()> {
+        let world_dir = format!("worlds/{}", self.world_config.world_name);
+        fs::create_dir_all(&world_dir)?;
+
+        for (coord, chunk) in &self.chunks {
+            chunk.save_world(Path::new(&world_dir))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn load_world(&mut self) -> std::io::Result<()> {
+        let world_dir = format!("worlds/{}", self.world_config.world_name);
+        let world_path = Path::new(&world_dir);
+
+        if !world_path.exists() {
+            return Ok(());
+        }
+
+        for entry in fs::read_dir(world_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "bin") {
+                let coord = ChunkCoord::from_path(&path)?;
+                let chunk = Chunk::load_world(world_path, coord)?;
+                self.add_chunk(coord, chunk);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
+        let chunk = self.chunks.get(&chunk_coord)?;
+        chunk
+            .get_block_at(world_pos.x as i32, world_pos.y as i32, world_pos.z as i32)
+            .map(|block| {
+                (
+                    block,
+                    IVec3::new(
+                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+                    ),
+                )
+            })
+    }
+
+    pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
+        let chunk = self.chunks.get(&chunk_coord)?;
+        chunk
+            .get_subblock_at(
+                world_pos.x as i32,
+                world_pos.y as i32,
+                world_pos.z as i32,
+                (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+                (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+                (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
+            )
+            .map(|sub_block| {
+                (
+                    sub_block,
+                    IVec3::new(
+                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
+                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
+                    ),
+                )
+            })
+    }
+}
