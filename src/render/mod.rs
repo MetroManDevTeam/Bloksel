@@ -1,5 +1,6 @@
 pub mod core;
 pub mod texture;
+pub mod vulkan;
 
 pub use core::camera;
 pub use core::mesh;
