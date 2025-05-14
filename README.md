@@ -1,54 +1,54 @@
-![1000141985](https://github.com/user-attachments/assets/2f9f0964-5cc5-4321-a641-fd4fd098e097)
+![1000143236](https://github.com/user-attachments/assets/5d4ea3a1-7281-4cea-98e4-bcba8c1faa54)
 
-# Welcome to the Bloksel Project!
-## Project under development the first stable prototype release will be announced when ready, do not clone yet
+### Work in progress, we'll announce when prototype is ready for distribution
 
-A voxel-based game engine written in Rust, featuring a block-based world with advanced terrain generation, physics, and rendering capabilities. Bloksel expands on the idea of an **unlimited voxel engine**, designed to push the boundaries of creativity and performance.
+# **🌌 Bloksel - Real Terrain Voxel Game**  
+*Source Code | [GitHub](https://github.com/MetroManSR/Bloksel)*  
 
-## Features
+A voxel-based game engine written in Rust, featuring **1:1 scale planet terrains** with advanced fractal generation and dynamic LOD systems. Bloksel pushes the boundaries of voxel technology for limitless creativity.
 
-- **Block-based world system** with support for **sub-blocks** for finer detail  
-- **Advanced terrain generation** with biomes, caves, and dynamic ecosystems  
-- **Efficient chunk-based world management** with **rendering optimizations**  
-- **Physics system** for realistic player and block interactions  
-- **Modern OpenGL-based rendering pipeline** for stunning visuals  
-- **Ultra performance enhancements** to handle vast, seamless worlds  
-- **Configurable world generation parameters** for tailored experiences  
+## **✨ Core Features:**  
+- **Planet-scale 1:1 voxel worlds** with realistic terrain  
+- **Fractal terrain generation** with biomes and dynamic ecosystems  
+- **1/8 Cube Size** for finer detail than traditional voxel engines  
+- **Dynamic LOD & chunk streaming** for seamless infinite worlds  
+- **Modern Vulkan-based rendering** with optimized pipeline  
+- **Configurable world generation** for tailored experiences  
 
-## Vision  
+## **🖥️ Platforms:**  
+✅ Windows (Primary)  
+✅ Linux (Planned)  
+🔄 macOS (Post-launch)  
+📱 Mobile/Web (Future)  
 
-Bloksel is more than a game—it’s a platform to recreate:  
-- **Game scenarios**  
-- **Movie scenes**  
-- **Real-world environments** and beyond!  
+## **🚧 Development Status:**  
+Currently in **prototype stage** with core engine development ongoing.  
 
-Currently in **prototype stage**, this project offers a glimpse of what’s to come: **limitless imagination!** Our final goal is to evolve into a **multiplayer voxel game**, but we’ll need **funding** to implement multiplayer or enter a **secret phase** of development. For inquiries, reach out to `MetroManSR`.  
+## **🚀 Roadmap:**  
+1. Core engine (Current Focus)  
+2. Advanced terrain generation  
+3. Physics and player systems  
+4. Multiplayer support (Requires funding)  
 
-## Requirements  
+## **🛠️ Building**  
+```bash
+git clone https://github.com/MetroManSR/Bloksel.git
+cd Bloksel
+cargo build --release
+cargo run --release
+```
 
-- Rust 1.70 or higher  
-- OpenGL 4.3 or higher  
-- CMake 3.10 or higher (for some dependencies)  
+## **📂 Project Structure**  
+- `src/world/` - Planet-scale world management  
+- `src/render/` - LOD rendering pipeline  
+- `src/terrain/` - Fractal generation systems  
+- `src/player/` - Physics and controls  
+- `src/assets/` - Resource management  
 
-## Building  
+## **💡 Vision**  
+More than a game engine - a platform to recreate:  
+- Game scenarios • Movie scenes • Real-world environments  
 
-```bash  
-# Clone the repository  
-git clone https://github.com/MetroManSR/Bloksel.git  
-cd Bloksel  
+For collaboration or funding inquiries, contact `MetroManSR`.  
 
-# Build the project  
-cargo build --release  
-
-# Run the game  
- cargo run --release  
-```  
-
-## Project Structure  
-
-- `src/world/` - Core world and block management  
-- `src/render/` - Rendering pipeline and graphics  
-- `src/config/` - Configuration and settings  
-- `src/player/` - Player physics and controls  
-- `src/assets/` - Asset management and loading  
-- `src/ui/` - User interface components  
+*"Limitless voxel imagination in the making!"*  
