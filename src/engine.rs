@@ -1,7 +1,10 @@
 use crate::{
     config::{core::EngineConfig, worldgen::WorldGenConfig},
     player::physics::Player,
-    render::{pipeline::ChunkRenderer, shaders::ShaderProgram},
+    render::{
+        pipeline::{ChunkRenderer, RenderError},
+        shaders::ShaderProgram,
+    },
     world::{
         block_id::BlockRegistry as BlockIdRegistry,
         blocks_data::BlockRegistry,
@@ -88,9 +91,10 @@ impl VoxelEngine {
             block_registry.clone(),
         ));
 
+        // Initialize Vulkan renderer with dummy values (will be properly initialized later)
         let chunk_renderer = Arc::new(ChunkRenderer::new(
             ShaderProgram::new("shaders/voxel.vert", "shaders/voxel.frag")?,
-            0, // texture_atlas
+            0, // texture_atlas (will be updated when textures are loaded)
             block_registry.clone(),
         ));
 
@@ -140,6 +144,37 @@ impl VoxelEngine {
         })
     }
 
+    pub fn initialize_vulkan(&mut self, vulkan_context: Arc<crate::render::vulkan::VulkanContext>) -> Result<()> {
+        // Reinitialize the chunk renderer with proper Vulkan context
+        let new_renderer = ChunkRenderer::new(
+            ShaderProgram::new("shaders/voxel.vert", "shaders/voxel.frag")?,
+            0,
+            self.block_registry.clone(),
+        )?;
+        
+        *Arc::make_mut(&mut self.chunk_renderer) = new_renderer;
+        
+        // Load all block textures
+        self.load_block_textures()?;
+        
+        Ok(())
+    }
+
+    fn load_block_textures(&self) -> Result<()> {
+        // Load textures for all registered blocks
+        for (block_id, block) in self.block_registry.blocks() {
+            if let Some(texture_path) = block.material().texture_path() {
+                self.chunk_renderer.load_material(*block_id, block.material().clone())
+                    .with_context(|| format!("Failed to load texture for block {}", block_id))?;
+            }
+        }
+        
+        // Process the texture queue and upload to GPU
+        self.chunk_renderer.process_texture_queue()?;
+        
+        Ok(())
+    }
+
     pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
         EngineConfig {
             world_seed: seed,
@@ -161,29 +196,59 @@ impl VoxelEngine {
         }
     }
 
-    pub fn save_world(&self, _path: &Path) -> Result<()> {
-        // TODO: Implement world saving
+    pub fn save_world(&self, path: &Path) -> Result<()> {
+        // TODO: Implement world saving with proper serialization
+        warn!("World saving not yet implemented");
         Ok(())
     }
 
-    pub fn load_world(&mut self, _path: &Path) -> Result<()> {
-        // TODO: Implement world loading
+    pub fn load_world(&mut self, path: &Path) -> Result<()> {
+        // TODO: Implement world loading with proper deserialization
+        warn!("World loading not yet implemented");
         Ok(())
     }
 
     pub fn get_stats(&self) -> EngineStats {
         EngineStats {
-            frame_count: self
-                .frame_counter
-                .load(std::sync::atomic::Ordering::Relaxed),
+            frame_count: self.frame_counter.load(std::sync::atomic::Ordering::Relaxed),
             active_chunks: self.active_chunks.read().len(),
-            render_stats: RenderStats::default(),
-            memory_usage: 0,
+            render_stats: RenderStats {
+                draw_calls: self.chunk_renderer.get_draw_call_count(),
+                vertices_rendered: self.chunk_renderer.get_vertex_count(),
+                triangles_rendered: self.chunk_renderer.get_triangle_count(),
+            },
+            memory_usage: 0, // TODO: Implement memory tracking
             thread_stats: ThreadPoolStats {
-                active_threads: 0,
-                queued_tasks: 0,
+                active_threads: self.generation_pool.current_num_threads(),
+                queued_tasks: self.load_receiver.len() + self.unload_receiver.len(),
             },
         }
+    }
+
+    pub fn render_frame(&self, command_buffer: vk::CommandBuffer, camera: &crate::render::core::Camera) {
+        // Render all active chunks
+        let active_chunks = self.active_chunks.read();
+        for chunk in active_chunks.values() {
+            self.chunk_renderer.render_chunk(
+                command_buffer,
+                chunk,
+                camera,
+            );
+        }
+    }
+
+    pub fn update(&mut self, delta_time: f32) {
+        // Update player physics
+        let mut player = self.player.lock();
+        player.update(delta_time);
+
+        // Update chunk loading based on player position
+        self.update_chunk_loading(player.position());
+    }
+
+    fn update_chunk_loading(&self, player_position: Vec3) {
+        // TODO: Implement chunk loading/unloading logic based on player position
+        // and render distance
     }
 }
 
@@ -196,13 +261,25 @@ pub struct EngineStats {
     thread_stats: ThreadPoolStats,
 }
 
+#[derive(Debug)]
+pub struct RenderStats {
+    draw_calls: usize,
+    vertices_rendered: usize,
+    triangles_rendered: usize,
+}
+
+impl Default for RenderStats {
+    fn default() -> Self {
+        Self {
+            draw_calls: 0,
+            vertices_rendered: 0,
+            triangles_rendered: 0,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ThreadPoolStats {
     active_threads: usize,
     queued_tasks: usize,
-}
-
-#[derive(Debug, Default)]
-pub struct RenderStats {
-    // TODO: Add render statistics
-}
+    }
