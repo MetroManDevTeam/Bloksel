@@ -9,7 +9,7 @@ use bloksel::{
     ui::{
         menu::MenuState,
          
-        eguiRender::EguiRenderer,
+        egui_render::EguiRenderer,
        }, 
     render::vulkan::VulkanContext;
 };
