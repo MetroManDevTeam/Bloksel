@@ -1,6 +1,6 @@
 use crate::{
     render::vulkan::VulkanContext,
-    ui::egui_render::EguiRenderer,
+    ui::{egui_render::EguiRenderer, helpers},
     VoxelEngine, 
     world::WorldMeta,
     config::{core::EngineConfig, worldgen::WorldGenConfig}
@@ -9,7 +9,7 @@ use ash::vk;
 use egui::{
     CentralPanel, ComboBox, Context, Grid, Spinner, Window, 
     Align, Layout, Rect, Vec2, Ui, ClippedPrimitive, TexturesDelta,
-    Color32, ProgressBar
+    Color32, ProgressBar, Label, ScrollArea, SelectableLabel
 };
 use egui_winit::State as EguiWinitState;
 use std::{path::PathBuf, sync::Arc};
@@ -88,11 +88,7 @@ pub struct MenuState {
 impl MenuState {
     pub fn new(vulkan_context: Arc<VulkanContext>, render_pass: vk::RenderPass) -> Self {
         let egui_context = Context::default();
-        let egui_winit_state = EguiWinitState::new(
-            1280, // Default window width
-            720,  // Default window height
-            1.0,  // Default pixels per point
-        );
+        let egui_winit_state = EguiWinitState::new(1280, 720, 1.0);
         
         let egui_renderer = EguiRenderer::new(&vulkan_context, render_pass)
             .expect("Failed to create egui renderer");
@@ -138,7 +134,6 @@ impl MenuState {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.egui_winit_state.set_pixels_per_point(1.0);
 
-        // Run UI logic with dummy engine if no renderer available
         if self.egui_renderer.is_none() {
             self.show(&self.egui_context, &mut VoxelEngine::dummy());
         }
@@ -178,24 +173,20 @@ impl MenuState {
         CentralPanel::default().show(ctx, |ui| {
             let available_size = ui.available_size();
             
-            ui.vertical_centered(|ui| {
-                ui.add_space(available_size.y * 0.1);
-                ui.heading("Bloksel");
-                ui.add_space(available_size.y * 0.15);
-            });
+            helpers::logo(ui);
+            ui.add_space(available_size.y * 0.15);
             
             ui.vertical_centered(|ui| {
-                let button_width = available_size.x * 0.3;
+                ui.set_width(available_size.x * 0.3);
                 
-                ui.set_width(button_width);
-                if ui.button("Load World").clicked() {
+                if helpers::button(ui, "Load World").clicked() {
                     self.current_screen = MenuScreen::LoadWorld;
                     self.scan_for_worlds();
                 }
                 
                 ui.add_space(20.0);
                 
-                if ui.button("Create World").clicked() {
+                if helpers::button(ui, "Create World").clicked() {
                     self.current_screen = MenuScreen::CreateWorld;
                 }
             });
@@ -206,19 +197,15 @@ impl MenuState {
                 ui.add_space(20.0);
                 
                 ui.horizontal(|ui| {
-                    ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                        if ui.button("Settings").clicked() {
-                            self.current_screen = MenuScreen::Settings;
-                        }
-                    });
+                    if helpers::small_button(ui, "Settings").clicked() {
+                        self.current_screen = MenuScreen::Settings;
+                    }
                     
                     ui.add_space(available_size.x * 0.6);
                     
-                    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                        if ui.button("Credits").clicked() {
-                            self.current_screen = MenuScreen::Credits;
-                        }
-                    });
+                    if helpers::small_button(ui, "Credits").clicked() {
+                        self.current_screen = MenuScreen::Credits;
+                    }
                 });
                 
                 ui.add_space(10.0);
@@ -228,24 +215,21 @@ impl MenuState {
     }
 
     fn show_load_world(&mut self, ctx: &Context) {
-        Window::new("Load World")
-            .collapsible(false)
-            .resizable(true)
+        helpers::standard_window(ctx, "Load World")
             .default_size([400.0, 500.0])
             .show(ctx, |ui| {
                 ui.heading("Select a World");
                 ui.add_space(10.0);
                 
-                egui::ScrollArea::vertical().show(ui, |ui| {
+                ScrollArea::vertical().show(ui, |ui| {
                     if self.worlds_list.is_empty() {
                         ui.label("No worlds found. Create a new world!");
                     } else {
                         for world in &self.worlds_list {
-                            let world_name = &world.name;
-                            if ui.selectable_label(
-                                self.selected_world.as_ref().map_or(false, |w| &w.name == world_name),
-                                format!("{} (Created: {})", world_name, "Unknown")
-                            ).clicked() {
+                            let is_selected = self.selected_world.as_ref()
+                                .map_or(false, |w| w.name == world.name);
+                            
+                            if SelectableLabel::new(is_selected, &world.name).ui(ui).clicked() {
                                 self.selected_world = Some(world.clone());
                             }
                         }
@@ -255,23 +239,25 @@ impl MenuState {
                 ui.add_space(20.0);
                 
                 ui.horizontal(|ui| {
-                    let button_width = ui.available_width() / 3.0 - 10.0;
+                    let btn_width = ui.available_width() / 3.0 - 10.0;
                     
-                    if ui.add_sized([button_width, 30.0], egui::Button::new("Play Selected")).clicked() {
-                        if self.selected_world.is_some() {
-                            self.current_screen = MenuScreen::Loading;
+                    if ui.add_sized([btn_width, 30.0], helpers::small_button(ui, "Play Selected")).clicked() 
+                        && self.selected_world.is_some() {
+                        self.current_screen = MenuScreen::Loading;
+                    }
+                    
+                    ui.add_space(10.0);
+                    
+                    if ui.add_sized([btn_width, 30.0], helpers::small_button(ui, "Delete")).clicked() {
+                        if let Some(world) = &self.selected_world {
+                            helpers::delete_world(&world.name);
+                            self.scan_for_worlds();
                         }
                     }
                     
                     ui.add_space(10.0);
                     
-                    if ui.add_sized([button_width, 30.0], egui::Button::new("Delete")).clicked() {
-                        // TODO: Implement world deletion
-                    }
-                    
-                    ui.add_space(10.0);
-                    
-                    if ui.add_sized([button_width, 30.0], egui::Button::new("Back")).clicked() {
+                    if ui.add_sized([btn_width, 30.0], helpers::small_button(ui, "Back")).clicked() {
                         self.current_screen = MenuScreen::Main;
                     }
                 });
@@ -279,9 +265,7 @@ impl MenuState {
     }
 
     fn show_create_world(&mut self, ctx: &Context) {
-        Window::new("Create New World")
-            .collapsible(false)
-            .resizable(false)
+        helpers::standard_window(ctx, "Create New World")
             .default_size([450.0, 350.0])
             .show(ctx, |ui| {
                 Grid::new("world_settings")
@@ -382,14 +366,14 @@ impl MenuState {
                 ui.horizontal(|ui| {
                     let button_width = ui.available_width() / 2.0 - 5.0;
                     
-                    if ui.add_sized([button_width, 30.0], egui::Button::new("Create"))
+                    if ui.add_sized([button_width, 30.0], helpers::small_button(ui, "Create"))
                         .clicked() && !self.create_world_state.name.trim().is_empty() {
                         self.current_screen = MenuScreen::Loading;
                     }
                     
                     ui.add_space(10.0);
                     
-                    if ui.add_sized([button_width, 30.0], egui::Button::new("Cancel")).clicked() {
+                    if ui.add_sized([button_width, 30.0], helpers::small_button(ui, "Cancel")).clicked() {
                         self.current_screen = MenuScreen::Main;
                     }
                 });
@@ -397,9 +381,7 @@ impl MenuState {
     }
 
     fn show_settings(&mut self, ctx: &Context) {
-        Window::new("Settings")
-            .collapsible(false)
-            .resizable(true)
+        helpers::standard_window(ctx, "Settings")
             .default_size([500.0, 400.0])
             .show(ctx, |ui| {
                 ui.heading("Game Settings");
@@ -445,15 +427,15 @@ impl MenuState {
                 
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("Save").clicked() {
+                        if helpers::small_button(ui, "Save").clicked() {
                             self.current_screen = MenuScreen::Main;
                         }
                         
-                        if ui.button("Cancel").clicked() {
+                        if helpers::small_button(ui, "Cancel").clicked() {
                             self.current_screen = MenuScreen::Main;
                         }
                         
-                        if ui.button("Defaults").clicked() {
+                        if helpers::small_button(ui, "Defaults").clicked() {
                             // Reset to defaults
                         }
                     });
@@ -462,15 +444,11 @@ impl MenuState {
     }
 
     fn show_credits(&mut self, ctx: &Context) {
-        Window::new("Credits")
-            .collapsible(false)
-            .resizable(false)
+        helpers::standard_window(ctx, "Credits")
             .default_size([500.0, 400.0])
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.heading("Bloksel");
-                    ui.add_space(10.0);
-                    ui.label("Version 0.1.0");
+                    helpers::logo(ui);
                     ui.add_space(20.0);
                     
                     ui.strong("Development Team");
@@ -506,7 +484,7 @@ impl MenuState {
                     ui.label("All Rights Reserved");
                     
                     ui.add_space(20.0);
-                    if ui.button("Back").clicked() {
+                    if helpers::small_button(ui, "Back").clicked() {
                         self.current_screen = MenuScreen::Main;
                     }
                 });
@@ -515,24 +493,11 @@ impl MenuState {
 
     fn show_loading_screen(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                let available_size = ui.available_size();
+            let progress = (ctx.frame_nr() as f32 % 100.0) / 100.0;
+            let tasks = ["Generating terrain", "Loading chunks", "Spawning entities", "Preparing world"];
+            let current_task = tasks[(ctx.frame_nr() as usize / 50) % tasks.len()];
             
-                ui.add_space(available_size.y * 0.3);
-                ui.heading("Loading World...");
-                ui.add_space(20.0);
-                ui.add(Spinner::new().size(50.0));
-            
-                let progress = (ctx.frame_nr() as f32 % 100.0) / 100.0;
-                ui.add(ProgressBar::new(progress)
-                    .show_percentage()
-                    .animate(true));
-                
-                ui.add_space(10.0);
-                let tasks = ["Generating terrain", "Loading chunks", "Spawning entities", "Preparing world"];
-                let current_task = tasks[(ctx.frame_nr() as usize / 50) % tasks.len()];
-                ui.label(current_task);
-            });
+            helpers::loading_spinner(ui, current_task, progress);
         });
     }
 
@@ -576,24 +541,28 @@ impl MenuState {
     }
     
     pub fn scan_for_worlds(&mut self) {
-        // Placeholder implementation - in a real app this would scan the worlds directory
-        self.worlds_list = vec![
-            WorldMeta { 
-                name: "Test World".to_string(),
-                difficulty: Difficulty::Normal,
-                spawn_point: (0.0, 0.0, 0.0).into(),
-                world_type: WorldType::Normal,
-                seed: 12345,
-                last_played: 0,
-            },
-            WorldMeta {
-                name: "Creative Build".to_string(),
-                difficulty: Difficulty::Peaceful,
-                spawn_point: (0.0, 0.0, 0.0).into(),
-                world_type: WorldType::Superflat,
-                seed: 67890,
-                last_played: 0,
-            }
-        ];
+        self.worlds_list = helpers::load_saved_worlds();
+        
+        // Add some default worlds if none found
+        if self.worlds_list.is_empty() {
+            self.worlds_list = vec![
+                WorldMeta { 
+                    name: "Test World".to_string(),
+                    difficulty: Difficulty::Normal,
+                    spawn_point: (0.0, 0.0, 0.0).into(),
+                    world_type: WorldType::Normal,
+                    seed: 12345,
+                    last_played: 0,
+                },
+                WorldMeta {
+                    name: "Creative Build".to_string(),
+                    difficulty: Difficulty::Peaceful,
+                    spawn_point: (0.0, 0.0, 0.0).into(),
+                    world_type: WorldType::Superflat,
+                    seed: 67890,
+                    last_played: 0,
+                }
+            ];
+        }
     }
 }
