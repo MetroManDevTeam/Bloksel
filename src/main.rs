@@ -1,24 +1,29 @@
-
-
 use anyhow::{Context, Result};
-use glutin::{
-    config::ConfigTemplateBuilder,
-    context::{ContextApi, ContextAttributesBuilder, GlProfile, PossiblyCurrentContext, Version},
-    display::{GetGlDisplay, GlDisplay},
-    prelude::*,
-    surface::{Surface, WindowSurface},
+use ash::{version::DeviceV1_0, vk};
+use bloksel::{
+    config::{
+        chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
+        gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
+    },
+    engine::VoxelEngine,
+    ui::{
+        menu::MenuState,
+         
+        eguiRender::EguiRenderer,
+       }, 
+    render::vulkan::VulkanContext;
 };
-use glutin_winit::{DisplayBuilder, GlWindow};
+use egui::{ClippedPrimitive, Context as EguiContext, TexturesDelta};
+use egui_winit::State as EguiWinitState;
 use log::{debug, error, info, warn, LevelFilter};
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use simple_logger::SimpleLogger;
 use std::{
-    ffi::{CStr, CString},
     num::NonZeroU32,
-    ptr,
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
+ 
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -26,168 +31,34 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use bloksel::{
-    config::{
-        chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
-        gameplay::GameplayConfig, rendering::RenderConfig, worldgen::WorldGenConfig,
-    },
-    engine::VoxelEngine,
-    render::texture::Texture,
-    ui::menu::MenuState,
-};
-use gl::*;
-// Simple shader program implementation
-struct ShaderProgram {
-    id: u32,
-}
 
-impl ShaderProgram {
-    pub fn new(vertex_src: &str, fragment_src: &str) -> Result<Self> {
-        let mut success = gl::FALSE as gl::types::GLint;
-        let mut info_log = Vec::with_capacity(512);
-        unsafe {
-            info_log.set_len(512 - 1); // Ensure space for null terminator
-        }
 
-        unsafe {
-            // Vertex shader
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            let c_str_vert = CString::new(vertex_src.as_bytes()).unwrap();
-            gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
-            gl::CompileShader(vertex_shader);
-            
-            // Check compilation
-            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
-            if success != gl::TRUE as gl::types::GLint {
-                gl::GetShaderInfoLog(
-                    vertex_shader,
-                    512,
-                    ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
-                );
-                return Err(anyhow::anyhow!(
-                    "Vertex shader compilation failed: {}",
-                    String::from_utf8_lossy(&info_log)
-                ));
-            }
-
-            // Fragment shader
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            let c_str_frag = CString::new(fragment_src.as_bytes()).unwrap();
-            gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
-            gl::CompileShader(fragment_shader);
-            
-            // Check compilation
-            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-            if success != gl::TRUE as gl::types::GLint {
-                gl::GetShaderInfoLog(
-                    fragment_shader,
-                    512,
-                    ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
-                );
-                return Err(anyhow::anyhow!(
-                    "Fragment shader compilation failed: {}",
-                    String::from_utf8_lossy(&info_log)
-                ));
-            }
-
-            // Link shaders
-            let id = gl::CreateProgram();
-            gl::AttachShader(id, vertex_shader);
-            gl::AttachShader(id, fragment_shader);
-            gl::LinkProgram(id);
-            
-            // Check linking
-            gl::GetProgramiv(id, gl::LINK_STATUS, &mut success);
-            if success != gl::TRUE as gl::types::GLint {
-                gl::GetProgramInfoLog(
-                    id,
-                    512,
-                    ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut gl::types::GLchar,
-                );
-                return Err(anyhow::anyhow!(
-                    "Shader program linking failed: {}",
-                    String::from_utf8_lossy(&info_log)
-                ));
-            }
-
-            // Clean up
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
-
-            Ok(ShaderProgram { id })
-        }
-    }
-
-    pub fn use_program(&self) {
-        unsafe {
-            gl::UseProgram(self.id);
-        }
-    }
-
-    pub fn set_uniform_mat4(&self, name: &str, value: &[f32; 16]) {
-        unsafe {
-            let c_name = CString::new(name).unwrap();
-            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
-            gl::UniformMatrix4fv(location, 1, gl::FALSE, value.as_ptr());
-        }
-    }
-    
-    pub fn set_uniform_int(&self, name: &str, value: i32) {
-        unsafe {
-            let c_name = CString::new(name).unwrap();
-            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
-            gl::Uniform1i(location, value);
-        }
-    }
-    
-    pub fn set_uniform_float(&self, name: &str, value: f32) {
-        unsafe {
-            let c_name = CString::new(name).unwrap();
-            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
-            gl::Uniform1f(location, value);
-        }
-    }
-    
-    pub fn set_uniform_vec4(&self, name: &str, values: &[f32; 4]) {
-        unsafe {
-            let c_name = CString::new(name).unwrap();
-            let location = gl::GetUniformLocation(self.id, c_name.as_ptr());
-            gl::Uniform4fv(location, 1, values.as_ptr());
-        }
-    }
-}
-
-impl Drop for ShaderProgram {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.id);
-        }
-    }
-}
 
 struct App {
     window: Window,
-    gl_context: PossiblyCurrentContext,
-    gl_surface: Surface<WindowSurface>,
+    vulkan_context: Arc<VulkanContext>,
+    surface: vk::SurfaceKHR,
+    swapchain: vk::SwapchainKHR,
+    swapchain_images: Vec<vk::Image>,
+    swapchain_image_views: Vec<vk::ImageView>,
+    swapchain_format: vk::Format,
+    swapchain_extent: vk::Extent2D,
+    render_pass: vk::RenderPass,
+    framebuffers: Vec<vk::Framebuffer>,
+    command_pool: vk::CommandPool,
+    command_buffers: Vec<vk::CommandBuffer>,
+    image_available_semaphores: Vec<vk::Semaphore>,
+    render_finished_semaphores: Vec<vk::Semaphore>,
+    in_flight_fences: Vec<vk::Fence>,
+    current_frame: usize,
     engine: Option<VoxelEngine>,
-    loading_texture: Option<Texture>,
     loading_start: Instant,
-    egui_ctx: Option<egui::Context>,
-    egui_winit: Option<egui_winit::State>,
-    glow_context: Option<Arc<glow::Context>>,
-    painter: Option<egui_glow::Painter>,
+    egui_ctx: EguiContext,
+    egui_winit: EguiWinitState,
+    egui_renderer: EguiRenderer,
     menu_state: MenuState,
     is_loading: bool,
     window_size: (u32, u32),
-    // New fields for modern OpenGL
-    loading_shader: Option<ShaderProgram>,
-    loading_vao: Option<u32>,
-    loading_vbo: Option<u32>,
-    // Shader for progress bar
-    progress_shader: Option<ShaderProgram>,
 }
 
 impl App {
@@ -196,309 +67,131 @@ impl App {
             .with_level(LevelFilter::Info)
             .init()
             .context("Failed to initialize logger")?;
-            
+
         info!("Initializing application...");
 
         let event_loop = EventLoopBuilder::new()
             .build()
             .context("Failed to create event loop")?;
-            
+
         let window_builder = WindowBuilder::new()
             .with_title("Bloksel")
             .with_inner_size(LogicalSize::new(800, 600));
 
-        let template = ConfigTemplateBuilder::new()
-            .with_alpha_size(8)
-            .with_depth_size(24)
-            .with_stencil_size(8)
-            .with_transparency(true);
-
-        let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
-
-         let (window, gl_config) = display_builder
-            .build(&event_loop, template, |configs| {
-                configs
-                    .reduce(|accum, config| {
-                        let transparency_check = config.supports_transparency().unwrap_or(false)
-                            && !accum.supports_transparency().unwrap_or(false);
-                        if transparency_check || config.num_samples() > accum.num_samples() {
-                            config
-                        } else {
-                            accum
-                        }
-                    })
-                    .expect("No suitable OpenGL configurations found")
-            })
-            .map_err(|e| anyhow::anyhow!("Failed to build display: {}", e))?;
-
-        let window = window.context("Failed to create window")?;
-        let raw_window_handle = window.raw_window_handle();
+        let window = window_builder
+            .build(&event_loop)
+            .context("Failed to create window")?;
         let window_size = (window.inner_size().width, window.inner_size().height);
 
-        let context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
-            // Use Core profile for modern OpenGL
-            .with_profile(GlProfile::Core)
-            .build(Some(raw_window_handle));
-
-        let gl_display = gl_config.display();
-
-        let gl_context = unsafe {
-            gl_display
-                .create_context(&gl_config, &context_attributes)
-                .context("Failed to create OpenGL context")?
+        // Initialize Vulkan
+        let vulkan_settings = vulkan::VulkanSettings {
+            application_name: "Bloksel".to_string(),
+            engine_name: "Bloksel Engine".to_string(),
+            enable_validation: cfg!(debug_assertions),
+            ..Default::default()
         };
 
-        let attrs = window.build_surface_attributes(<_>::default());
-        let gl_surface = unsafe {
-            gl_config
-                .display()
-                .create_window_surface(&gl_config, &attrs)
-                .context("Failed to create GL surface")?
-        };
+        let vulkan_context = VulkanContext::new(vulkan_settings)?;
+        let vulkan_context = Arc::new(vulkan_context);
 
-        let gl_context = gl_context
-            .make_current(&gl_surface)
-            .context("Failed to make context current")?;
+        // Create surface
+        let surface = vulkan_context.create_surface(&window)?;
 
-        // Load OpenGL functions
-        let gl_loader = |symbol| {
-            let symbol = CString::new(symbol).unwrap_or_else(|_| {
-                warn!("Failed to create CString for GL symbol");
-                CString::new("").unwrap()
-            });
-            gl_display.get_proc_address(symbol.as_c_str()) as *const _
-        };
-        
-        // Initialize OpenGL bindings
-        gl::load_with(gl_loader);
+        // Create swapchain
+        let (swapchain, swapchain_images, swapchain_format, swapchain_extent) =
+            vulkan_context.create_swapchain(surface, window_size.0, window_size.1, None)?;
 
-        // Initialize OpenGL state safely with error checking
-        unsafe {
-            gl::Enable(gl::DEPTH_TEST);
-            gl::Enable(gl::CULL_FACE);
-            gl::CullFace(gl::BACK);
-            gl::FrontFace(gl::CCW);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-            gl::ClearColor(0.2, 0.3, 0.3, 1.0);
-            
-            // Check for OpenGL errors after initialization
-            let gl_error = gl::GetError();
-            if gl_error != gl::NO_ERROR {
-                warn!("OpenGL error during initialization: 0x{:X}", gl_error);
-            }
-        }
+        // Create image views
+        let swapchain_image_views = swapchain_images
+            .iter()
+            .map(|&image| {
+                vulkan_context.create_image_view(image, swapchain_format, vk::ImageAspectFlags::COLOR)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-        // Load loading screen texture
-        let loading_texture = match Texture::from_file("src/assets/images/organization.jpg") {
-            Ok(texture) => {
-                info!("Loading texture loaded successfully, dimensions: {}x{}", 
-                    texture.width, texture.height);
-                Some(texture)
-            },
-            Err(e) => {
-                error!("Failed to load loading texture: {}", e);
-                None
-            }
-        };
+        // Create render pass
+        let render_pass = vulkan_context.create_render_pass(swapchain_format, None)?;
+
+        // Create framebuffers
+        let framebuffers = swapchain_image_views
+            .iter()
+            .map(|&image_view| {
+                vulkan_context.create_framebuffer(render_pass, &[image_view], swapchain_extent.width, swapchain_extent.height)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Create command pool
+        let command_pool = vulkan_context.create_command_pool(vulkan_context.graphics_queue_family)?;
+
+        // Allocate command buffers
+        let command_buffers = vulkan_context
+            .allocate_command_buffers(
+                command_pool,
+                vk::CommandBufferLevel::PRIMARY,
+                framebuffers.len() as u32,
+            )?;
+
+        // Create sync objects
+        let max_frames_in_flight = vulkan_context.settings.max_frames_in_flight;
+        let image_available_semaphores = (0..max_frames_in_flight)
+            .map(|_| vulkan_context.create_semaphore())
+            .collect::<Result<Vec<_>>>()?;
+        let render_finished_semaphores = (0..max_frames_in_flight)
+            .map(|_| vulkan_context.create_semaphore())
+            .collect::<Result<Vec<_>>>()?;
+        let in_flight_fences = (0..max_frames_in_flight)
+            .map(|_| vulkan_context.create_fence(true))
+            .collect::<Result<Vec<_>>>()?;
 
         // Initialize egui
-        let egui_ctx = egui::Context::default();
-        let egui_winit = egui_winit::State::new(
+        let egui_ctx = EguiContext::default();
+        let egui_winit = EguiWinitState::new(
+            event_loop.create_proxy(),
             egui_ctx.clone(),
             egui::ViewportId::from_hash_of(window.id()),
-            &event_loop,
-            None,
+            Some(window.scale_factor() as f32),
             None,
         );
 
-        // Create glow context
-        let glow_context = Arc::new(unsafe {
-            glow::Context::from_loader_function(|s| {
-                let c_str = std::ffi::CStr::from_ptr(s.as_ptr() as *const i8);
-                gl_display.get_proc_address(c_str) as *const _
-            })
-        });
-        
-        // Initialize loading shaders and VAO/VBO
-        let (loading_shader, loading_vao, loading_vbo) = match Self::init_loading_resources() {
-            Ok((shader, vao, vbo)) => {
-                info!("Loading resources initialized successfully");
-                (Some(shader), Some(vao), Some(vbo))
-            },
-            Err(e) => {
-                warn!("Failed to initialize loading resources: {}", e);
-                (None, None, None)
-            }
-        };
-        
-        // Initialize progress bar shader
-        let progress_shader = match Self::init_progress_shader() {
-            Ok(shader) => {
-                info!("Progress bar shader initialized successfully");
-                Some(shader)
-            },
-            Err(e) => {
-                warn!("Failed to initialize progress bar shader: {}", e);
-                None
-            }
-        };
+        // Initialize egui renderer
+        let egui_renderer = EguiRenderer::new(&vulkan_context, render_pass)?;
 
         Ok((
             Self {
                 window,
-                gl_context,
-                gl_surface,
+                vulkan_context,
+                surface,
+                swapchain,
+                swapchain_images,
+                swapchain_image_views,
+                swapchain_format,
+                swapchain_extent,
+                render_pass,
+                framebuffers,
+                command_pool,
+                command_buffers,
+                image_available_semaphores,
+                render_finished_semaphores,
+                in_flight_fences,
+                current_frame: 0,
                 engine: None,
-                loading_texture,
                 loading_start: Instant::now(),
-                egui_ctx: Some(egui_ctx),
-                egui_winit: Some(egui_winit),
-                glow_context: Some(glow_context),
-                painter: None,
+                egui_ctx,
+                egui_winit,
+                egui_renderer,
                 menu_state: MenuState::new(),
                 is_loading: true,
                 window_size,
-                loading_shader,
-                loading_vao,
-                loading_vbo,
-                progress_shader,
             },
             event_loop,
         ))
     }
-    
-    // Initialize modern OpenGL resources for the loading screen
-    fn init_loading_resources() -> Result<(ShaderProgram, u32, u32)> {
-        // Simple vertex shader that transforms vertices and passes texture coordinates
-       
-        let vertex_shader_src = r#"
-            #version 330
-            layout (location = 0) in vec3 aPos;
-            layout (location = 1) in vec2 aTexCoord;
-    
-            out vec2 TexCoord;
-            uniform mat4 projection;
-    
-            void main() {
-                gl_Position = projection * vec4(aPos, 1.0);
-                TexCoord = aTexCoord;
-            }
-        "#;
-
-        let fragment_shader_src = r#"
-            #version 330
-            out vec4 FragColor;
-    
-            in vec2 TexCoord;
-            uniform sampler2D texture1;
-    
-            void main() {
-    
-                FragColor = texture(texture1, TexCoord);
-                if (FragColor.a < 0.1) discard; // Check for transparency issues
-            }
-        "#;
-        
-        // Create shader program
-        let shader = ShaderProgram::new(vertex_shader_src, fragment_shader_src)?;
-        
-        // Create VAO and VBO
-        let mut vao = 0;
-        let mut vbo = 0;
-        
-        // Set up quad vertices with positions and texture coordinates
-        #[rustfmt::skip]
-        let vertices: [f32; 20] = [
-            // positions      // texture coords
-            -1.0, -1.0, 0.0,  0.0, 0.0,  // bottom left
-             1.0, -1.0, 0.0,  1.0, 0.0,  // bottom right
-            -1.0,  1.0, 0.0,  0.0, 1.0,  // top left
-             1.0,  1.0, 0.0,  1.0, 1.0,  // top right
-        ];
-
-        unsafe {
-            // Generate and bind VAO
-            gl::GenVertexArrays(1, &mut vao);
-            gl::BindVertexArray(vao);
-            
-            // Generate and bind VBO
-            gl::GenBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            
-            // Fill buffer with vertex data
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                vertices.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            
-            // Position attribute
-            gl::VertexAttribPointer(
-                0,                           // attribute location
-                3,                           // size (3 floats per vertex position)
-                gl::FLOAT,                   // type
-                gl::FALSE,                   // normalized?
-                (5 * std::mem::size_of::<f32>()) as gl::types::GLsizei, // stride
-                std::ptr::null(),            // offset of first component
-            );
-            gl::EnableVertexAttribArray(0);
-            
-            // Texture coordinate attribute
-            gl::VertexAttribPointer(
-                1,                           // attribute location
-                2,                           // size (2 floats per texture coord)
-                gl::FLOAT,                   // type
-                gl::FALSE,                   // normalized?
-                (5 * std::mem::size_of::<f32>()) as gl::types::GLsizei, // stride
-                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
-            );
-            gl::EnableVertexAttribArray(1);
-            
-            // Unbind
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-        }
-        
-        Ok((shader, vao, vbo))
-    }
-    
-    // Initialize a simple colored shader for progress bar
-    fn init_progress_shader() -> Result<ShaderProgram> {
-        // Simple vertex shader that transforms vertices and forwards color
-            let vertex_shader_src = r#"
-                #version 330
-                layout (location = 0) in vec3 aPos;
-                uniform mat4 projection;
-        
-                void main() {
-                    gl_Position = projection * vec4(aPos, 1.0);
-                }
-            "#;
-    
-            let fragment_shader_src = r#"
-                #version 330
-                out vec4 FragColor;
-                uniform vec4 color;
-        
-                void main() {
-                    FragColor = color;
-                }
-            "#;
-        
-        // Create shader program
-        ShaderProgram::new(vertex_shader_src, fragment_shader_src)
-    }
 
     fn handle_window_event(&mut self, event: &WindowEvent) -> bool {
         // First let egui handle the event
-        if let Some(egui_winit) = &mut self.egui_winit {
-            let response = egui_winit.on_window_event(&self.window, event);
-            if response.consumed {
-                return true;
-            }
+        let response = self.egui_winit.on_window_event(&self.window, event);
+        if response.consumed {
+            return true;
         }
 
         match event {
@@ -507,32 +200,10 @@ impl App {
                 if size.width > 0 && size.height > 0 {
                     self.window_size = (size.width, size.height);
                     
-                    // Create non-zero sizes safely
-                    if let (Some(width), Some(height)) = (
-                        NonZeroU32::new(size.width), 
-                        NonZeroU32::new(size.height)
-                    ) {
-                        self.gl_surface.resize(&self.gl_context, width, height);
-
-                        
-                        unsafe {
-                            gl::Viewport(0, 0, size.width as i32, size.height as i32);
-                            gl::Viewport(0, 0, size.width as i32, size.height as i32);
-                            info!("Viewport set to {}x{}", size.width, size.height);
-                            
-                            // Check for OpenGL errors after resizing
-                            let gl_error = gl::GetError();
-                            if gl_error != gl::NO_ERROR {
-                                warn!("OpenGL error during resize: 0x{:X}", gl_error);
-                            }
-                        }
-                    } else {
-                        warn!("Attempted to resize window to invalid dimensions: {}x{}", 
-                             size.width, size.height);
-                    }
-                } else {
-                    warn!("Ignoring resize event with zero dimension: {}x{}", 
-                         size.width, size.height);
+                    // Recreate swapchain with new size
+                    self.recreate_swapchain().unwrap_or_else(|e| {
+                        error!("Failed to recreate swapchain: {}", e);
+                    });
                 }
                 false
             }
@@ -540,21 +211,138 @@ impl App {
         }
     }
 
-    fn update(&mut self) -> Result<()> {
-        // Clear the screen
+    fn recreate_swapchain(&mut self) -> Result<()> {
         unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-            
-            // Check for OpenGL errors
-            let gl_error = gl::GetError();
-            if gl_error != gl::NO_ERROR {
-                warn!("OpenGL error during clear: 0x{:X}", gl_error);
+            self.vulkan_context.device.device_wait_idle()?;
+        }
+
+        // Cleanup old swapchain resources
+        self.cleanup_swapchain();
+
+        // Create new swapchain
+        let (swapchain, swapchain_images, swapchain_format, swapchain_extent) = self
+            .vulkan_context
+            .create_swapchain(
+                self.surface,
+                self.window_size.0,
+                self.window_size.1,
+                Some(self.swapchain),
+            )?;
+
+        self.swapchain = swapchain;
+        self.swapchain_images = swapchain_images;
+        self.swapchain_format = swapchain_format;
+        self.swapchain_extent = swapchain_extent;
+
+        // Recreate image views
+        self.swapchain_image_views = self
+            .swapchain_images
+            .iter()
+            .map(|&image| {
+                self.vulkan_context
+                    .create_image_view(image, self.swapchain_format, vk::ImageAspectFlags::COLOR)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Recreate framebuffers
+        self.framebuffers = self
+            .swapchain_image_views
+            .iter()
+            .map(|&image_view| {
+                self.vulkan_context.create_framebuffer(
+                    self.render_pass,
+                    &[image_view],
+                    self.swapchain_extent.width,
+                    self.swapchain_extent.height,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Reallocate command buffers
+        self.command_buffers = self
+            .vulkan_context
+            .allocate_command_buffers(
+                self.command_pool,
+                vk::CommandBufferLevel::PRIMARY,
+                self.framebuffers.len() as u32,
+            )?;
+
+        Ok(())
+    }
+
+    fn cleanup_swapchain(&mut self) {
+        unsafe {
+            for &framebuffer in &self.framebuffers {
+                self.vulkan_context
+                    .device
+                    .destroy_framebuffer(framebuffer, None);
             }
+
+            for &image_view in &self.swapchain_image_views {
+                self.vulkan_context
+                    .device
+                    .destroy_image_view(image_view, None);
+            }
+
+            if self.swapchain != vk::SwapchainKHR::null() {
+                self.vulkan_context
+                    .swapchain_loader
+                    .as_ref()
+                    .unwrap()
+                    .destroy_swapchain_khr(self.swapchain, None);
+            }
+        }
+    }
+
+    fn update(&mut self) -> Result<()> {
+        // Wait for previous frame to finish
+        unsafe {
+            self.vulkan_context.device.wait_for_fences(
+                &[self.in_flight_fences[self.current_frame]],
+                true,
+                std::u64::MAX,
+            )?;
+            self.vulkan_context.device.reset_fences(&[self.in_flight_fences[self.current_frame]])?;
+        }
+
+        // Acquire next image
+        let (image_index, _) = self.vulkan_context.acquire_next_image(
+            self.swapchain,
+            self.image_available_semaphores[self.current_frame],
+            vk::Fence::null(),
+        )?;
+
+        // Begin command buffer
+        let command_buffer = self.command_buffers[image_index as usize];
+        self.vulkan_context.begin_command_buffer(command_buffer)?;
+
+        // Begin render pass
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.2, 0.3, 0.3, 1.0],
+            },
+        }];
+
+        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.render_pass)
+            .framebuffer(self.framebuffers[image_index as usize])
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.swapchain_extent,
+            })
+            .clear_values(&clear_values);
+
+        unsafe {
+            self.vulkan_context.device.cmd_begin_render_pass(
+                command_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
         }
 
         // Handle loading state
         if self.engine.is_none() {
-            self.render_loading_screen()?;
+            self.render_loading_screen(command_buffer)?;
             
             if self.loading_start.elapsed().as_secs() >= 3 {
                 info!("Loading period elapsed, initializing engine...");
@@ -579,189 +367,163 @@ impl App {
                     Ok(engine) => {
                         info!("Engine initialized successfully");
                         self.engine = Some(engine);
-                        self.loading_texture = None; // Free up memory
                         self.is_loading = false;
                     }
                     Err(e) => {
                         error!("Engine initialization failed: {}", e);
-                        // Continue showing loading screen but with error feedback
                     }
                 }
             }
-        } 
-        // Handle menu state after loading completes
-        else {
-            let egui_ctx = match &self.egui_ctx {
-                Some(ctx) => ctx,
-                None => {
-                    warn!("Missing egui context during update");
-                    return Ok(());
-                }
-            };
-
-            let egui_input = match &mut self.egui_winit {
-                Some(winit) => winit.take_egui_input(&self.window),
-                None => {
-                    warn!("Missing egui winit during update");
-                    return Ok(());
-                }
-            };
-
-            egui_ctx.begin_frame(egui_input);
-
-            // Initialize painter if needed
-            if self.painter.is_none() {
-                if let Some(glow_context) = &self.glow_context {
-                    match egui_glow::Painter::new(glow_context.clone(), "", None) {
-                        Ok(painter) => {
-                            self.painter = Some(painter);
-                        }
-                        Err(e) => {
-                            error!("Failed to create egui painter: {}", e);
-                        }
-                    }
-                }
-            }
+        } else {
+            // Handle menu state after loading completes
+            let raw_input = self.egui_winit.take_egui_input(&self.window);
+            self.egui_ctx.begin_frame(raw_input);
 
             // Show menu
             if let Some(engine) = &mut self.engine {
-                self.menu_state.show(egui_ctx, engine);
+                self.menu_state.show(&self.egui_ctx, engine);
             }
 
-            let full_output = egui_ctx.end_frame();
-            let clipped_primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+            let full_output = self.egui_ctx.end_frame();
+            let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
 
-            if let Some(painter) = &mut self.painter {
-                painter.paint_and_update_textures(
-                    [self.window_size.0, self.window_size.1],
-                    self.window.scale_factor() as f32,
-                    &clipped_primitives,
-                    &full_output.textures_delta,
-                );
-            }
+            // Render egui
+            self.egui_renderer.render(
+                &self.vulkan_context,
+                command_buffer,
+                &clipped_primitives,
+                &full_output.textures_delta,
+                self.swapchain_extent.width,
+                self.swapchain_extent.height,
+            )?;
 
-            if let Some(egui_winit) = &mut self.egui_winit {
-                egui_winit.handle_platform_output(&self.window, full_output.platform_output);
-            }
+            self.egui_winit.handle_platform_output(&self.window, full_output.platform_output);
         }
 
-        // Swap buffers safely
-        self.gl_surface
-            .swap_buffers(&self.gl_context)
-            .context("Failed to swap buffers")?;
-            
+        // End render pass
+        unsafe {
+            self.vulkan_context.device.cmd_end_render_pass(command_buffer);
+            self.vulkan_context.end_command_buffer(command_buffer)?;
+        }
+
+        // Submit command buffer
+        let wait_semaphores = [self.image_available_semaphores[self.current_frame]];
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let signal_semaphores = [self.render_finished_semaphores[self.current_frame]];
+        let command_buffers = [command_buffer];
+
+        self.vulkan_context.submit_command_buffers(
+            self.vulkan_context.graphics_queue,
+            &command_buffers,
+            &wait_semaphores,
+            &wait_stages,
+            &signal_semaphores,
+            self.in_flight_fences[self.current_frame],
+        )?;
+
+        // Present
+        let swapchains = [self.swapchain];
+        let image_indices = [image_index];
+        let present_info = vk::PresentInfoKHR::builder()
+            .wait_semaphores(&signal_semaphores)
+            .swapchains(&swapchains)
+            .image_indices(&image_indices);
+
+        let result = unsafe {
+            self.vulkan_context
+                .swapchain_loader
+                .as_ref()
+                .unwrap()
+                .queue_present_khr(self.vulkan_context.present_queue, &present_info)
+        };
+
+        if result == Ok(vk::Result::SUBOPTIMAL_KHR) || result == Err(vk::Result::ERROR_OUT_OF_DATE_KHR) {
+            self.recreate_swapchain()?;
+        } else if let Err(e) = result {
+            return Err(anyhow::anyhow!("Failed to present swapchain image: {:?}", e));
+        }
+
+        self.current_frame = (self.current_frame + 1) % self.vulkan_context.settings.max_frames_in_flight;
+
         Ok(())
     }
 
-    fn render_loading_screen(&self) -> Result<()> {
-    unsafe {
-        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-        gl::Clear(gl::COLOR_BUFFER_BIT);
-        Self::gl_check_error("Clear")?;
-    }
+    fn render_loading_screen(&mut self, command_buffer: vk::CommandBuffer) -> Result<()> {
+        // Prepare egui input
+        let raw_input = self.egui_winit.take_egui_input(&self.window);
+        self.egui_ctx.begin_frame(raw_input);
 
-    // Create proper orthographic projection matrix
-    let projection = [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0,
-    ];
+        // Create loading screen UI
+        egui::CentralPanel::default().show(&self.egui_ctx, |ui| {
+            ui.heading("Loading Bloksel...");
+            ui.add(egui::ProgressBar::new(
+                self.loading_start.elapsed().as_secs_f32().min(3.0) / 3.0
+            ));
+            ui.label("Initializing engine...");
+        });
 
-    if let (Some(shader), Some(vao), Some(texture)) = (&self.loading_shader, self.loading_vao, &self.loading_texture) {
-        unsafe {
-            // Set up proper OpenGL state
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        let full_output = self.egui_ctx.end_frame();
+        let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
 
-            shader.use_program();
-            Self::gl_check_error("UseProgram")?;
+        // Render egui
+        self.egui_renderer.render(
+            &self.vulkan_context,
+            command_buffer,
+            &clipped_primitives,
+            &full_output.textures_delta,
+            self.swapchain_extent.width,
+            self.swapchain_extent.height,
+        )?;
 
-            // Set uniforms
-            shader.set_uniform_mat4("projection", &projection);
-            shader.set_uniform_int("texture1", 0);
-            Self::gl_check_error("SetUniforms")?;
-
-            // Bind texture
-            gl::ActiveTexture(gl::TEXTURE0);
-            texture.bind();
-            Self::gl_check_error("BindTexture")?;
-
-            // Draw quad
-            gl::BindVertexArray(vao);
-            Self::gl_check_error("BindVAO")?;
-
-            gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
-
-            Self::gl_check_error("DrawArrays")?;
-
-            // Cleanup
-            gl::BindVertexArray(0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-        }
-    } else {
-        warn!("Loading resources not available for rendering");
-    }
-
-    Ok(())
-}
-
-
-    fn gl_check_error(context: &str) -> Result<()> {
-        unsafe {
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                let error_str = match error {
-                    gl::INVALID_ENUM => "GL_INVALID_ENUM",
-                    gl::INVALID_VALUE => "GL_INVALID_VALUE",
-                    gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
-                    gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
-                    _ => "Unknown GL error",
-                };
-                return Err(anyhow::anyhow!("OpenGL error in {}: {}", context, error_str));
-            }
-        }
         Ok(())
     }
 
     fn cleanup(&mut self) {
         info!("Cleaning up resources...");
-        
-        // Make sure context is current before cleanup
-        let _ = self.gl_context.make_current(&self.gl_surface);
-        
-        // Clean up OpenGL resources
+
         unsafe {
-            // Clean up VAO and VBO
-            if let Some(vao) = self.loading_vao {
-                gl::DeleteVertexArrays(1, &vao);
+            self.vulkan_context.device.device_wait_idle().unwrap();
+
+            // Cleanup swapchain resources
+            self.cleanup_swapchain();
+
+            // Cleanup sync objects
+            for &semaphore in &self.image_available_semaphores {
+                self.vulkan_context.device.destroy_semaphore(semaphore, None);
             }
-            
-            if let Some(vbo) = self.loading_vbo {
-                gl::DeleteBuffers(1, &vbo);
+            for &semaphore in &self.render_finished_semaphores {
+                self.vulkan_context.device.destroy_semaphore(semaphore, None);
+            }
+            for &fence in &self.in_flight_fences {
+                self.vulkan_context.device.destroy_fence(fence, None);
+            }
+
+            // Cleanup command pool
+            self.vulkan_context
+                .device
+                .destroy_command_pool(self.command_pool, None);
+
+            // Cleanup render pass
+            self.vulkan_context
+                .device
+                .destroy_render_pass(self.render_pass, None);
+
+            // Cleanup surface
+            self.vulkan_context
+                .surface_loader
+                .as_ref()
+                .unwrap()
+                .destroy_surface_khr(self.surface, None);
+
+            // Cleanup egui renderer
+            self.egui_renderer.cleanup(&self.vulkan_context);
+
+            // Cleanup engine
+            if let Some(engine) = self.engine.take() {
+                drop(engine);
             }
         }
-        
-        // Clean up egui painter
-        if let Some(mut painter) = self.painter.take() {
-            painter.destroy();
-        }
- 
-        // Clean up engine resources
-        if let Some(engine) = self.engine.take() {
-            // Assuming VoxelEngine implements Drop, otherwise add explicit cleanup
-            drop(engine);
-        }
-        
-        // Clean up other resources
-        self.loading_texture = None;
-        self.loading_shader = None;
-        self.progress_shader = None;
-        self.egui_ctx = None;
-        self.egui_winit = None;
-        self.glow_context = None;
-        
+
         info!("Cleanup complete");
     }
 }
@@ -771,37 +533,34 @@ fn main() -> Result<()> {
     info!("Application initialized, starting event loop");
 
     event_loop.run(move |event, elwt| {
-    match event {
-        Event::WindowEvent { event, .. } => {
-            if app.handle_window_event(&event) {
-                info!("Window close requested");
-                app.cleanup();
-                elwt.exit();
+        match event {
+            Event::WindowEvent { event, .. } => {
+                if app.handle_window_event(&event) {
+                    info!("Window close requested");
+                    app.cleanup();
+                    elwt.exit();
+                }
             }
-        }
-        Event::AboutToWait => {
-            app.window.request_redraw();
-        }
-        Event::WindowEvent {
-            event: WindowEvent::RedrawRequested,
-            ..
-        } => {
-                
-            println!("Frame rendered - Loading: {}", app.is_loading);
-
-            if let Err(e) = app.update() {
-                error!("Error during update: {}", e);
-                if e.to_string().contains("failed to swap buffers") || 
-                   e.to_string().contains("context lost") {
-                    error!("Critical rendering error, exiting");
-                   app.cleanup();
-                        elwt.exit(); // You probably want to exit here as well
+            Event::AboutToWait => {
+                app.window.request_redraw();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::RedrawRequested,
+                ..
+            } => {
+                if let Err(e) = app.update() {
+                    error!("Error during update: {}", e);
+                    if e.to_string().contains("failed to swap buffers") || 
+                       e.to_string().contains("context lost") {
+                        error!("Critical rendering error, exiting");
+                        app.cleanup();
+                        elwt.exit();
                     }
                 }
             }
-            _ => {} // You should handle other events or add a default case
+            _ => {}
         }
     });
     
-    Ok(()) // You need to return a Result
+    Ok(())
 }
