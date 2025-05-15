@@ -197,18 +197,7 @@ impl VoxelEngine {
         }
     }
 
-    pub fn save_world(&self, path: &Path) -> Result<()> {
-        // TODO: Implement world saving with proper serialization
-        warn!("World saving not yet implemented");
-        Ok(())
-    }
-
-    pub fn load_world(&mut self, path: &Path) -> Result<()> {
-        // TODO: Implement world loading with proper deserialization
-        warn!("World loading not yet implemented");
-        Ok(())
-    }
-
+    
     pub fn get_stats(&self) -> EngineStats {
         EngineStats {
             frame_count: self.frame_counter.load(std::sync::atomic::Ordering::Relaxed),
@@ -315,33 +304,121 @@ impl VoxelEngine {
     }
 }
 
-    pub fn process_chunk_loading(&self) {
-    // Process loaded chunks
-    while let Ok(coord) = self.load_receiver.try_recv() {
-        let chunk = match self.terrain_generator.generate_chunk(coord) {
-            Ok(chunk) => chunk,
-            Err(e) => {
-                warn!("Failed to generate chunk {:?}: {:?}", coord, e);
-                continue;
-            }
+    
+    pub fn save_world(&self, path: &Path) -> Result<()> {
+        let world_dir = path.join("world");
+        fs::create_dir_all(&world_dir)?;
+
+        // Save world metadata
+        let metadata_path = world_dir.join("world.meta");
+        let metadata = WorldMetadata {
+            seed: self.config.worldgen.world_seed,
+            spawn_point: *self.player.lock().position(),
         };
+        fs::write(metadata_path, bincode::serialize(&metadata)?)?;
 
-        if let Err(e) = chunk.generate_mesh(&self.chunk_renderer) {
-            warn!("Failed to generate mesh for chunk {:?}: {:?}", coord, e);
+        // Save all active chunks
+        let active_chunks = self.active_chunks.read();
+        for (coord, chunk) in active_chunks.iter() {
+            let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
+            let file = File::create(chunk_path)?;
+            chunk.save_to_writer(file)?;
         }
 
-        self.active_chunks.write().insert(coord, Arc::new(chunk));
-        self.spatial_partition.lock().add_chunk(coord);
+        Ok(())
     }
 
-    // Process unloaded chunks
-    while let Ok(coord) = self.unload_receiver.try_recv() {
-        if let Some(chunk) = self.active_chunks.write().remove(&coord) {
-            self.spatial_partition.lock().remove_chunk(coord);
-            self.chunk_pool.return_chunk(chunk);
+    pub fn load_world(&mut self, path: &Path) -> Result<()> {
+        let world_dir = path.join("world");
+        
+        // Load world metadata
+        let metadata_path = world_dir.join("world.meta");
+        let metadata: WorldMetadata = bincode::deserialize(&fs::read(metadata_path)?;
+        self.config.worldgen.world_seed = metadata.seed;
+        *self.player.lock().position_mut() = metadata.spawn_point;
+
+        // Load chunks around player position
+        let player_chunk = ChunkCoord::from_world_pos(
+            self.player.lock().position(),
+            self.config.chunk_size as i32
+        );
+
+        // Queue chunks for loading
+        let load_distance = self.config.render_distance as i32 + 2;
+        for x in -load_distance..=load_distance {
+            for z in -load_distance..=load_distance {
+                let coord = ChunkCoord::new(
+                    player_chunk.x() + x,
+                    player_chunk.y(),
+                    player_chunk.z() + z
+                );
+                
+                let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
+                if chunk_path.exists() {
+                    if let Err(e) = self.load_queue.send(coord) {
+                        warn!("Failed to queue chunk load: {:?}", e);
+                    }
+                } else {
+                    // Queue for generation if file doesn't exist
+                    if let Err(e) = self.load_queue.send(coord) {
+                        warn!("Failed to queue chunk generation: {:?}", e);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Modified process_chunk_loading to handle both generation and loading
+    pub fn process_chunk_loading(&self) {
+        // Process loaded chunks
+        while let Ok(coord) = self.load_receiver.try_recv() {
+            let chunk = match self.try_load_chunk(coord) {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => match self.terrain_generator.generate_chunk(coord) {
+                    Ok(chunk) => chunk,
+                    Err(e) => {
+                        warn!("Failed to generate chunk {:?}: {:?}", coord, e);
+                        continue;
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to load chunk {:?}: {:?}", coord, e);
+                    continue;
+                }
+            };
+
+            if let Err(e) = chunk.generate_mesh(&self.chunk_renderer) {
+                warn!("Failed to generate mesh for chunk {:?}: {:?}", coord, e);
+            }
+
+            self.active_chunks.write().insert(coord, Arc::new(chunk));
+            self.spatial_partition.lock().add_chunk(coord);
+        }
+
+        // Process unloaded chunks (unchanged)
+        while let Ok(coord) = self.unload_receiver.try_recv() {
+            if let Some(chunk) = self.active_chunks.write().remove(&coord) {
+                self.spatial_partition.lock().remove_chunk(coord);
+                self.chunk_pool.return_chunk(chunk);
+            }
         }
     }
-}
+
+    fn try_load_chunk(&self, coord: ChunkCoord) -> Result<Option<Chunk>> {
+        let world_dir = Path::new("worlds").join(&self.config.world_name);
+        let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
+        
+        if !chunk_path.exists() {
+            return Ok(None);
+        }
+
+        let file = File::open(chunk_path)?;
+        let chunk = Chunk::load_from_reader(file)?;
+        Ok(Some(chunk))
+    }
+
     
 }
 
