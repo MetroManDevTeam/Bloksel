@@ -176,7 +176,7 @@ impl App {
                 egui_ctx,
                 egui_winit,
                 egui_renderer,
-                menu_state: MenuState::new(),
+                menu_state: MenuState::new(vulkan_context.clone(), render_pass, &window),
                 is_loading: true,
                 window_size,
             },
