@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 ash = { version = "0.37"}	
+ash_window = { version = "0.13.0"}	
 anyhow = "1.0"
 bincode = "1.3"
 bytemuck = "1.14"
