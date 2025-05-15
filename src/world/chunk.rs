@@ -29,6 +29,22 @@ pub const CHUNK_SIZE: u32 = 32;
 pub const CHUNK_VOLUME: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompressedChunk {
+    pub coord: ChunkCoord,
+    pub regions: Vec<CompressedRegion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CompressedRegion {
+    Empty,
+    Uniform {
+        block_id: BlockId,
+        sub_blocks: Vec<CompressedSubBlock>,
+    },
+    Sparse(Vec<CompressedBlock>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkMesh {
     pub vertices: Vec<f32>,        // 3D positions (x, y, z)
     pub normals: Vec<f32>,         // Normal vectors (nx, ny, nz)
@@ -181,6 +197,26 @@ impl Chunk {
         Self::new(ChunkCoord::new(0, 0, 0))
     }
 
+    pub fn from_serialized(serialized: SerializedChunk) -> Result<Self, std::io::Error> {
+        let mut chunk = Self {
+            position: serialized.coord,
+            blocks: serialized.blocks,
+            mesh: None,
+            needs_remesh: true,
+            bounds: (Vec3::ZERO, Vec3::ZERO),
+        };
+        
+        // Recalculate bounds
+        let min = Vec3::new(
+            chunk.position.x() as f32 * CHUNK_SIZE as f32,
+            chunk.position.y() as f32 * CHUNK_SIZE as f32,
+            chunk.position.z() as f32 * CHUNK_SIZE as f32,
+        );
+        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
+        
+        Ok(chunk)
+    }
+
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> Option<&Block> {
         let index = self.get_index(x, y, z);
         self.blocks[index].as_ref()
@@ -243,10 +279,16 @@ impl Chunk {
         Self::load(&chunk_file)
     }
 
-    pub fn save_to_writer(&mut self, mut writer: impl io::Write) -> io::Result<()> {
-        bincode::serialize_into(&mut writer, self)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+
+    fn check_uniform_region(blocks: &[CompressedBlock]) -> Option<&CompressedBlock> {
+        let first = blocks.first()?;
+        if blocks.iter().all(|b| b.id == first.id && b.sub_blocks == first.sub_blocks) {
+            Some(first)
+        } else {
+            None
+        }
     }
+
 
     pub fn load(path: &Path) -> io::Result<Self> {
         let file = File::open(path)?;
@@ -254,20 +296,170 @@ impl Chunk {
         Self::load_from_reader(reader)
     }
 
-    pub fn load_from_reader(mut reader: impl io::Read) -> io::Result<Self> {
-        let mut chunk: Self = bincode::deserialize_from(&mut reader)
+    
+
+    
+
+    pub fn save_to_writer(&self, writer: impl io::Write) -> io::Result<()> {
+        let compressed = self.compress();
+        bincode::serialize_into(writer, &compressed)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+    }
+
+    pub fn load_from_reader(reader: impl io::Read) -> io::Result<Self> {
+        let compressed: CompressedChunk = bincode::deserialize_from(reader)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        
-        // Recalculate bounds after loading
-        let min = Vec3::new(
-            chunk.position.x() as f32 * CHUNK_SIZE as f32,
-            chunk.position.y() as f32 * CHUNK_SIZE as f32,
-            chunk.position.z() as f32 * CHUNK_SIZE as f32,
-        );
-        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
-        
+        let mut chunk = Chunk::new(compressed.coord);
+        chunk.decompress(compressed)?;
         Ok(chunk)
     }
+
+    fn compress(&self) -> CompressedChunk {
+        const REGION_SIZE: u32 = 8;
+        const REGIONS_PER_CHUNK: u32 = CHUNK_SIZE / REGION_SIZE;
+        
+        let mut regions = Vec::with_capacity((REGIONS_PER_CHUNK * REGIONS_PER_CHUNK * REGIONS_PER_CHUNK) as usize);
+
+        for rx in 0..REGIONS_PER_CHUNK {
+            for ry in 0..REGIONS_PER_CHUNK {
+                for rz in 0..REGIONS_PER_CHUNK {
+                    let region_origin = (rx * REGION_SIZE, ry * REGION_SIZE, rz * REGION_SIZE);
+                    let region_blocks = self.collect_region_blocks(region_origin, REGION_SIZE);
+
+                    regions.push(match Self::analyze_region(region_blocks) {
+                        RegionAnalysis::Empty => CompressedRegion::Empty,
+                        RegionAnalysis::Uniform(block) => CompressedRegion::Uniform(block),
+                        RegionAnalysis::Varied(blocks) => CompressedRegion::Sparse(blocks),
+                    });
+                }
+            }
+        }
+
+        CompressedChunk {
+            coord: self.position,
+            regions,
+        }
+    }
+
+    fn collect_region_blocks(&self, origin: (u32, u32, u32), size: u32) -> Vec<CompressedBlock> {
+        let mut blocks = Vec::new();
+        
+        for x in origin.0..origin.0 + size {
+            for y in origin.1..origin.1 + size {
+                for z in origin.2..origin.2 + size {
+                    if let Some(block) = self.get_block(x, y, z) {
+                        let rel_pos = (
+                            (x - origin.0) as u8,
+                            (y - origin.1) as u8,
+                            (z - origin.2) as u8,
+                        );
+                        
+                        blocks.push(CompressedBlock {
+                            position: rel_pos,
+                            id: block.id,
+                            sub_blocks: block.sub_blocks.iter()
+                                .map(|(pos, sub)| CompressedSubBlock {
+                                    local_pos: *pos,
+                                    id: sub.id,
+                                    facing: sub.facing,
+                                    orientation: sub.orientation,
+                                    connections: sub.connections,
+                                })
+                                .collect(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        blocks
+    }
+
+    fn analyze_region(blocks: Vec<CompressedBlock>) -> RegionAnalysis {
+        if blocks.is_empty() {
+            return RegionAnalysis::Empty;
+        }
+        
+        let first_block = &blocks[0];
+        if blocks.iter().all(|b| {
+            b.id == first_block.id && 
+            b.sub_blocks == first_block.sub_blocks
+        }) {
+            RegionAnalysis::Uniform(first_block.clone())
+        } else {
+            RegionAnalysis::Varied(blocks)
+        }
+    }
+
+    fn decompress(&mut self, compressed: CompressedChunk) -> io::Result<()> {
+        const REGION_SIZE: u32 = 8;
+        
+        for (idx, region) in compressed.regions.into_iter().enumerate() {
+            let rx = idx as u32 / (4 * 4);
+            let ry = (idx as u32 / 4) % 4;
+            let rz = idx as u32 % 4;
+            let origin = (rx * REGION_SIZE, ry * REGION_SIZE, rz * REGION_SIZE);
+            
+            match region {
+                CompressedRegion::Empty => (),
+                CompressedRegion::Uniform(block) => {
+                    self.fill_region(origin, REGION_SIZE, block);
+                }
+                CompressedRegion::Sparse(blocks) => {
+                    self.place_blocks(origin, blocks);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    fn fill_region(&mut self, origin: (u32, u32, u32), size: u32, template: CompressedBlock) {
+        for x in origin.0..origin.0 + size {
+            for y in origin.1..origin.1 + size {
+                for z in origin.2..origin.2 + size {
+                    let mut block = Block::new(template.id);
+                    for sub in &template.sub_blocks {
+                        block.sub_blocks.insert(
+                            sub.local_pos,
+                            SubBlock {
+                                id: sub.id,
+                                facing: sub.facing,
+                                orientation: sub.orientation,
+                                connections: sub.connections,
+                            },
+                        );
+                    }
+                    self.set_block(x, y, z, Some(block));
+                }
+            }
+        }
+    }
+
+    fn place_blocks(&mut self, origin: (u32, u32, u32), blocks: Vec<CompressedBlock>) {
+        for compressed in blocks {
+            let abs_pos = (
+                origin.0 + compressed.position.0 as u32,
+                origin.1 + compressed.position.1 as u32,
+                origin.2 + compressed.position.2 as u32,
+            );
+            
+            let mut block = Block::new(compressed.id);
+            for sub in compressed.sub_blocks {
+                block.sub_blocks.insert(
+                    sub.local_pos,
+                    SubBlock {
+                        id: sub.id,
+                        facing: sub.facing,
+                        orientation: sub.orientation,
+                        connections: sub.connections,
+                    },
+                );
+            }
+            self.set_block(abs_pos.0, abs_pos.1, abs_pos.2, Some(block));
+        }
+    }
+
 
 
     pub fn generate_mesh(&mut self, renderer: &ChunkRenderer) -> Result<(), RenderError> {
@@ -442,6 +634,14 @@ impl Chunk {
     }
 }
 
+
+
+
+enum RegionAnalysis {
+    Empty,
+    Uniform(CompressedBlock),
+    Varied(Vec<CompressedBlock>),
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedChunk {
     pub coord: ChunkCoord,
@@ -454,28 +654,6 @@ impl SerializedChunk {
             coord,
             blocks: chunk.blocks.clone(),
         }
-    }
-}
-
-impl Chunk {
-    pub fn from_serialized(serialized: SerializedChunk) -> Result<Self, std::io::Error> {
-        let mut chunk = Self {
-            position: serialized.coord,
-            blocks: serialized.blocks,
-            mesh: None,
-            needs_remesh: true,
-            bounds: (Vec3::ZERO, Vec3::ZERO),
-        };
-        
-        // Recalculate bounds
-        let min = Vec3::new(
-            chunk.position.x() as f32 * CHUNK_SIZE as f32,
-            chunk.position.y() as f32 * CHUNK_SIZE as f32,
-            chunk.position.z() as f32 * CHUNK_SIZE as f32,
-        );
-        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
-        
-        Ok(chunk)
     }
 }
 
@@ -611,14 +789,16 @@ impl ChunkManager {
         }
     }
 
+
+    
     pub fn save_world(&mut self) -> std::io::Result<()> {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
         fs::create_dir_all(&world_dir)?;
 
-        for (coord, chunk) in &self.chunks {
+        for chunk in self.chunks.values() {
+            let chunk = chunk.as_ref();
             chunk.save_world(Path::new(&world_dir))?;
         }
-
         Ok(())
     }
 
@@ -626,22 +806,17 @@ impl ChunkManager {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
         let world_path = Path::new(&world_dir);
 
-        if !world_path.exists() {
-            return Ok(());
-        }
-
         for entry in fs::read_dir(world_path)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "bin") {
-                let coord = ChunkCoord::from_path(&path)?;
-                let chunk = Chunk::load_world(world_path, coord)?;
-                self.add_chunk(coord, chunk);
+            if path.extension().map_or(false, |ext| ext == "bin") {
+                let chunk = Chunk::load(&path)?;
+                self.add_chunk(chunk.position, chunk);
             }
         }
-
         Ok(())
     }
+
 
     pub fn get_block_at(&mut self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
