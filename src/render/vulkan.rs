@@ -1,22 +1,16 @@
 use ash::{
-    extensions::{
-        ext::DebugUtils,
-        khr::{Surface, Swapchain as SwapchainLoader},
-    },
-    version::{DeviceV1_0, EntryV1_0, InstanceV1_0, V1_0},
-    vk, Device, Entry, Instance,
+    vk,
+    Entry,
+    Instance,
+    Device,
+    extensions::khr::{Surface, Swapchain},
 };
+use ash::ext::debug_utils;
 use anyhow::{Context, Result};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     ffi::{CStr, CString},
-    ops::Range,
-    ptr,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-    thread,
+    sync::{Arc, Mutex},
 };
 
 // Customizable settings
@@ -46,7 +40,7 @@ impl Default for VulkanSettings {
             engine_name: "Vulkan Engine".into(),
             enable_validation: cfg!(debug_assertions),
             required_device_extensions: vec![
-                SwapchainLoader::name().to_str().unwrap().to_string(),
+                Swapchain::name().to_str().unwrap().to_string(),
             ],
             optional_device_extensions: vec![],
             required_features: vk::PhysicalDeviceFeatures::default(),
@@ -82,7 +76,7 @@ pub struct VulkanContext {
     pub transfer_queue_family: Option<u32>,
     pub compute_queue_family: Option<u32>,
     pub surface_loader: Option<Surface>,
-    pub swapchain_loader: Option<SwapchainLoader>,
+    pub swapchain_loader: Option<Swapchain>,
     pub debug_utils: Option<DebugUtilsWrapper>,
     pub settings: VulkanSettings,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties,
@@ -94,7 +88,7 @@ pub struct VulkanContext {
 
 #[derive(Debug)]
 struct DebugUtilsWrapper {
-    loader: DebugUtils,
+    loader: debug_utils::DebugUtils,
     messenger: vk::DebugUtilsMessengerEXT,
 }
 
@@ -106,9 +100,17 @@ struct ResourcePool {
     command_pools: Vec<vk::CommandPool>,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct QueueFamilies {
+    graphics: u32,
+    present: u32,
+    transfer: Option<u32>,
+    compute: Option<u32>,
+}
+
 impl VulkanContext {
     pub fn new(settings: VulkanSettings) -> Result<Arc<Self>> {
-        let entry = Entry::new().context("Failed to create Vulkan entry")?;
+        let entry = Entry::linked();
 
         // Layers and extensions
         let mut instance_extensions = ash_window::enumerate_required_extensions()?
@@ -119,7 +121,7 @@ impl VulkanContext {
         let mut layers = Vec::new();
         if settings.enable_validation {
             layers.push(CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap());
-            instance_extensions.push(DebugUtils::name().as_ptr());
+            instance_extensions.push(debug_utils::NAME.as_ptr());
         }
 
         // Application info
@@ -146,19 +148,17 @@ impl VulkanContext {
 
         // Debug utils setup
         let debug_utils = if settings.enable_validation {
-            let debug_utils_loader = DebugUtils::new(&entry, &instance);
+            let debug_utils_loader = debug_utils::DebugUtils::new(&entry, &instance);
             let messenger = unsafe {
                 debug_utils_loader.create_debug_utils_messenger(
                     &vk::DebugUtilsMessengerCreateInfoEXT::builder()
                         .message_severity(
-                            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+                            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
+                            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
                         )
                         .message_type(
-                            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
-                                | vk::DebugUtilsMessageTypeFlagsEXT::GENERAL,
+                            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION |
+                            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
                         )
                         .pfn_user_callback(Some(vulkan_debug_callback)),
                     None,
@@ -190,31 +190,31 @@ impl VulkanContext {
 
         // Device creation
         let mut queue_create_infos = Vec::new();
-        let mut queue_priorities = vec![1.0; 4]; // Reused for all queues
+        let queue_priorities = [1.0]; // Reused for all queues
 
         let graphics_queue_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_families.graphics)
-            .queue_priorities(&queue_priorities[..1]);
+            .queue_priorities(&queue_priorities);
         queue_create_infos.push(graphics_queue_info.build());
 
         if queue_families.present != queue_families.graphics {
             let present_queue_info = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(queue_families.present)
-                .queue_priorities(&queue_priorities[..1]);
+                .queue_priorities(&queue_priorities);
             queue_create_infos.push(present_queue_info.build());
         }
 
         if let Some(transfer) = queue_families.transfer {
             let transfer_queue_info = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(transfer)
-                .queue_priorities(&queue_priorities[..1]);
+                .queue_priorities(&queue_priorities);
             queue_create_infos.push(transfer_queue_info.build());
         }
 
         if let Some(compute) = queue_families.compute {
             let compute_queue_info = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(compute)
-                .queue_priorities(&queue_priorities[..1]);
+                .queue_priorities(&queue_priorities);
             queue_create_infos.push(compute_queue_info.build());
         }
 
@@ -238,9 +238,7 @@ impl VulkanContext {
             .shader_draw_parameters(true);
         let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
             .buffer_device_address(settings.buffer_device_address)
-            .descriptor_indexing(true)
-            .runtime_descriptor_array(true)
-            .shader_sampled_image_array_non_uniform_indexing(true);
+            .descriptor_indexing(true);
 
         let mut rt_features = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder()
             .ray_tracing_pipeline(settings.ray_tracing);
@@ -331,7 +329,7 @@ impl VulkanContext {
             )?
         };
 
-        self.surface_loader = Some(Surface::new(&self.entry, &self.instance));
+        self.surface_loader = Some(Surface::new(&self.instance));
         Ok(surface)
     }
 
@@ -344,21 +342,21 @@ impl VulkanContext {
     ) -> Result<(vk::SwapchainKHR, Vec<vk::Image>, vk::Format, vk::Extent2D)> {
         let surface_loader = self.surface_loader.as_ref().unwrap();
         let capabilities = unsafe {
-            surface_loader.get_physical_device_surface_capabilities_khr(
+            surface_loader.get_physical_device_surface_capabilities(
                 self.physical_device,
                 surface,
             )?
         };
 
         let formats = unsafe {
-            surface_loader.get_physical_device_surface_formats_khr(
+            surface_loader.get_physical_device_surface_formats(
                 self.physical_device,
                 surface,
             )?
         };
 
         let present_modes = unsafe {
-            surface_loader.get_physical_device_surface_present_modes_khr(
+            surface_loader.get_physical_device_surface_present_modes(
                 self.physical_device,
                 surface,
             )?
@@ -423,26 +421,23 @@ impl VulkanContext {
         }
 
         // Handle queue family sharing
-        let queue_family_indices = if self.graphics_queue_family != self.present_queue_family {
+        if self.graphics_queue_family != self.present_queue_family {
             let indices = [self.graphics_queue_family, self.present_queue_family];
             swapchain_create_info = swapchain_create_info
                 .image_sharing_mode(vk::SharingMode::CONCURRENT)
                 .queue_family_indices(&indices);
-            indices
-        } else {
-            [0, 0]
-        };
+        }
 
-        self.swapchain_loader = Some(SwapchainLoader::new(&self.instance, &self.device));
+        self.swapchain_loader = Some(Swapchain::new(&self.device));
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
         let swapchain = unsafe {
-            swapchain_loader.create_swapchain_khr(&swapchain_create_info, None)?
+            swapchain_loader.create_swapchain(&swapchain_create_info, None)?
         };
 
         // Get swapchain images
         let swapchain_images = unsafe {
-            swapchain_loader.get_swapchain_images_khr(swapchain)?
+            swapchain_loader.get_swapchain_images(swapchain)?
         };
 
         Ok((swapchain, swapchain_images, format.format, extent))
@@ -497,7 +492,7 @@ impl VulkanContext {
 
                 // Prefer higher limits
                 score += (props.limits.max_image_dimension2D / 1024) as i32;
-                score += props.limits.maxDescriptorSetSamplers as i32 / 16;
+                score += props.limits.max_descriptor_set_samplers as i32 / 16;
 
                 Some((device, queue_families, score))
             })
@@ -560,7 +555,6 @@ impl VulkanContext {
         available: &vk::PhysicalDeviceFeatures,
         required: &vk::PhysicalDeviceFeatures,
     ) -> bool {
-        // This is a bit tedious since we need to check each field individually
         (required.robust_buffer_access == 0 || available.robust_buffer_access != 0)
             && (required.full_draw_index_uint32 == 0 || available.full_draw_index_uint32 != 0)
             && (required.image_cube_array == 0 || available.image_cube_array != 0)
@@ -660,7 +654,7 @@ impl VulkanContext {
                 // Check surface support if needed
                 if let Some(surface) = surface {
                     let supported = unsafe {
-                        Surface::new(&instance.entry, instance)
+                        Surface::new(instance)
                             .get_physical_device_surface_support(device, index, surface)?
                     };
                     if supported && families.present.is_none() {
@@ -1016,7 +1010,7 @@ impl VulkanContext {
             .final_layout(vk::ImageLayout::PRESENT_SRC_KHR);
 
         let mut attachments = vec![color_attachment.build()];
-        let mut color_reference = vk::AttachmentReference::builder()
+        let color_reference = vk::AttachmentReference::builder()
             .attachment(0)
             .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
@@ -1054,8 +1048,8 @@ impl VulkanContext {
             .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
             .src_access_mask(vk::AccessFlags::empty())
             .dst_access_mask(
-                vk::AccessFlags::COLOR_ATTACHMENT_READ
-                    | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                vk::AccessFlags::COLOR_ATTACHMENT_READ |
+                vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             );
 
         let create_info = vk::RenderPassCreateInfo::builder()
@@ -1266,7 +1260,7 @@ impl VulkanContext {
 
         unsafe {
             swapchain_loader
-                .acquire_next_image_khr(
+                .acquire_next_image(
                     swapchain,
                     std::u64::MAX,
                     semaphore,
@@ -1293,7 +1287,7 @@ impl VulkanContext {
 
         unsafe {
             swapchain_loader
-                .queue_present_khr(queue, &present_info)
+                .queue_present(queue, &present_info)
                 .map(|suboptimal| suboptimal == vk::Result::SUBOPTIMAL_KHR)
                 .context("Failed to present swapchain image")
         }
@@ -1323,14 +1317,6 @@ impl VulkanContext {
         }
         Ok(std::sync::MutexGuard::map(pools, |p| &mut p[index]))
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct QueueFamilies {
-    graphics: u32,
-    present: u32,
-    transfer: Option<u32>,
-    compute: Option<u32>,
 }
 
 unsafe extern "system" fn vulkan_debug_callback(
@@ -1398,4 +1384,4 @@ impl Drop for VulkanContext {
             self.instance.destroy_instance(None);
         }
     }
-}
+            }
