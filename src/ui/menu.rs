@@ -86,9 +86,17 @@ pub struct MenuState {
 }
 
 impl MenuState {
-    pub fn new(vulkan_context: Arc<VulkanContext>, render_pass: vk::RenderPass) -> Self {
+    pub fn new(vulkan_context: Arc<VulkanContext>, render_pass: vk::RenderPass, window: &winit::window::Window) -> Self {
         let egui_context = Context::default();
-        let egui_winit_state = EguiWinitState::new(1280, 720, 1.0);
+        let egui_winit_state = EguiWinitState::new(
+            egui_context.clone(),
+
+            egui::ViewportId::ROOT, 
+            window
+            None, 
+            None, 
+            None
+            );
         
         let egui_renderer = EguiRenderer::new(&vulkan_context, render_pass)
             .expect("Failed to create egui renderer");
