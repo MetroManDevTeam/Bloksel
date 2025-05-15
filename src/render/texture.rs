@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use std::path::Path;
 
 pub struct Texture {
