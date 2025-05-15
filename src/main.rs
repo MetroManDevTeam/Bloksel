@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use ash::{version::DeviceV1_0, vk};
+use ash::vk;
 use bloksel::{
     config::{
         chunksys::ChunkSysConfig, core::EngineConfig, game::TerrainConfig,
@@ -8,10 +8,9 @@ use bloksel::{
     engine::VoxelEngine,
     ui::{
         menu::MenuState,
-         
         egui_render::EguiRenderer,
-       }, 
-    render::vulkan::VulkanContext;
+    },
+    render::vulkan::VulkanContext,
 };
 use egui::{ClippedPrimitive, Context as EguiContext, TexturesDelta};
 use egui_winit::State as EguiWinitState;
@@ -24,16 +23,13 @@ use std::{
     time::{Duration, Instant},
     process::Command,
 };
- 
+
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
     window::{Window, WindowBuilder},
 };
-
-
-
 
 struct App {
     window: Window,
@@ -214,7 +210,7 @@ impl App {
 
     fn recreate_swapchain(&mut self) -> Result<()> {
         unsafe {
-            self.vulkan_context.device.device_wait_idle()?;
+            self.vulkan_context.device.wait_idle()?;
         }
 
         // Cleanup old swapchain resources
@@ -290,7 +286,7 @@ impl App {
                     .swapchain_loader
                     .as_ref()
                     .unwrap()
-                    .destroy_swapchain_khr(self.swapchain, None);
+                    .destroy_swapchain(self.swapchain, None);
             }
         }
     }
@@ -435,7 +431,7 @@ impl App {
                 .swapchain_loader
                 .as_ref()
                 .unwrap()
-                .queue_present_khr(self.vulkan_context.present_queue, &present_info)
+                .queue_present(self.vulkan_context.present_queue, &present_info)
         };
 
         if result == Ok(vk::Result::SUBOPTIMAL_KHR) || result == Err(vk::Result::ERROR_OUT_OF_DATE_KHR) {
@@ -483,7 +479,7 @@ impl App {
         info!("Cleaning up resources...");
 
         unsafe {
-            self.vulkan_context.device.device_wait_idle().unwrap();
+            self.vulkan_context.device.wait_idle().unwrap();
 
             // Cleanup swapchain resources
             self.cleanup_swapchain();
@@ -514,7 +510,7 @@ impl App {
                 .surface_loader
                 .as_ref()
                 .unwrap()
-                .destroy_surface_khr(self.surface, None);
+                .destroy_surface(self.surface, None);
 
             // Cleanup egui renderer
             self.egui_renderer.cleanup(&self.vulkan_context);
@@ -533,7 +529,7 @@ fn main() -> Result<()> {
     let (mut app, event_loop) = App::new().context("Failed to initialize application")?;
     info!("Application initialized, starting event loop");
 
-     println!("cargo:rerun-if-changed=src/ui/shaders/egui.vert");
+    println!("cargo:rerun-if-changed=src/ui/shaders/egui.vert");
     println!("cargo:rerun-if-changed=src/ui/shaders/egui.frag");
 
     let vert = Command::new("glslangValidator")
@@ -581,4 +577,4 @@ fn main() -> Result<()> {
     });
     
     Ok(())
-}
+                }
