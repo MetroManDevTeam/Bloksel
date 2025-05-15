@@ -1,14 +1,15 @@
+
 [package]
 name = "bloksel"
 version = "0.0.99"
-authors = ["MetroManDevTeam"] 
-description = "A Voxel Engine designed to be able to generate the terrain of the real world" 
-homepage = "https://www.bloksel.com" 
+authors = ["MetroManDevTeam"]
+description = "A Voxel Engine designed to be able to generate the terrain of the real world"
+homepage = "https://www.bloksel.com"
 edition = "2021"
 
 [dependencies]
-ash = { version = "0.37"}	
-ash_window = { version = "0.13.0"}	
+ash = { version = "0.37" }
+ash-window = { version = "0.13.0" }  # was `ash_window`
 anyhow = "1.0"
 bincode = "1.3"
 bytemuck = "1.14"
@@ -17,11 +18,11 @@ crossbeam-channel = "0.5.15"
 egui = "0.26"
 egui-winit = "0.26"
 egui_glow = "0.26"
-gl = { version = "0.14.0"}
+gl = { version = "0.14.0" }
 glam = "0.24"
 glutin = "0.31"
 glutin-winit = "0.4"
-glow = "0.13"  
+glow = "0.13"
 image = "0.25"
 lazy_static = "1.4.0"
 log = "0.4"
@@ -31,7 +32,7 @@ rand = "0.8"
 rand_chacha = "0.3"
 raw-window-handle = "0.5"
 rayon = "1.10.0"
-serde = { version = "1.0", features = ["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 simple_logger = "4.3"
 thiserror = "1.0"
 thread_local = "1.1"
@@ -39,7 +40,7 @@ winit = "0.29"
 rodio = "0.17"
 symphonia = { version = "0.5", features = ["mp3", "aac", "alac", "flac", "wav", "vorbis"] }
 tempfile = "3.8.0"
-directories = "5.0.1" 
+directories = "5.0.1"
 toml = "0.7.6"
 once_cell = "1.18.0"
 tokio = { version = "1.0", features = ["full", "time"] }
