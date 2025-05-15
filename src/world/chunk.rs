@@ -201,7 +201,7 @@ impl Chunk {
         (x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE) as usize
     }
 
-    pub fn get_block_at(&mut self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
+    pub fn get_block_at(&self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
         let local_x = (world_x.rem_euclid(CHUNK_SIZE as i32)) as u32;
         let local_y = (world_y.rem_euclid(CHUNK_SIZE as i32)) as u32;
         let local_z = (world_z.rem_euclid(CHUNK_SIZE as i32)) as u32;
@@ -221,7 +221,7 @@ impl Chunk {
             .and_then(|block| block.get_sub_block(&(sub_x, sub_y, sub_z)))
     }
 
-    pub fn save_world(&mut self, world_dir: &Path) -> std::io::Result<()> {
+    pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
         let chunk_file = world_dir.join(format!(
             "chunk_{}_{}_{}.bin",
             self.position.x(),
@@ -269,32 +269,31 @@ impl Chunk {
         Ok(chunk)
     }
 
+
     pub fn generate_mesh(&mut self, renderer: &ChunkRenderer) -> Result<(), RenderError> {
-        if !self.needs_remesh {
-            return Ok(());
-        }
-
-        let mut mesh = ChunkMesh::new();
-
-        for x in 0..CHUNK_SIZE {
-            for y in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
-                    if let Some(block) = self.get_block(x, y, z) {
-                        self.generate_block_mesh(&mut mesh, block, x, y, z);
-                    }
-                }
-            }
-        }
-
-        if mesh.is_empty() {
-            self.mesh = None;
-        } else {
-            self.mesh = Some(mesh);
-        }
-
-        self.needs_remesh = false;
-        Ok(())
+    if !self.needs_remesh {
+        return Ok(());
     }
+
+    let mut mesh = ChunkMesh::new();
+
+    // Collect block data first to avoid borrow conflicts
+    let blocks: Vec<_> = (0..CHUNK_SIZE)
+        .flat_map(|x| (0..CHUNK_SIZE)
+            .flat_map(move |y| (0..CHUNK_SIZE)
+                .map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))))
+        .collect();
+
+    for (x, y, z, block) in blocks {
+        if let Some(block) = block {
+            self.generate_block_mesh(&mut mesh, &block, x, y, z);
+        }
+    }
+
+    self.mesh = if mesh.is_empty() { None } else { Some(mesh) };
+    self.needs_remesh = false;
+    Ok(())
+}
 
     fn generate_block_mesh(
         &mut self,
@@ -325,7 +324,7 @@ impl Chunk {
         position: Vec3,
     ) {
         // Generate faces based on block type and connections
-        let block_id = sub_block.id.0;
+        let block_id = sub_block.id;
         let variant_data = self.calculate_variant_data(sub_block);
 
         // Define cube vertices
@@ -507,7 +506,7 @@ impl ChunkManager {
         }
     }
 
-    pub fn add_chunk(&mut self, coord: ChunkCoord, &mut chunk: Chunk) {
+    pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: &mut Chunk) {
         let mut compressed = Vec::new();
 
         for x in 0..CHUNK_SIZE {
