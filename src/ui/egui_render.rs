@@ -1,7 +1,7 @@
 use crate::render::vulkan::VulkanContext;
 use anyhow::{Context, Result};
 use ash::{vk, Device};
-use egui::{ClippedPrimitive, Context as EguiContext, TexturesDelta};
+use egui::{ClippedPrimitive, Context as EguiContext, TexturesDelta, Widget};
 use egui_winit::State as EguiWinitState;
 use log::{debug, error, info, warn};
 use std::sync::Arc;
