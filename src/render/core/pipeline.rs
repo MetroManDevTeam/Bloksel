@@ -181,8 +181,8 @@ impl ChunkRenderer {
         };
 
         // Create shader modules (assuming SPIR-V shaders)
-        let vert_shader = Self::create_shader_module(device, include_bytes!("shaders/vert.spv"))?;
-        let frag_shader = Self::create_shader_module(device, include_bytes!("shaders/frag.spv"))?;
+        let vert_shader = Self::create_shader_module(device, include_bytes!("/shaders/vert.glsl"))?;
+        let frag_shader = Self::create_shader_module(device, include_bytes!("/shaders/frag.glsl"))?;
 
         // Create graphics pipeline
         let shader_stages = [

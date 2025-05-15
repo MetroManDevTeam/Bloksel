@@ -1,10 +1,11 @@
-use crate::render:vulkan::VulkanContext;
+use crate::render::vulkan::VulkanContext;
 use ash::{version::DeviceV1_0, vk};
 use egui::{ClippedPrimitive, Context as EguiContext, TexturesDelta};
 use egui_winit::State as EguiWinitState;
 use log::{debug, error, info, warn, LevelFilter};
+ use std::sync::Arc;
 
-struct EguiRenderer {
+pub struct EguiRenderer {
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     font_texture: Option<(vk::Image, vk::ImageView, vk::DeviceMemory, vk::Sampler)>,

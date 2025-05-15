@@ -16,6 +16,7 @@ use crate::{
     },
 };
 use anyhow::{Context, Result};
+ use ash::vk;
 use crossbeam_channel::{Receiver, Sender, bounded};
 use glam::Vec3;
 use log::warn;

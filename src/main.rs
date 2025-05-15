@@ -22,6 +22,7 @@ use std::{
     num::NonZeroU32,
     sync::Arc,
     time::{Duration, Instant},
+    process::Command,
 };
  
 use winit::{
@@ -531,6 +532,23 @@ impl App {
 fn main() -> Result<()> {
     let (mut app, event_loop) = App::new().context("Failed to initialize application")?;
     info!("Application initialized, starting event loop");
+
+     println!("cargo:rerun-if-changed=src/ui/shaders/egui.vert");
+    println!("cargo:rerun-if-changed=src/ui/shaders/egui.frag");
+
+    let vert = Command::new("glslangValidator")
+        .args(&["-V", "src/ui/shaders/egui.vert", "-o", "src/ui/shaders/egui.vert.spv"])
+        .status()
+        .expect("Failed to compile vertex shader");
+
+    let frag = Command::new("glslangValidator")
+        .args(&["-V", "src/ui/shaders/egui.frag", "-o", "src/ui/shaders/egui.frag.spv"])
+        .status()
+        .expect("Failed to compile fragment shader");
+
+    if !vert.success() || !frag.success() {
+        panic!("Shader compilation failed");
+    }
 
     event_loop.run(move |event, elwt| {
         match event {

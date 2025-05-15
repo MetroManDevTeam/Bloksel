@@ -22,6 +22,8 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
+use ash::vk;
+use crate::render::core::Camera;
 
 pub const CHUNK_SIZE: u32 = 32;
 pub const CHUNK_VOLUME: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
@@ -127,7 +129,7 @@ impl Frustum {
         Self { planes }
     }
 
-    pub fn intersects_aabb(&self, min: Vec3, max: Vec3) -> bool {
+    pub fn intersects_aabb(&mut self, min: Vec3, max: Vec3) -> bool {
         for plane in &self.planes {
             let p = Vec3::new(plane.x, plane.y, plane.z);
             let d = plane.w;
@@ -195,11 +197,11 @@ impl Chunk {
         self.needs_remesh = true;
     }
 
-    fn get_index(&self, x: u32, y: u32, z: u32) -> usize {
+    fn get_index(&mut self, x: u32, y: u32, z: u32) -> usize {
         (x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE) as usize
     }
 
-    pub fn get_block_at(&self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
+    pub fn get_block_at(&mut self, world_x: i32, world_y: i32, world_z: i32) -> Option<&Block> {
         let local_x = (world_x.rem_euclid(CHUNK_SIZE as i32)) as u32;
         let local_y = (world_y.rem_euclid(CHUNK_SIZE as i32)) as u32;
         let local_z = (world_z.rem_euclid(CHUNK_SIZE as i32)) as u32;
@@ -219,7 +221,7 @@ impl Chunk {
             .and_then(|block| block.get_sub_block(&(sub_x, sub_y, sub_z)))
     }
 
-    pub fn save_world(&self, world_dir: &Path) -> std::io::Result<()> {
+    pub fn save_world(&mut self, world_dir: &Path) -> std::io::Result<()> {
         let chunk_file = world_dir.join(format!(
             "chunk_{}_{}_{}.bin",
             self.position.x(),
@@ -241,7 +243,7 @@ impl Chunk {
         Self::load(&chunk_file)
     }
 
-    pub fn save_to_writer(&self, mut writer: impl io::Write) -> io::Result<()> {
+    pub fn save_to_writer(&mut self, mut writer: impl io::Write) -> io::Result<()> {
         bincode::serialize_into(&mut writer, self)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
@@ -393,13 +395,13 @@ impl Chunk {
         }
     }
 
-    fn should_render_face(&self, sub_block: &SubBlock, face: usize) -> bool {
+    fn should_render_face(&mut self, sub_block: &SubBlock, face: usize) -> bool {
         // Check if face should be rendered based on connections or neighboring blocks
         // This is a simplified version - should be expanded based on your connection system
         true
     }
 
-    fn calculate_variant_data(&self, sub_block: &SubBlock) -> u32 {
+    fn calculate_variant_data(&mut self, sub_block: &SubBlock) -> u32 {
         // Pack variant and connection data into a single u32
         let variant = sub_block.id.1 as u32; // Variant ID
         let connections = sub_block.connections.bits() as u32;
@@ -408,7 +410,7 @@ impl Chunk {
         (variant << 16) | connections
     }
 
-    pub fn transform(&self) -> Mat4 {
+    pub fn transform(&mut self) -> Mat4 {
         let pos = Vec3::new(
             self.position.x() as f32 * CHUNK_SIZE as f32,
             self.position.y() as f32 * CHUNK_SIZE as f32,
@@ -421,7 +423,7 @@ impl Chunk {
         frustum.intersects_aabb(self.bounds.0, self.bounds.1)
     }
 
-    pub fn get_aabb_corners(&self) -> [Vec3; 8] {
+    pub fn get_aabb_corners(&mut self) -> [Vec3; 8] {
         let (min, max) = self.bounds;
         [
             Vec3::new(min.x, min.y, min.z),
@@ -435,7 +437,7 @@ impl Chunk {
         ]
     }
 
-    pub fn is_solid_at(&self, world_x: i32, world_y: i32, world_z: i32) -> bool {
+    pub fn is_solid_at(&mut self, world_x: i32, world_y: i32, world_z: i32) -> bool {
         self.get_block_at(world_x, world_y, world_z)
             .map_or(false, |block| block.is_solid())
     }
@@ -505,7 +507,7 @@ impl ChunkManager {
         }
     }
 
-    pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
+    pub fn add_chunk(&mut self, coord: ChunkCoord, &mut chunk: Chunk) {
         let mut compressed = Vec::new();
 
         for x in 0..CHUNK_SIZE {
@@ -546,7 +548,7 @@ impl ChunkManager {
         self.chunks.get(&coord).unwrap().as_ref()
     }
 
-    pub fn generate_chunk(&self, coord: ChunkCoord) -> Chunk {
+    pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
         let mut chunk = Chunk::new(coord);
 
         // Simple terrain generation
@@ -610,7 +612,7 @@ impl ChunkManager {
         }
     }
 
-    pub fn save_world(&self) -> std::io::Result<()> {
+    pub fn save_world(&mut self) -> std::io::Result<()> {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
         fs::create_dir_all(&world_dir)?;
 
@@ -642,9 +644,10 @@ impl ChunkManager {
         Ok(())
     }
 
-    pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
+    pub fn get_block_at(&mut self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
-        let chunk = self.chunks.get(&chunk_coord)?;
+        let mut chunk = self.chunks.get(&chunk_coord)?;
+
         chunk
             .get_block_at(world_pos.x as i32, world_pos.y as i32, world_pos.z as i32)
             .map(|block| {
