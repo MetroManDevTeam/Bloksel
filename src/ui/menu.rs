@@ -9,7 +9,7 @@ use ash::vk;
 use egui::{
     CentralPanel, ComboBox, Context, Grid, Spinner, Window, 
     Align, Layout, Rect, Vec2, Ui, ClippedPrimitive, TexturesDelta,
-    Color32, ProgressBar, Label, ScrollArea, SelectableLabel
+    Color32, ProgressBar, Label, ScrollArea, SelectableLabel, Widget
 };
 use egui_winit::State as EguiWinitState;
 use std::{path::PathBuf, sync::Arc};
