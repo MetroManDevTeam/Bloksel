@@ -453,3 +453,12 @@ pub struct ThreadPoolStats {
     active_threads: usize,
     queued_tasks: usize,
     }
+
+
+
+
+#[derive(Serialize, Deserialize)]
+struct WorldMetadata {
+    seed: u64,
+    spawn_point: Vec3,
+}
