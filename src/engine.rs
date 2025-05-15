@@ -227,6 +227,11 @@ impl VoxelEngine {
     }
 
     pub fn render_frame(&self, command_buffer: vk::CommandBuffer, camera: &crate::render::core::Camera) {
+        
+   
+        // Reset render statistics    
+        self.chunk_renderer.begin_frame();
+        
         // Render all active chunks
         let active_chunks = self.active_chunks.read();
         for chunk in active_chunks.values() {
