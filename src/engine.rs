@@ -253,9 +253,96 @@ impl VoxelEngine {
     }
 
     fn update_chunk_loading(&self, player_position: Vec3) {
-        // TODO: Implement chunk loading/unloading logic based on player position
-        // and render distance
+    // Convert player position to chunk coordinates
+    let player_chunk = ChunkCoord::from_world_pos(
+        player_position,
+        self.config.chunk_size as i32
+    );
+
+    // Calculate render distance in chunks
+    let render_distance = self.config.render_distance as i32;
+    let load_distance = render_distance + 2; // Load slightly beyond render distance
+
+    // Unload chunks outside the load distance
+    {
+        let mut chunks_to_unload = Vec::new();
+        let active_chunks = self.active_chunks.read();
+        for coord in active_chunks.keys() {
+            let distance = coord.distance(&player_chunk) as i32;
+            if distance > load_distance {
+                chunks_to_unload.push(*coord);
+            }
+        }
+
+        for coord in chunks_to_unload {
+            self.unload_chunk(coord);
+        }
     }
+
+    // Load chunks within the load distance (circular area)
+    for x in -load_distance..=load_distance {
+        for z in -load_distance..=load_distance {
+            let coord = ChunkCoord::new(
+                player_chunk.x() + x,
+                player_chunk.y(),
+                player_chunk.z() + z
+            );
+
+            // Use proper distance calculation
+            if coord.distance(&player_chunk) as i32 > load_distance {
+                continue;
+            }
+
+            if !self.active_chunks.read().contains_key(&coord) {
+                self.load_chunk(coord);
+            }
+        }
+    }
+}
+
+    fn load_chunk(&self, coord: ChunkCoord) {
+    // Send to load queue
+    if let Err(e) = self.load_queue.send(coord) {
+        warn!("Failed to queue chunk load: {:?}", e);
+    }
+}
+
+
+    fn unload_chunk(&self, coord: ChunkCoord) {
+    // Send to unload queue
+    if let Err(e) = self.unload_queue.send(coord) {
+        warn!("Failed to queue chunk unload: {:?}", e);
+    }
+}
+
+    pub fn process_chunk_loading(&self) {
+    // Process loaded chunks
+    while let Ok(coord) = self.load_receiver.try_recv() {
+        let chunk = match self.terrain_generator.generate_chunk(coord) {
+            Ok(chunk) => chunk,
+            Err(e) => {
+                warn!("Failed to generate chunk {:?}: {:?}", coord, e);
+                continue;
+            }
+        };
+
+        if let Err(e) = chunk.generate_mesh(&self.chunk_renderer) {
+            warn!("Failed to generate mesh for chunk {:?}: {:?}", coord, e);
+        }
+
+        self.active_chunks.write().insert(coord, Arc::new(chunk));
+        self.spatial_partition.lock().add_chunk(coord);
+    }
+
+    // Process unloaded chunks
+    while let Ok(coord) = self.unload_receiver.try_recv() {
+        if let Some(chunk) = self.active_chunks.write().remove(&coord) {
+            self.spatial_partition.lock().remove_chunk(coord);
+            self.chunk_pool.return_chunk(chunk);
+        }
+    }
+}
+    
 }
 
 #[derive(Debug, Default)]
