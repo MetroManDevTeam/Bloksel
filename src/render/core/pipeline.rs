@@ -66,6 +66,14 @@ pub struct ChunkRenderer {
     pub descriptor_pool: vk::DescriptorPool,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub command_pool: vk::CommandPool,
+
+    
+    
+    // Statistics tracking
+    pub draw_call_count: usize,
+    pub vertex_count: usize,
+    pub triangle_count: usize,
+
 }
 
 impl ChunkRenderer {
@@ -603,7 +611,7 @@ impl ChunkRenderer {
     }
 
     pub fn render_chunk(
-        &self,
+        &mut self,
         device: &ash::Device,
         command_buffer: vk::CommandBuffer,
         chunk: &Chunk,
@@ -684,6 +692,15 @@ impl ChunkRenderer {
                     0,
                     0,
                 );
+
+                
+
+
+            // Update statistics
+            self.draw_call_count += 1;
+            self.vertex_count += mesh.vertex_count;
+            self.triangle_count += mesh.index_count / 3; // Assuming triangle list (3 indices per triangle)
+      
             }
         }
     }
@@ -1007,7 +1024,33 @@ impl ChunkRenderer {
             device.destroy_descriptor_pool(self.descriptor_pool, None);
             device.destroy_command_pool(self.command_pool, None);
         }
+        
+
+    /// Resets the render statistics at the start of each frame
+    pub fn begin_frame(&mut self) {
+        self.draw_call_count = 0;
+        self.vertex_count = 0;
+        self.triangle_count = 0;
     }
+
+    /// Returns the number of draw calls made in the last frame
+    pub fn get_draw_call_count(&self) -> usize {
+        self.draw_call_count
+    }
+
+    /// Returns the number of vertices rendered in the last frame
+    pub fn get_vertex_count(&self) -> usize {
+        self.vertex_count
+    }
+
+    /// Returns the number of triangles rendered in the last frame
+    pub fn get_triangle_count(&self) -> usize {
+        self.triangle_count
+    }
+
+    
+        
+    
 }
 
 pub struct RenderPipeline {
