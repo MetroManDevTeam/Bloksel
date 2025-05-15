@@ -1,4 +1,5 @@
-![1000143236](https://github.com/user-attachments/assets/5d4ea3a1-7281-4cea-98e4-bcba8c1faa54)
+![1000143403](https://github.com/user-attachments/assets/3211b590-306e-4130-b9f1-297957b76db7)
+
 
 ### Work in progress, we'll announce when prototype is ready for distribution
 
