@@ -146,6 +146,7 @@ impl ChunkRenderer {
 
     fn create_pipeline(
         device: &ash::Device,
+        render_pass: vk::RenderPass, 
     ) -> Result<(vk::DescriptorSetLayout, vk::PipelineLayout, vk::Pipeline)> {
         // Create descriptor set layout
         let bindings = [
@@ -198,8 +199,32 @@ impl ChunkRenderer {
                 .build(),
         ];
 
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
-
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+    .vertex_binding_descriptions(&[
+        vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<Vertex>() as u32, // Define your Vertex type
+            input_rate: vk::VertexInputRate::VERTEX,
+        },
+    ])
+    .vertex_attribute_descriptions(&[
+        // Positions
+        vk::VertexInputAttributeDescription {
+            location: 0,
+            binding: 0,
+            format: vk::Format::R32G32B32_SFLOAT,
+            offset: 0,
+        },
+        // Normals
+        vk::VertexInputAttributeDescription {
+            location: 1,
+            binding: 0,
+            format: vk::Format::R32G32B32_SFLOAT,
+            offset: 12,
+        },
+        
+    ]);
+        
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -618,7 +643,27 @@ impl ChunkRenderer {
                 let view = camera.view_matrix();
                 let projection = camera.projection_matrix();
 
-                // TODO: Update uniform buffer with model, view, projection matrices
+                let ubo = UniformBufferObject {
+      
+                    model: chunk.transform(),
+     
+                    view: camera.view_matrix(),
+    
+                    projection: camera.projection_matrix(),
+  
+                };
+    
+    
+                unsafe {
+      
+                    let data_ptr = device.map_memory(...);     
+  
+                    std::ptr::copy_nonoverlapping(&ubo, data_ptr as *mut _, 1);
+  
+                    device.unmap_memory(...);
+  
+                }
+                
 
                 // Bind descriptor sets
                 device.cmd_bind_descriptor_sets(
