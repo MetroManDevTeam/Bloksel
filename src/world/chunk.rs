@@ -647,13 +647,13 @@ impl Chunk {
         }
     }
 
-    fn should_render_face(&mut self, _sub_block: &SubBlock, _face: usize) -> bool {
+    fn should_render_face(&self, _sub_block: &SubBlock, _face: usize) -> bool {
         // Check if face should be rendered based on connections or neighboring blocks
         // This is a simplified version - should be expanded based on your connection system
         true
     }
 
-    fn calculate_variant_data(&mut self, sub_block: &SubBlock) -> u32 {
+    fn calculate_variant_data(&self, sub_block: &SubBlock) -> u32 {
         // Pack variant and connection data into a single u32
         // Extract the variant from the block ID (assuming BlockId is a tuple or has a method to get variant)
         let variant = match sub_block.id {
@@ -670,7 +670,7 @@ impl Chunk {
         (variant << 16) | connections
     }
 
-    pub fn transform(&mut self) -> Mat4 {
+    pub fn transform(&self) -> Mat4 {
         let pos = Vec3::new(
             self.position.x() as f32 * CHUNK_SIZE as f32,
             self.position.y() as f32 * CHUNK_SIZE as f32,
@@ -683,7 +683,7 @@ impl Chunk {
         frustum.intersects_aabb(self.bounds.0, self.bounds.1)
     }
 
-    pub fn get_aabb_corners(&mut self) -> [Vec3; 8] {
+    pub fn get_aabb_corners(&self) -> [Vec3; 8] {
         let (min, max) = self.bounds;
         [
             Vec3::new(min.x, min.y, min.z),
@@ -697,7 +697,7 @@ impl Chunk {
         ]
     }
 
-    pub fn is_solid_at(&mut self, world_x: i32, world_y: i32, world_z: i32) -> bool {
+    pub fn is_solid_at(&self, world_x: i32, world_y: i32, world_z: i32) -> bool {
         self.get_block_at(world_x, world_y, world_z)
             .map_or(false, |block| block.is_solid())
     }
@@ -783,12 +783,12 @@ impl ChunkManager {
         self.chunks.insert(coord, Arc::new(chunk));
     }
 
-    pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, _seed: u32) -> &Chunk {
+    pub fn get_or_generate_chunk(&mut self, coord: ChunkCoord, _seed: u32) -> Arc<Chunk> {
         if !self.chunks.contains_key(&coord) {
             let chunk = self.generate_chunk(coord);
             self.add_chunk(coord, chunk);
         }
-        self.chunks.get(&coord).unwrap().as_ref()
+        self.chunks.get(&coord).unwrap().clone()
     }
 
     pub fn generate_chunk(&mut self, coord: ChunkCoord) -> Chunk {
