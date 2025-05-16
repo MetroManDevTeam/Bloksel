@@ -378,6 +378,72 @@ impl ChunkRenderer {
         Ok((descriptor_set_layout, pipeline_layout, pipeline))
     }
 
+    fn create_dummy_render_pass(device: &ash::Device) -> Result<vk::RenderPass, RenderError> {
+        // Create a simple render pass with one color attachment and one depth attachment
+        let color_attachment = vk::AttachmentDescription::builder()
+            .format(vk::Format::B8G8R8A8_UNORM)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .build();
+
+        let depth_attachment = vk::AttachmentDescription::builder()
+            .format(vk::Format::D32_SFLOAT)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .build();
+
+        let attachments = [color_attachment, depth_attachment];
+
+        let color_attachment_ref = vk::AttachmentReference::builder()
+            .attachment(0)
+            .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .build();
+
+        let depth_attachment_ref = vk::AttachmentReference::builder()
+            .attachment(1)
+            .layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .build();
+
+        let color_attachments = [color_attachment_ref];
+
+        let subpass = vk::SubpassDescription::builder()
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
+            .color_attachments(&color_attachments)
+            .depth_stencil_attachment(&depth_attachment_ref)
+            .build();
+
+        let subpasses = [subpass];
+
+        let dependency = vk::SubpassDependency::builder()
+            .src_subpass(vk::SUBPASS_EXTERNAL)
+            .dst_subpass(0)
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .build();
+
+        let dependencies = [dependency];
+
+        let render_pass_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&attachments)
+            .subpasses(&subpasses)
+            .dependencies(&dependencies);
+
+        unsafe { device.create_render_pass(&render_pass_info, None) }
+            .map_err(|e| RenderError::VulkanError(format!("Failed to create render pass: {:?}", e)))
+    }
+
     fn create_shader_module(
         device: &ash::Device,
         code: &[u8],
@@ -755,6 +821,7 @@ impl ChunkRenderer {
     // Helper functions for Vulkan resource creation
     fn create_buffer(
         device: &ash::Device,
+        instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         size: vk::DeviceSize,
         usage: vk::BufferUsageFlags,
@@ -773,6 +840,7 @@ impl ChunkRenderer {
         let alloc_info = vk::MemoryAllocateInfo::builder()
             .allocation_size(mem_requirements.size)
             .memory_type_index(Self::find_memory_type(
+                instance,
                 physical_device,
                 mem_requirements.memory_type_bits,
                 properties,
@@ -791,6 +859,7 @@ impl ChunkRenderer {
 
     fn create_image(
         device: &ash::Device,
+        instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         width: u32,
         height: u32,
@@ -823,6 +892,7 @@ impl ChunkRenderer {
         let alloc_info = vk::MemoryAllocateInfo::builder()
             .allocation_size(mem_requirements.size)
             .memory_type_index(Self::find_memory_type(
+                instance,
                 physical_device,
                 mem_requirements.memory_type_bits,
                 properties,
@@ -887,25 +957,13 @@ impl ChunkRenderer {
     }
 
     fn find_memory_type(
+        instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> Result<u32, RenderError> {
-        // Note: This is a placeholder. In a real implementation, you would need to use
-        // the Vulkan instance to get the physical device memory properties.
-        // For example: instance.get_physical_device_memory_properties(physical_device)
-        let mem_properties = vk::PhysicalDeviceMemoryProperties {
-            memory_type_count: 1,
-            memory_types: [vk::MemoryType {
-                property_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL,
-                heap_index: 0,
-            }; 32],
-            memory_heap_count: 1,
-            memory_heaps: [vk::MemoryHeap {
-                size: 1024 * 1024 * 1024, // 1GB
-                flags: vk::MemoryHeapFlags::DEVICE_LOCAL,
-            }; 16],
-        };
+        let mem_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
 
         for (i, memory_type) in mem_properties.memory_types.iter().enumerate() {
             if (type_filter & (1 << i)) != 0
