@@ -83,7 +83,7 @@ impl WorldSave {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CompressedSubBlock {
     pub local_pos: (u8, u8, u8),
     pub id: u16,
@@ -92,7 +92,7 @@ pub struct CompressedSubBlock {
     pub connections: ConnectedDirections,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CompressedBlock {
     pub position: (usize, usize, usize),
     pub id: BlockId,
