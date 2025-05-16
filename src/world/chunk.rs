@@ -640,7 +640,7 @@ impl Chunk {
         }
     }
 
-    fn should_render_face(&mut self, sub_block: &SubBlock, face: usize) -> bool {
+    fn should_render_face(&mut self, _sub_block: &SubBlock, _face: usize) -> bool {
         // Check if face should be rendered based on connections or neighboring blocks
         // This is a simplified version - should be expanded based on your connection system
         true
@@ -648,7 +648,15 @@ impl Chunk {
 
     fn calculate_variant_data(&mut self, sub_block: &SubBlock) -> u32 {
         // Pack variant and connection data into a single u32
-        let variant = sub_block.id.1 as u32; // Variant ID
+        // Extract the variant from the block ID (assuming BlockId is a tuple or has a method to get variant)
+        let variant = match sub_block.id {
+            // If BlockId is a tuple type (u16, u16)
+            (_, variant) => variant as u32,
+            // If it's not a tuple, you'll need to adjust this based on your actual BlockId type
+            #[allow(unreachable_patterns)]
+            _ => 0,
+        };
+
         let connections = sub_block.connections.bits() as u32;
 
         // Pack as: variant in upper 16 bits, connections in lower 16 bits
@@ -735,7 +743,7 @@ impl ChunkManager {
         }
     }
 
-    pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: &mut Chunk) {
+    pub fn add_chunk(&mut self, coord: ChunkCoord, chunk: Chunk) {
         let mut compressed = Vec::new();
 
         for x in 0..CHUNK_SIZE {
