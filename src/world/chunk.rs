@@ -175,7 +175,7 @@ impl Frustum {
         Self { planes }
     }
 
-    pub fn intersects_aabb(&mut self, min: Vec3, max: Vec3) -> bool {
+    pub fn intersects_aabb(&self, min: Vec3, max: Vec3) -> bool {
         for plane in &self.planes {
             let p = Vec3::new(plane.x, plane.y, plane.z);
             let d = plane.w;
