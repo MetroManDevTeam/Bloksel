@@ -867,7 +867,7 @@ impl ChunkManager {
     }
 
     pub fn render_visible_chunks(
-        &self,
+        &mut self,
         device: &ash::Device,
         command_buffer: vk::CommandBuffer,
         camera: &Camera,
@@ -875,9 +875,9 @@ impl ChunkManager {
         for chunk in &self.visible_chunks {
             if let Some(mesh) = &chunk.mesh {
                 if !mesh.is_empty() {
-                    // Pass the renderer by reference
-                    let renderer = &self.renderer;
-                    renderer.render_chunk(device, command_buffer, chunk, camera);
+                    // Now we can use a mutable reference to the renderer
+                    self.renderer
+                        .render_chunk(device, command_buffer, chunk, camera);
                 }
             }
         }
