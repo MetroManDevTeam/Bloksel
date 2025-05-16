@@ -756,11 +756,19 @@ impl VulkanContext {
             if surface.is_some() && !present_found {
                 families.present = families.graphics;
             }
+        }
 
-                }
-            }
-    
-            Ok(families)
+        // Fallbacks
+        if families.transfer.is_none() {
+            families.transfer = Some(families.graphics);
+        }
+
+        if families.compute.is_none() {
+            families.compute = Some(families.graphics);
+        }
+
+        if surface.is_some() && !present_found {
+            families.present = families.graphics;
         }
 
         Ok(families)
