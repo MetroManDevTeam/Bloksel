@@ -1411,12 +1411,14 @@ impl Drop for VulkanContext {
                     .destroy_debug_utils_messenger(debug_utils.messenger, None);
             }
 
-            if let Some(surface_loader) = &self.surface_loader {
-                // Surface should be destroyed by the window
+            // Clean up swapchain loader
+            if let Some(swapchain_loader) = &self.swapchain_loader {
+                // Note: Swapchain should be destroyed explicitly before this point
             }
 
-            if let Some(swapchain_loader) = &self.swapchain_loader {
-                // Swapchain should be destroyed explicitly
+            // Clean up surface loader
+            if let Some(surface_loader) = &self.surface_loader {
+                // Note: Surface should be destroyed explicitly before this point
             }
 
             self.device.destroy_device(None);
