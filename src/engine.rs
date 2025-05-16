@@ -23,6 +23,7 @@ use log::warn;
 use parking_lot::Mutex;
 use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     path::Path,
