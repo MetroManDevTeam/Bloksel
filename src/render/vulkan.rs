@@ -216,7 +216,7 @@ impl VulkanContext {
         let queue_infos = if queue_families.graphics
             != queue_families
                 .present
-                .expect("Present queue family not found")
+                .ok_or_else(|| anyhow::anyhow!("Present queue family not found"))?
         {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
