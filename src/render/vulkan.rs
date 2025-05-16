@@ -204,6 +204,7 @@ impl VulkanContext {
         let queue_priorities = [1.0]; // Reused for all queues
 
         let graphics_queue_info = vk::DeviceQueueCreateInfo::builder()
+            .queue_family_index(queue_families.graphics.expect("Graphics queue family not found"))
             .queue_family_index(queue_families.graphics)
             .queue_priorities(&queue_priorities);
         queue_create_infos.push(graphics_queue_info.build());
