@@ -3,7 +3,7 @@ use crate::render::mesh::Mesh;
 use crate::world::block::Block;
 use crate::world::block_material::BlockMaterial;
 use crate::world::blocks_data::BlockRegistry;
-use crate::world::chunk::{CHUNK_SIZE, Chunk, ChunkMesh};
+use crate::world::chunk::{Chunk, ChunkMesh, CHUNK_SIZE};
 use anyhow::{Context, Result};
 use ash::vk;
 use glam::{Mat4, Vec2, Vec3, Vec4};
@@ -67,13 +67,10 @@ pub struct ChunkRenderer {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub command_pool: vk::CommandPool,
 
-
-
     // Statistics tracking
     pub draw_call_count: usize,
     pub vertex_count: usize,
     pub triangle_count: usize,
-
 }
 
 impl ChunkRenderer {
@@ -84,8 +81,7 @@ impl ChunkRenderer {
         block_registry: Arc<BlockRegistry>,
     ) -> Result<Self> {
         // Initialize Vulkan pipeline
-        let (descriptor_set_layout, pipeline_layout, pipeline) =
-            Self::create_pipeline(device)?;
+        let (descriptor_set_layout, pipeline_layout, pipeline) = Self::create_pipeline(device)?;
 
         // Create command pool
         let command_pool = {
@@ -93,8 +89,9 @@ impl ChunkRenderer {
                 .queue_family_index(queue_family_index)
                 .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
-            unsafe { device.create_command_pool(&create_info, None) }
-                .map_err(|e| RenderError::VulkanError(format!("Failed to create command pool: {:?}", e)))?
+            unsafe { device.create_command_pool(&create_info, None) }.map_err(|e| {
+                RenderError::VulkanError(format!("Failed to create command pool: {:?}", e))
+            })?
         };
 
         // Create descriptor pool
@@ -114,8 +111,9 @@ impl ChunkRenderer {
                 .max_sets(1)
                 .pool_sizes(&pool_sizes);
 
-            unsafe { device.create_descriptor_pool(&create_info, None) }
-                .map_err(|e| RenderError::VulkanError(format!("Failed to create descriptor pool: {:?}", e)))?
+            unsafe { device.create_descriptor_pool(&create_info, None) }.map_err(|e| {
+                RenderError::VulkanError(format!("Failed to create descriptor pool: {:?}", e))
+            })?
         };
 
         // Allocate descriptor sets
@@ -125,8 +123,9 @@ impl ChunkRenderer {
                 .descriptor_pool(descriptor_pool)
                 .set_layouts(&layouts);
 
-            unsafe { device.allocate_descriptor_sets(&allocate_info) }
-                .map_err(|e| RenderError::VulkanError(format!("Failed to allocate descriptor sets: {:?}", e)))?
+            unsafe { device.allocate_descriptor_sets(&allocate_info) }.map_err(|e| {
+                RenderError::VulkanError(format!("Failed to allocate descriptor sets: {:?}", e))
+            })?
         };
 
         Ok(Self {
@@ -172,26 +171,37 @@ impl ChunkRenderer {
                 .build(),
         ];
 
-        let create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(&bindings);
+        let create_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
 
         let descriptor_set_layout = unsafe {
-            device.create_descriptor_set_layout(&create_info, None)
-                .map_err(|e| RenderError::VulkanError(format!("Failed to create descriptor set layout: {:?}", e)))?
+            device
+                .create_descriptor_set_layout(&create_info, None)
+                .map_err(|e| {
+                    RenderError::VulkanError(format!(
+                        "Failed to create descriptor set layout: {:?}",
+                        e
+                    ))
+                })?
         };
 
         // Create pipeline layout
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&[descriptor_set_layout]);
+        let layout_create_info =
+            vk::PipelineLayoutCreateInfo::builder().set_layouts(&[descriptor_set_layout]);
 
         let pipeline_layout = unsafe {
-            device.create_pipeline_layout(&layout_create_info, None)
-                .map_err(|e| RenderError::VulkanError(format!("Failed to create pipeline layout: {:?}", e)))?
+            device
+                .create_pipeline_layout(&layout_create_info, None)
+                .map_err(|e| {
+                    RenderError::VulkanError(format!("Failed to create pipeline layout: {:?}", e))
+                })?
         };
 
         // Create shader modules (assuming SPIR-V shaders)
-        let vert_shader = Self::create_shader_module(device, include_bytes!("shaders/vert.glsl"))?;
-        let frag_shader = Self::create_shader_module(device, include_bytes!("shaders/frag.glsl"))?;
+        // Note: Paths adjusted to point to the correct location
+        let vert_shader =
+            Self::create_shader_module(device, include_bytes!("../../../shaders/vert.glsl"))?;
+        let frag_shader =
+            Self::create_shader_module(device, include_bytes!("../../../shaders/frag.glsl"))?;
 
         // Create graphics pipeline
         let shader_stages = [
@@ -208,30 +218,27 @@ impl ChunkRenderer {
         ];
 
         let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-    .vertex_binding_descriptions(&[
-        vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: std::mem::size_of::<Vertex>() as u32, // Define your Vertex type
-            input_rate: vk::VertexInputRate::VERTEX,
-        },
-    ])
-    .vertex_attribute_descriptions(&[
-        // Positions
-        vk::VertexInputAttributeDescription {
-            location: 0,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 0,
-        },
-        // Normals
-        vk::VertexInputAttributeDescription {
-            location: 1,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 12,
-        },
-
-    ]);
+            .vertex_binding_descriptions(&[vk::VertexInputBindingDescription {
+                binding: 0,
+                stride: std::mem::size_of::<Vertex>() as u32, // Define your Vertex type
+                input_rate: vk::VertexInputRate::VERTEX,
+            }])
+            .vertex_attribute_descriptions(&[
+                // Positions
+                vk::VertexInputAttributeDescription {
+                    location: 0,
+                    binding: 0,
+                    format: vk::Format::R32G32B32_SFLOAT,
+                    offset: 0,
+                },
+                // Normals
+                vk::VertexInputAttributeDescription {
+                    location: 1,
+                    binding: 0,
+                    format: vk::Format::R32G32B32_SFLOAT,
+                    offset: 12,
+                },
+            ]);
 
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
@@ -247,7 +254,10 @@ impl ChunkRenderer {
 
         let scissor = vk::Rect2D::builder()
             .offset(vk::Offset2D { x: 0, y: 0 })
-            .extent(vk::Extent2D { width: 1, height: 1 });
+            .extent(vk::Extent2D {
+                width: 1,
+                height: 1,
+            });
 
         let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
             .viewports(&[viewport.build()])
@@ -268,10 +278,10 @@ impl ChunkRenderer {
 
         let color_blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
             .color_write_mask(
-                vk::ColorComponentFlags::R |
-                vk::ColorComponentFlags::G |
-                vk::ColorComponentFlags::B |
-                vk::ColorComponentFlags::A,
+                vk::ColorComponentFlags::R
+                    | vk::ColorComponentFlags::G
+                    | vk::ColorComponentFlags::B
+                    | vk::ColorComponentFlags::A,
             )
             .blend_enable(false)
             .build();
@@ -303,15 +313,18 @@ impl ChunkRenderer {
             .subpass(0);
 
         let pipeline = unsafe {
-            device.create_graphics_pipelines(
-                vk::PipelineCache::null(),
-                &[pipeline_info.build()],
-                None,
-            )
-            .map_err(|(_, e)| RenderError::VulkanError(format!("Failed to create graphics pipeline: {:?}", e)))?
-            .first()
-            .copied()
-            .ok_or(RenderError::VulkanError("No pipeline created".to_string()))?
+            device
+                .create_graphics_pipelines(
+                    vk::PipelineCache::null(),
+                    &[pipeline_info.build()],
+                    None,
+                )
+                .map_err(|(_, e)| {
+                    RenderError::VulkanError(format!("Failed to create graphics pipeline: {:?}", e))
+                })?
+                .first()
+                .copied()
+                .ok_or(RenderError::VulkanError("No pipeline created".to_string()))?
         };
 
         // Cleanup shader modules
@@ -327,16 +340,16 @@ impl ChunkRenderer {
         device: &ash::Device,
         code: &[u8],
     ) -> Result<vk::ShaderModule, RenderError> {
-        let create_info = vk::ShaderModuleCreateInfo::builder()
-            .code(unsafe {
-                std::slice::from_raw_parts(
-                    code.as_ptr() as *const u32,
-                    code.len() / std::mem::size_of::<u32>(),
-                )
-            });
+        let create_info = vk::ShaderModuleCreateInfo::builder().code(unsafe {
+            std::slice::from_raw_parts(
+                code.as_ptr() as *const u32,
+                code.len() / std::mem::size_of::<u32>(),
+            )
+        });
 
-        unsafe { device.create_shader_module(&create_info, None) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to create shader module: {:?}", e)))
+        unsafe { device.create_shader_module(&create_info, None) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to create shader module: {:?}", e))
+        })
     }
 
     pub fn load_material(
@@ -431,7 +444,9 @@ impl ChunkRenderer {
         command_pool: vk::CommandPool,
         queue: vk::Queue,
     ) -> Result<(), RenderError> {
-        let atlas = self.texture_atlas.as_ref().ok_or(RenderError::VulkanError("No texture atlas to upload".to_string()))?;
+        let atlas = self.texture_atlas.as_ref().ok_or(RenderError::VulkanError(
+            "No texture atlas to upload".to_string(),
+        ))?;
         let (width, height) = atlas.dimensions();
 
         // Create staging buffer
@@ -446,12 +461,14 @@ impl ChunkRenderer {
 
         // Copy texture data to staging buffer
         unsafe {
-            let data_ptr = device.map_memory(
-                staging_buffer_memory,
-                0,
-                buffer_size,
-                vk::MemoryMapFlags::empty(),
-            ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
+            let data_ptr = device
+                .map_memory(
+                    staging_buffer_memory,
+                    0,
+                    buffer_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
 
             std::ptr::copy_nonoverlapping(
                 atlas.as_ptr(),
@@ -540,7 +557,8 @@ impl ChunkRenderer {
         mesh: &mut ChunkMesh,
     ) -> Result<(), RenderError> {
         // Create vertex buffer
-        let vertex_buffer_size = (mesh.vertices.len() * std::mem::size_of::<f32>()) as vk::DeviceSize;
+        let vertex_buffer_size =
+            (mesh.vertices.len() * std::mem::size_of::<f32>()) as vk::DeviceSize;
         let (vertex_buffer, vertex_buffer_memory) = Self::create_buffer(
             device,
             physical_device,
@@ -551,12 +569,14 @@ impl ChunkRenderer {
 
         // Copy vertex data
         unsafe {
-            let data_ptr = device.map_memory(
-                vertex_buffer_memory,
-                0,
-                vertex_buffer_size,
-                vk::MemoryMapFlags::empty(),
-            ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
+            let data_ptr = device
+                .map_memory(
+                    vertex_buffer_memory,
+                    0,
+                    vertex_buffer_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
 
             std::ptr::copy_nonoverlapping(
                 mesh.vertices.as_ptr(),
@@ -579,12 +599,14 @@ impl ChunkRenderer {
 
         // Copy index data
         unsafe {
-            let data_ptr = device.map_memory(
-                index_buffer_memory,
-                0,
-                index_buffer_size,
-                vk::MemoryMapFlags::empty(),
-            ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
+            let data_ptr = device
+                .map_memory(
+                    index_buffer_memory,
+                    0,
+                    index_buffer_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
 
             std::ptr::copy_nonoverlapping(
                 mesh.indices.as_ptr(),
@@ -652,26 +674,20 @@ impl ChunkRenderer {
                 let projection = camera.projection_matrix();
 
                 let ubo = UniformBufferObject {
-
                     model: chunk.transform(),
 
                     view: camera.view_matrix(),
 
                     projection: camera.projection_matrix(),
-
                 };
 
-
                 unsafe {
-
-                    let data_ptr = device.map_memory(...);
-
-                    std::ptr::copy_nonoverlapping(&ubo, data_ptr as *mut _, 1);
-
-                    device.unmap_memory(...);
-
+                    // This is a placeholder - actual memory mapping would require proper buffer creation
+                    // and memory allocation for the uniform buffer
+                    // let data_ptr = device.map_memory(uniform_buffer_memory, 0, std::mem::size_of::<UniformBufferObject>() as u64, vk::MemoryMapFlags::empty()).unwrap();
+                    // std::ptr::copy_nonoverlapping(&ubo, data_ptr as *mut UniformBufferObject, 1);
+                    // device.unmap_memory(uniform_buffer_memory);
                 }
-
 
                 // Bind descriptor sets
                 device.cmd_bind_descriptor_sets(
@@ -684,23 +700,12 @@ impl ChunkRenderer {
                 );
 
                 // Draw
-                device.cmd_draw_indexed(
-                    command_buffer,
-                    mesh.indices.len() as u32,
-                    1,
-                    0,
-                    0,
-                    0,
-                );
+                device.cmd_draw_indexed(command_buffer, mesh.indices.len() as u32, 1, 0, 0, 0);
 
-
-
-
-            // Update statistics
-            self.draw_call_count += 1;
-            self.vertex_count += mesh.vertex_count;
-            self.triangle_count += mesh.index_count / 3; // Assuming triangle list (3 indices per triangle)
-
+                // Update statistics
+                self.draw_call_count += 1;
+                self.vertex_count += mesh.vertex_count;
+                self.triangle_count += mesh.index_count / 3; // Assuming triangle list (3 indices per triangle)
             }
         }
     }
@@ -731,11 +736,13 @@ impl ChunkRenderer {
                 properties,
             )?);
 
-        let buffer_memory = unsafe { device.allocate_memory(&alloc_info, None) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to allocate buffer memory: {:?}", e)))?;
+        let buffer_memory = unsafe { device.allocate_memory(&alloc_info, None) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to allocate buffer memory: {:?}", e))
+        })?;
 
-        unsafe { device.bind_buffer_memory(buffer, buffer_memory, 0) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to bind buffer memory: {:?}", e)))?;
+        unsafe { device.bind_buffer_memory(buffer, buffer_memory, 0) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to bind buffer memory: {:?}", e))
+        })?;
 
         Ok((buffer, buffer_memory))
     }
@@ -779,11 +786,13 @@ impl ChunkRenderer {
                 properties,
             )?);
 
-        let image_memory = unsafe { device.allocate_memory(&alloc_info, None) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to allocate image memory: {:?}", e)))?;
+        let image_memory = unsafe { device.allocate_memory(&alloc_info, None) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to allocate image memory: {:?}", e))
+        })?;
 
-        unsafe { device.bind_image_memory(image, image_memory, 0) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to bind image memory: {:?}", e)))?;
+        unsafe { device.bind_image_memory(image, image_memory, 0) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to bind image memory: {:?}", e))
+        })?;
 
         Ok((image, image_memory))
     }
@@ -830,8 +839,9 @@ impl ChunkRenderer {
             .min_lod(0.0)
             .max_lod(0.0);
 
-        unsafe { device.create_sampler(&sampler_info, None) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to create texture sampler: {:?}", e)))
+        unsafe { device.create_sampler(&sampler_info, None) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to create texture sampler: {:?}", e))
+        })
     }
 
     fn find_memory_type(
@@ -839,10 +849,13 @@ impl ChunkRenderer {
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> Result<u32, RenderError> {
-        let mem_properties = unsafe { ash::vk::get_physical_device_memory_properties(physical_device) };
+        let mem_properties =
+            unsafe { ash::vk::get_physical_device_memory_properties(physical_device) };
 
         for (i, memory_type) in mem_properties.memory_types.iter().enumerate() {
-            if (type_filter & (1 << i)) != 0 && (memory_type.property_flags & properties) == properties {
+            if (type_filter & (1 << i)) != 0
+                && (memory_type.property_flags & properties) == properties
+            {
                 return Ok(i as u32);
             }
         }
@@ -861,21 +874,29 @@ impl ChunkRenderer {
     ) -> Result<(), RenderError> {
         let command_buffer = Self::begin_single_time_commands(device, command_pool)?;
 
-        let (src_access_mask, dst_access_mask, src_stage, dst_stage) = match (old_layout, new_layout) {
-            (vk::ImageLayout::UNDEFINED, vk::ImageLayout::TRANSFER_DST_OPTIMAL) => (
-                vk::AccessFlags::empty(),
-                vk::AccessFlags::TRANSFER_WRITE,
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::TRANSFER,
-            ),
-            (vk::ImageLayout::TRANSFER_DST_OPTIMAL, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
-                vk::AccessFlags::TRANSFER_WRITE,
-                vk::AccessFlags::SHADER_READ,
-                vk::PipelineStageFlags::TRANSFER,
-                vk::PipelineStageFlags::FRAGMENT_SHADER,
-            ),
-            _ => return Err(RenderError::VulkanError("Unsupported layout transition".to_string())),
-        };
+        let (src_access_mask, dst_access_mask, src_stage, dst_stage) =
+            match (old_layout, new_layout) {
+                (vk::ImageLayout::UNDEFINED, vk::ImageLayout::TRANSFER_DST_OPTIMAL) => (
+                    vk::AccessFlags::empty(),
+                    vk::AccessFlags::TRANSFER_WRITE,
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::TRANSFER,
+                ),
+                (
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                ) => (
+                    vk::AccessFlags::TRANSFER_WRITE,
+                    vk::AccessFlags::SHADER_READ,
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::PipelineStageFlags::FRAGMENT_SHADER,
+                ),
+                _ => {
+                    return Err(RenderError::VulkanError(
+                        "Unsupported layout transition".to_string(),
+                    ))
+                }
+            };
 
         let barrier = vk::ImageMemoryBarrier::builder()
             .old_layout(old_layout)
@@ -959,16 +980,21 @@ impl ChunkRenderer {
             .command_buffer_count(1);
 
         let command_buffer = unsafe { device.allocate_command_buffers(&alloc_info) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to allocate command buffer: {:?}", e)))?
+            .map_err(|e| {
+                RenderError::VulkanError(format!("Failed to allocate command buffer: {:?}", e))
+            })?
             .first()
             .copied()
-            .ok_or(RenderError::VulkanError("No command buffer allocated".to_string()))?;
+            .ok_or(RenderError::VulkanError(
+                "No command buffer allocated".to_string(),
+            ))?;
 
         let begin_info = vk::CommandBufferBeginInfo::builder()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-        unsafe { device.begin_command_buffer(command_buffer, &begin_info) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to begin command buffer: {:?}", e)))?;
+        unsafe { device.begin_command_buffer(command_buffer, &begin_info) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to begin command buffer: {:?}", e))
+        })?;
 
         Ok(command_buffer)
     }
@@ -979,17 +1005,21 @@ impl ChunkRenderer {
         queue: vk::Queue,
         command_buffer: vk::CommandBuffer,
     ) -> Result<(), RenderError> {
-        unsafe { device.end_command_buffer(command_buffer) }
-            .map_err(|e| RenderError::VulkanError(format!("Failed to end command buffer: {:?}", e)))?;
+        unsafe { device.end_command_buffer(command_buffer) }.map_err(|e| {
+            RenderError::VulkanError(format!("Failed to end command buffer: {:?}", e))
+        })?;
 
-        let submit_info = vk::SubmitInfo::builder()
-            .command_buffers(&[command_buffer]);
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&[command_buffer]);
 
         unsafe {
-            device.queue_submit(queue, &[submit_info.build()], vk::Fence::null())
-                .map_err(|e| RenderError::VulkanError(format!("Failed to submit command buffer: {:?}", e)))?;
-            device.queue_wait_idle(queue)
-                .map_err(|e| RenderError::VulkanError(format!("Failed to wait for queue idle: {:?}", e)))?;
+            device
+                .queue_submit(queue, &[submit_info.build()], vk::Fence::null())
+                .map_err(|e| {
+                    RenderError::VulkanError(format!("Failed to submit command buffer: {:?}", e))
+                })?;
+            device.queue_wait_idle(queue).map_err(|e| {
+                RenderError::VulkanError(format!("Failed to wait for queue idle: {:?}", e))
+            })?;
             device.free_command_buffers(command_pool, &[command_buffer]);
         }
 
@@ -1024,7 +1054,7 @@ impl ChunkRenderer {
             device.destroy_descriptor_pool(self.descriptor_pool, None);
             device.destroy_command_pool(self.command_pool, None);
         }
-
+    }
 
     /// Resets the render statistics at the start of each frame
     pub fn begin_frame(&mut self) {
