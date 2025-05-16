@@ -96,7 +96,12 @@ impl VoxelEngine {
 
         // Initialize a dummy ChunkRenderer - we'll properly initialize it later
         // This is just to make the code compile
-        let chunk_renderer = Arc::new(ChunkRenderer::default());
+        let chunk_renderer = Arc::new(ChunkRenderer::new(
+            &vulkan_context.device,
+            vulkan_context.physical_device,
+            vulkan_context.queue_family_index,
+            block_registry.clone(),
+        )?);
 
         let player = Arc::new(Mutex::new(Player::default()));
 
@@ -163,7 +168,7 @@ impl VoxelEngine {
         Ok(())
     }
 
-    pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
+    pub fn create_world_config(&mut self, _name: String, seed: u64) -> EngineConfig {
         EngineConfig {
             world_seed: seed,
             render_distance: 8,
