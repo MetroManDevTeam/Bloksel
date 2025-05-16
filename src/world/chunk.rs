@@ -3,6 +3,7 @@ use crate::render::core::Camera;
 use crate::render::pipeline::{ChunkRenderer, RenderError};
 use crate::world::block::{Block, SubBlock};
 use crate::world::block_id::BlockId;
+use crate::world::block_visual::ConnectedDirections;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
 use crate::world::BlockRegistry;
