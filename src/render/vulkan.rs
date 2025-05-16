@@ -764,20 +764,10 @@ impl VulkanContext {
     ) -> Result<()> {
         let command_buffer = self.begin_single_time_commands(command_pool)?;
 
-        let (src_access_mask, dst_access_mask, src_stage, dst_stage) = match (old_layout, new_layout) {
-            (vk::ImageLayout::UNDEFINED, vk::ImageLayout::TRANSFER_DST_OPTIMAL) => (
-                vk::AccessFlags::empty(),
-                vk::AccessFlags::TRANSFER_WRITE,
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::TRANSFER,
-            ),
-            (vk::ImageLayout::TRANSFER_DST_OPTIMAL, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL) => (
-                vk::AccessFlags::TRANSFER_WRITE,
-                vk::AccessFlags::SHADER_READ,
-                vk::PipelineStageFlags::TRANSFER,
-                vk::PipelineStageFlags::FRAGMENT_SHADER,
-            ),
-            _ => return Err(anyhow::anyhow!("Unsupported layout transition")),
+        let aspect_mask = if new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+            vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL
+        } else {
+            vk::ImageAspectFlags::COLOR
         };
 
         let barrier = vk::ImageMemoryBarrier::builder()
@@ -787,14 +777,37 @@ impl VulkanContext {
             .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .image(image)
             .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask,
                 base_mip_level: 0,
                 level_count: 1,
                 base_array_layer: 0,
                 layer_count: 1,
-            })
-            .src_access_mask(src_access_mask)
-            .dst_access_mask(dst_access_mask);
+            });
+
+        let src_stage;
+        let dst_stage;
+
+        if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+            barrier
+                .src_access_mask(vk::AccessFlags::empty())
+                .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
+            src_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+            dst_stage = vk::PipelineStageFlags::TRANSFER;
+        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL {
+            barrier
+                .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                .dst_access_mask(vk::AccessFlags::SHADER_READ);
+            src_stage = vk::PipelineStageFlags::TRANSFER;
+            dst_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+        } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+            barrier
+                .src_access_mask(vk::AccessFlags::empty())
+                .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE);
+            src_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+            dst_stage = vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
+        } else {
+            return Err(anyhow::anyhow!("Unsupported layout transition"));
+        }
 
         unsafe {
             self.device.cmd_pipeline_barrier(
