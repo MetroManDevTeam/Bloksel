@@ -555,7 +555,7 @@ impl Chunk {
         Ok(())
     }
 
-    fn generate_block_mesh(&mut self, mesh: &mut ChunkMesh, block: &Block, x: u32, y: u32, z: u32) {
+    fn generate_block_mesh(&self, mesh: &mut ChunkMesh, block: &Block, x: u32, y: u32, z: u32) {
         // Convert block coordinates to world space
         let world_pos = Vec3::new(
             x as f32 + self.position.x() as f32 * CHUNK_SIZE as f32,
@@ -571,7 +571,7 @@ impl Chunk {
     }
 
     fn generate_subblock_mesh(
-        &mut self,
+        &self,
         mesh: &mut ChunkMesh,
         sub_block: &SubBlock,
         position: Vec3,
@@ -882,45 +882,26 @@ impl ChunkManager {
         Ok(())
     }
 
-    pub fn get_block_at(&mut self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
-        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
-        let mut chunk = self.chunks.get(&chunk_coord)?;
-
-        chunk
-            .get_block_at(world_pos.x as i32, world_pos.y as i32, world_pos.z as i32)
-            .map(|block| {
-                (
-                    block,
-                    IVec3::new(
-                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
-                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
-                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
-                    ),
-                )
-            })
+    pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos);
+        let chunk = self.chunks.get(&chunk_coord)?;
+        
+        let local_pos = chunk_coord.to_local_pos(world_pos);
+        let block = chunk.get_block(local_pos.x as u32, local_pos.y as u32, local_pos.z as u32)?;
+        
+        Some((block, local_pos))
     }
 
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
-        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
-        let chunk = self.chunks.get(&chunk_coord)?;
-        chunk
-            .get_subblock_at(
-                world_pos.x as i32,
-                world_pos.y as i32,
-                world_pos.z as i32,
-                (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
-                (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
-                (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32) as u8,
-            )
-            .map(|sub_block| {
-                (
-                    sub_block,
-                    IVec3::new(
-                        (world_pos.x as i32).rem_euclid(CHUNK_SIZE as i32),
-                        (world_pos.y as i32).rem_euclid(CHUNK_SIZE as i32),
-                        (world_pos.z as i32).rem_euclid(CHUNK_SIZE as i32),
-                    ),
-                )
-            })
+        let (block, local_pos) = self.get_block_at(world_pos)?;
+        
+        let sub_pos = (
+            (world_pos.x.fract() * 16.0) as u8,
+            (world_pos.y.fract() * 16.0) as u8,
+            (world_pos.z.fract() * 16.0) as u8,
+        );
+        
+        let sub_block = block.sub_blocks.get(&sub_pos)?;
+        Some((sub_block, local_pos))
     }
 }
