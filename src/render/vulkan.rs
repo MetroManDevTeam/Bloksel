@@ -1110,7 +1110,18 @@ impl VulkanContext {
             .depth_stencil_attachment(depth_reference.as_ref().expect("Depth attachment reference not found"));
 
         let subpasses = [subpass.build()];
-        let dependencies = [dependency.build()];
+
+        // Add subpass dependency
+        let dependency = vk::SubpassDependency::builder()
+            .src_subpass(vk::SUBPASS_EXTERNAL)
+            .dst_subpass(0)
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+            .src_access_mask(vk::AccessFlags::empty())
+            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+            .build();
+
+        let dependencies = [dependency];
 
         let create_info = vk::RenderPassCreateInfo::builder()
             .attachments(&attachments)
