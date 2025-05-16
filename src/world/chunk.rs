@@ -612,7 +612,7 @@ impl Chunk {
                     face_vertices,
                     normals[face],
                     &uv_coords,
-                    block_id,
+                    block_id as u32,
                     variant_data,
                 );
             }
