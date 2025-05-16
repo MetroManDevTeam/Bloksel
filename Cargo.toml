@@ -1,4 +1,3 @@
-
 [package]
 name = "bloksel"
 version = "0.0.99"
@@ -8,16 +7,16 @@ homepage = "https://www.bloksel.com"
 edition = "2021"
 
 [dependencies]
-ash = { version = "0.37" }
-ash-window = { version = "0.13.0" }  # was `ash_window`
+ash = { version = "0.37.3" }
+ash-window = { version = "0.13.0" }
 anyhow = "1.0"
 bincode = "1.3"
 bytemuck = "1.14"
 bitflags = { version = "2.0", features = ["serde"] }
 crossbeam-channel = "0.5.15"
-egui = "0.26"
-egui-winit = "0.26"
-egui_glow = "0.26"
+egui = "0.26.2"
+egui-winit = "0.26.2"
+egui_glow = "0.26.2"
 gl = { version = "0.14.0" }
 glam = "0.24"
 glutin = "0.31"
@@ -30,7 +29,7 @@ noise = "0.8"
 parking_lot = "0.12"
 rand = "0.8"
 rand_chacha = "0.3"
-raw-window-handle = "0.5"
+raw-window-handle = "0.6.0"
 rayon = "1.10.0"
 serde = { version = "1.0", features = ["derive"] }
 simple_logger = "4.3"
