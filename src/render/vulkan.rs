@@ -144,14 +144,17 @@ impl QueueFamilies {
 }
 
 impl VulkanContext {
-    pub fn new(settings: VulkanSettings) -> Result<Arc<Self>> {
+    pub fn new<W: HasRawWindowHandle + HasRawDisplayHandle>(
+        settings: VulkanSettings,
+        window: &W,
+    ) -> Result<Arc<Self>> {
         let entry = unsafe { Entry::load()? };
 
         // Layers and extensions
         let mut instance_extensions =
             ash_window::enumerate_required_extensions(window.raw_display_handle())?
                 .iter()
-                .map(|&e| e.as_ptr())
+                .map(|&e| e)
                 .collect::<Vec<_>>();
 
         let layers = if cfg!(debug_assertions) {
@@ -203,11 +206,7 @@ impl VulkanContext {
         let queue_priorities = [1.0]; // Reused for all queues
 
         let graphics_queue_info = vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(
-                queue_families
-                    .graphics
-                    .expect("Graphics queue family not found"),
-            )
+            .queue_family_index(queue_families.graphics)
             .queue_priorities(&queue_priorities);
 
         let present_queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -218,7 +217,11 @@ impl VulkanContext {
             )
             .queue_priorities(&queue_priorities);
 
-        let queue_infos = if queue_families.graphics != queue_families.present {
+        let queue_infos = if queue_families.graphics
+            != queue_families
+                .present
+                .unwrap_or_else(|| panic!("Present queue family not found"))
+        {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
             vec![graphics_queue_info.build()]
