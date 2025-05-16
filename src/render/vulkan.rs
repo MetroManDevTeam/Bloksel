@@ -205,10 +205,16 @@ impl VulkanContext {
 
         let graphics_queue_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_families.graphics.expect("Graphics queue family not found"))
-            .queue_family_index(queue_families.graphics)
             .queue_priorities(&queue_priorities);
-        queue_create_infos.push(graphics_queue_info.build());
 
+        let present_queue_info = vk::DeviceQueueCreateInfo::builder()
+            .queue_family_index(queue_families.present.expect("Present queue family not found"))
+            .queue_priorities(&queue_priorities);
+
+        let queue_infos = if queue_families.graphics != queue_families.present {
+            vec![graphics_queue_info.build(), present_queue_info.build()]
+        } else {
+            vec![graphics_queue_info.build()]
         if queue_families.present != queue_families.graphics {
             let present_queue_info = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(queue_families.present)
