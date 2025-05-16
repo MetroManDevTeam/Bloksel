@@ -102,7 +102,7 @@ impl VoxelEngine {
         let chunk_renderer = Arc::new(ChunkRenderer::new(
             &vulkan_context.device,
             vulkan_context.physical_device,
-            vulkan_context.graphics_queue_family_index(),
+            vulkan_context.as_ref().graphics_queue_family_index(),
             block_registry.clone(),
         )?);
 
