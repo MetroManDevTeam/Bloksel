@@ -383,7 +383,7 @@ impl VulkanContext {
         surface: vk::SurfaceKHR,
         width: u32,
         height: u32,
-        old_swapchain: Option<vk::SwapchainKHR>,
+        _old_swapchain: Option<vk::SwapchainKHR>,
     ) -> Result<(vk::SwapchainKHR, Vec<vk::Image>, vk::Format, vk::Extent2D)> {
         let surface_loader = self.surface_loader.as_ref().unwrap();
         let capabilities = unsafe {
@@ -411,7 +411,7 @@ impl VulkanContext {
             .context("No suitable surface format found")?;
 
         // Select present mode (prefer MAILBOX for triple buffering)
-        let present_mode = present_modes
+        let _present_mode = present_modes
             .iter()
             .find(|&&m| m == vk::PresentModeKHR::MAILBOX)
             .or_else(|| {
