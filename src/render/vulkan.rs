@@ -83,7 +83,7 @@ pub struct VulkanContext {
     pub device_properties: vk::PhysicalDeviceProperties,
     pub device_features: vk::PhysicalDeviceFeatures,
     frame_index: Mutex<usize>,
-    resource_pools: Mutex<Vec<ResourcePool>>,
+    resource_pools: Mutex<Vec<Arc<ResourcePool>>>,
 }
 
 #[derive(Debug)]
@@ -1372,3 +1372,5 @@ impl VulkanContext {
         }
         Ok(Arc::clone(&pools[index]))
     }
+
+}
