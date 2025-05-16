@@ -1,12 +1,8 @@
 use crate::{
-    config::{core::EngineConfig, worldgen::WorldGenConfig},
+    config::core::EngineConfig,
     player::physics::Player,
-    render::{
-        pipeline::{ChunkRenderer, RenderError},
-        shaders::ShaderProgram,
-    },
+    render::pipeline::ChunkRenderer,
     world::{
-        block_id::BlockRegistry as BlockIdRegistry,
         blocks_data::BlockRegistry,
         chunk::Chunk,
         chunk_coord::ChunkCoord,
@@ -19,7 +15,6 @@ use anyhow::{Context, Result};
 use ash::vk;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec3;
-use image::RgbaImage;
 use log::warn;
 use parking_lot::Mutex;
 use rayon::ThreadPool;
@@ -233,7 +228,7 @@ impl VoxelEngine {
         */
     }
 
-    fn update_chunk_loading(&self, player_position: Vec3) {
+    fn update_chunk_loading(&self, _player_position: Vec3) {
         // This is a placeholder implementation to make the code compile
         // In a real implementation, we would load and unload chunks based on player position
     }
