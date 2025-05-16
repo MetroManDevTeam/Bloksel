@@ -1,12 +1,9 @@
-use ash::{
-    vk,
-    Entry,
-    Instance,
-    Device,
-    extensions::khr::{Surface, Swapchain},
-};
-use ash::ext::debug_utils;
 use anyhow::{Context, Result};
+use ash::ext::debug_utils;
+use ash::{
+    extensions::khr::{Surface, Swapchain},
+    vk, Device, Entry, Instance,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     ffi::{CStr, CString},
@@ -39,9 +36,7 @@ impl Default for VulkanSettings {
             application_name: "Vulkan Application".into(),
             engine_name: "Vulkan Engine".into(),
             enable_validation: cfg!(debug_assertions),
-            required_device_extensions: vec![
-                Swapchain::name().to_str().unwrap().to_string(),
-            ],
+            required_device_extensions: vec![Swapchain::name().to_str().unwrap().to_string()],
             optional_device_extensions: vec![],
             required_features: vk::PhysicalDeviceFeatures::default(),
             preferred_device_types: vec![
@@ -170,12 +165,12 @@ impl VulkanContext {
                 debug_utils_loader.create_debug_utils_messenger(
                     &vk::DebugUtilsMessengerCreateInfoEXT::builder()
                         .message_severity(
-                            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR |
-                            vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+                            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
                         )
                         .message_type(
-                            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION |
-                            vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+                            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
                         )
                         .pfn_user_callback(Some(vulkan_debug_callback)),
                     None,
@@ -192,12 +187,9 @@ impl VulkanContext {
         };
 
         // Physical device selection
-        let (physical_device, queue_families) = Self::select_physical_device(
-            &instance,
-            None,
-            &settings,
-        )
-        .context("Failed to select physical device")?;
+        let (physical_device, queue_families) =
+            Self::select_physical_device(&instance, None, &settings)
+                .context("Failed to select physical device")?;
 
         // Get device properties and features
         let device_properties = unsafe { instance.get_physical_device_properties(physical_device) };
@@ -210,18 +202,26 @@ impl VulkanContext {
         let queue_priorities = [1.0]; // Reused for all queues
 
         let graphics_queue_info = vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(queue_families.graphics.expect("Graphics queue family not found"))
+            .queue_family_index(
+                queue_families
+                    .graphics
+                    .expect("Graphics queue family not found"),
+            )
             .queue_priorities(&queue_priorities);
 
         let present_queue_info = vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(queue_families.present.expect("Present queue family not found"))
+            .queue_family_index(
+                queue_families
+                    .present
+                    .expect("Present queue family not found"),
+            )
             .queue_priorities(&queue_priorities);
 
         let queue_infos = if queue_families.graphics != queue_families.present {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
             vec![graphics_queue_info.build()]
-        }
+        };
 
         if queue_families.present != queue_families.graphics {
             let present_queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -260,16 +260,16 @@ impl VulkanContext {
 
         // Enable features
         let mut features = settings.required_features;
-        let mut features_11 = vk::PhysicalDeviceVulkan11Features::builder()
-            .shader_draw_parameters(true);
+        let mut features_11 =
+            vk::PhysicalDeviceVulkan11Features::builder().shader_draw_parameters(true);
         let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
             .buffer_device_address(settings.buffer_device_address)
             .descriptor_indexing(true);
 
         let mut rt_features = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder()
             .ray_tracing_pipeline(settings.ray_tracing);
-        let mut mesh_features = vk::PhysicalDeviceMeshShaderFeaturesNV::builder()
-            .mesh_shader(settings.mesh_shading);
+        let mut mesh_features =
+            vk::PhysicalDeviceMeshShaderFeaturesNV::builder().mesh_shader(settings.mesh_shading);
 
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
@@ -289,30 +289,30 @@ impl VulkanContext {
             device_create_info
         };
 
-        let device = unsafe {
-            instance.create_device(
-                physical_device,
-                &device_create_info,
-                None,
-            )
-        }
-        .context("Failed to create logical device")?;
+        let device = unsafe { instance.create_device(physical_device, &device_create_info, None) }
+            .context("Failed to create logical device")?;
 
         // Get queues
         let graphics_queue = unsafe { device.get_device_queue(queue_families.graphics, 0) };
         let present_queue = unsafe { device.get_device_queue(queue_families.present, 0) };
-        let transfer_queue = queue_families.transfer.map(|f| unsafe { device.get_device_queue(f, 0) });
-        let compute_queue = queue_families.compute.map(|f| unsafe { device.get_device_queue(f, 0) });
+        let transfer_queue = queue_families
+            .transfer
+            .map(|f| unsafe { device.get_device_queue(f, 0) });
+        let compute_queue = queue_families
+            .compute
+            .map(|f| unsafe { device.get_device_queue(f, 0) });
 
         // Create resource pools
         let resource_pools = Mutex::new(
             (0..settings.concurrent_resources)
-                .map(|_| Arc::new(ResourcePool {
-                    buffers: Vec::new(),
-                    images: Vec::new(),
-                    memories: Vec::new(),
-                    command_pools: Vec::new(),
-                }))
+                .map(|_| {
+                    Arc::new(ResourcePool {
+                        buffers: Vec::new(),
+                        images: Vec::new(),
+                        memories: Vec::new(),
+                        command_pools: Vec::new(),
+                    })
+                })
                 .collect(),
         );
 
@@ -390,24 +390,17 @@ impl VulkanContext {
     ) -> Result<(vk::SwapchainKHR, Vec<vk::Image>, vk::Format, vk::Extent2D)> {
         let surface_loader = self.surface_loader.as_ref().unwrap();
         let capabilities = unsafe {
-            surface_loader.get_physical_device_surface_capabilities(
-                self.physical_device,
-                surface,
-            )?
+            surface_loader
+                .get_physical_device_surface_capabilities(self.physical_device, surface)?
         };
 
         let formats = unsafe {
-            surface_loader.get_physical_device_surface_formats(
-                self.physical_device,
-                surface,
-            )?
+            surface_loader.get_physical_device_surface_formats(self.physical_device, surface)?
         };
 
         let present_modes = unsafe {
-            surface_loader.get_physical_device_surface_present_modes(
-                self.physical_device,
-                surface,
-            )?
+            surface_loader
+                .get_physical_device_surface_present_modes(self.physical_device, surface)?
         };
 
         // Select surface format
@@ -424,7 +417,11 @@ impl VulkanContext {
         let present_mode = present_modes
             .iter()
             .find(|&&m| m == vk::PresentModeKHR::MAILBOX)
-            .or_else(|| present_modes.iter().find(|&&m| m == vk::PresentModeKHR::FIFO))
+            .or_else(|| {
+                present_modes
+                    .iter()
+                    .find(|&&m| m == vk::PresentModeKHR::FIFO)
+            })
             .context("No suitable present mode found")?;
 
         // Determine swapchain extent
@@ -475,14 +472,11 @@ impl VulkanContext {
         }
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
-        let swapchain = unsafe {
-            swapchain_loader.create_swapchain(&swapchain_create_info.build(), None)?
-        };
+        let swapchain =
+            unsafe { swapchain_loader.create_swapchain(&swapchain_create_info.build(), None)? };
 
         // Get swapchain images
-        let swapchain_images = unsafe {
-            swapchain_loader.get_swapchain_images(swapchain)?
-        };
+        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain)? };
 
         Ok((swapchain, swapchain_images, format.format, extent))
     }
@@ -524,18 +518,26 @@ impl VulkanContext {
                 let mut score = 0;
 
                 // Prefer device types in order
-                if let Some(pos) = settings.preferred_device_types.iter().position(|&t| t == props.device_type) {
+                if let Some(pos) = settings
+                    .preferred_device_types
+                    .iter()
+                    .position(|&t| t == props.device_type)
+                {
                     score += 1000 - (pos as i32 * 100);
                 }
 
                 // Prefer more memory
                 let mem_props = unsafe { instance.get_physical_device_memory_properties(device) };
-                let device_local_memory = mem_props.memory_heaps
+                let device_local_memory = mem_props
+                    .memory_heaps
                     .iter()
                     .enumerate()
                     .filter(|(i, heap)| {
                         heap.flags.contains(vk::MemoryHeapFlags::DEVICE_LOCAL)
-                            && mem_props.memory_types.iter().any(|mt| mt.heap_index == *i as u32)
+                            && mem_props
+                                .memory_types
+                                .iter()
+                                .any(|mt| mt.heap_index == *i as u32)
                     })
                     .map(|(_, heap)| heap.size)
                     .sum::<u64>();
@@ -574,9 +576,10 @@ impl VulkanContext {
 
         for required in &settings.required_device_extensions {
             let cstr = CString::new(required.as_str())?;
-            if !available_extensions.iter().any(|&ext| {
-                unsafe { CStr::from_ptr(ext.as_ptr()) == cstr.as_c_str() }
-            }) {
+            if !available_extensions
+                .iter()
+                .any(|&ext| unsafe { CStr::from_ptr(ext.as_ptr()) == cstr.as_c_str() })
+            {
                 return Ok(false);
             }
         }
@@ -598,9 +601,9 @@ impl VulkanContext {
         };
 
         let cstr = CString::new(extension)?;
-        Ok(available_extensions.iter().any(|&ext| {
-            unsafe { CStr::from_ptr(ext.as_ptr()) == cstr.as_c_str() }
-        }))
+        Ok(available_extensions
+            .iter()
+            .any(|&ext| unsafe { CStr::from_ptr(ext.as_ptr()) == cstr.as_c_str() }))
     }
 
     fn check_required_features(
@@ -617,7 +620,8 @@ impl VulkanContext {
             && (required.dual_src_blend == 0 || available.dual_src_blend != 0)
             && (required.logic_op == 0 || available.logic_op != 0)
             && (required.multi_draw_indirect == 0 || available.multi_draw_indirect != 0)
-            && (required.draw_indirect_first_instance == 0 || available.draw_indirect_first_instance != 0)
+            && (required.draw_indirect_first_instance == 0
+                || available.draw_indirect_first_instance != 0)
             && (required.depth_clamp == 0 || available.depth_clamp != 0)
             && (required.depth_bias_clamp == 0 || available.depth_bias_clamp != 0)
             && (required.fill_mode_non_solid == 0 || available.fill_mode_non_solid != 0)
@@ -628,22 +632,35 @@ impl VulkanContext {
             && (required.multi_viewport == 0 || available.multi_viewport != 0)
             && (required.sampler_anisotropy == 0 || available.sampler_anisotropy != 0)
             && (required.texture_compression_etc2 == 0 || available.texture_compression_etc2 != 0)
-            && (required.texture_compression_astc_ldr == 0 || available.texture_compression_astc_ldr != 0)
+            && (required.texture_compression_astc_ldr == 0
+                || available.texture_compression_astc_ldr != 0)
             && (required.texture_compression_bc == 0 || available.texture_compression_bc != 0)
             && (required.occlusion_query_precise == 0 || available.occlusion_query_precise != 0)
             && (required.pipeline_statistics_query == 0 || available.pipeline_statistics_query != 0)
-            && (required.vertex_pipeline_stores_and_atomics == 0 || available.vertex_pipeline_stores_and_atomics != 0)
-            && (required.fragment_stores_and_atomics == 0 || available.fragment_stores_and_atomics != 0)
-            && (required.shader_tessellation_and_geometry_point_size == 0 || available.shader_tessellation_and_geometry_point_size != 0)
-            && (required.shader_image_gather_extended == 0 || available.shader_image_gather_extended != 0)
-            && (required.shader_storage_image_extended_formats == 0 || available.shader_storage_image_extended_formats != 0)
-            && (required.shader_storage_image_multisample == 0 || available.shader_storage_image_multisample != 0)
-            && (required.shader_storage_image_read_without_format == 0 || available.shader_storage_image_read_without_format != 0)
-            && (required.shader_storage_image_write_without_format == 0 || available.shader_storage_image_write_without_format != 0)
-            && (required.shader_uniform_buffer_array_dynamic_indexing == 0 || available.shader_uniform_buffer_array_dynamic_indexing != 0)
-            && (required.shader_sampled_image_array_dynamic_indexing == 0 || available.shader_sampled_image_array_dynamic_indexing != 0)
-            && (required.shader_storage_buffer_array_dynamic_indexing == 0 || available.shader_storage_buffer_array_dynamic_indexing != 0)
-            && (required.shader_storage_image_array_dynamic_indexing == 0 || available.shader_storage_image_array_dynamic_indexing != 0)
+            && (required.vertex_pipeline_stores_and_atomics == 0
+                || available.vertex_pipeline_stores_and_atomics != 0)
+            && (required.fragment_stores_and_atomics == 0
+                || available.fragment_stores_and_atomics != 0)
+            && (required.shader_tessellation_and_geometry_point_size == 0
+                || available.shader_tessellation_and_geometry_point_size != 0)
+            && (required.shader_image_gather_extended == 0
+                || available.shader_image_gather_extended != 0)
+            && (required.shader_storage_image_extended_formats == 0
+                || available.shader_storage_image_extended_formats != 0)
+            && (required.shader_storage_image_multisample == 0
+                || available.shader_storage_image_multisample != 0)
+            && (required.shader_storage_image_read_without_format == 0
+                || available.shader_storage_image_read_without_format != 0)
+            && (required.shader_storage_image_write_without_format == 0
+                || available.shader_storage_image_write_without_format != 0)
+            && (required.shader_uniform_buffer_array_dynamic_indexing == 0
+                || available.shader_uniform_buffer_array_dynamic_indexing != 0)
+            && (required.shader_sampled_image_array_dynamic_indexing == 0
+                || available.shader_sampled_image_array_dynamic_indexing != 0)
+            && (required.shader_storage_buffer_array_dynamic_indexing == 0
+                || available.shader_storage_buffer_array_dynamic_indexing != 0)
+            && (required.shader_storage_image_array_dynamic_indexing == 0
+                || available.shader_storage_image_array_dynamic_indexing != 0)
             && (required.shader_clip_distance == 0 || available.shader_clip_distance != 0)
             && (required.shader_cull_distance == 0 || available.shader_cull_distance != 0)
             && (required.shader_float64 == 0 || available.shader_float64 != 0)
@@ -658,7 +675,8 @@ impl VulkanContext {
             && (required.sparse_residency2_samples == 0 || available.sparse_residency2_samples != 0)
             && (required.sparse_residency4_samples == 0 || available.sparse_residency4_samples != 0)
             && (required.sparse_residency8_samples == 0 || available.sparse_residency8_samples != 0)
-            && (required.sparse_residency16_samples == 0 || available.sparse_residency16_samples != 0)
+            && (required.sparse_residency16_samples == 0
+                || available.sparse_residency16_samples != 0)
             && (required.sparse_residency_aliased == 0 || available.sparse_residency_aliased != 0)
             && (required.variable_multisample_rate == 0 || available.variable_multisample_rate != 0)
             && (required.inherited_queries == 0 || available.inherited_queries != 0)
@@ -669,7 +687,8 @@ impl VulkanContext {
         device: vk::PhysicalDevice,
         surface: Option<vk::SurfaceKHR>,
     ) -> Result<QueueFamilies> {
-        let queue_properties = unsafe { instance.get_physical_device_queue_family_properties(device) };
+        let queue_properties =
+            unsafe { instance.get_physical_device_queue_family_properties(device) };
 
         let mut families = QueueFamilies::new();
         let mut graphics_found = false;
@@ -703,7 +722,8 @@ impl VulkanContext {
                 if let Some(surface) = surface {
                     let surface_loader = Surface::new(&instance.entry().clone(), instance);
                     let supported = unsafe {
-                        surface_loader.get_physical_device_surface_support(device, index, surface)?
+                        surface_loader
+                            .get_physical_device_surface_support(device, index, surface)?
                     };
                     if supported && !present_found {
                         families.present = index;
@@ -734,7 +754,8 @@ impl VulkanContext {
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> Option<u32> {
-        self.memory_properties.memory_types
+        self.memory_properties
+            .memory_types
             .iter()
             .enumerate()
             .find(|(i, memory_type)| {
@@ -754,7 +775,8 @@ impl VulkanContext {
             .command_buffer_count(1);
 
         let command_buffer = unsafe {
-            self.device.allocate_command_buffers(&alloc_info)?
+            self.device
+                .allocate_command_buffers(&alloc_info)?
                 .first()
                 .copied()
                 .context("Failed to allocate command buffer")?
@@ -764,7 +786,8 @@ impl VulkanContext {
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
         unsafe {
-            self.device.begin_command_buffer(command_buffer, &begin_info)?;
+            self.device
+                .begin_command_buffer(command_buffer, &begin_info)?;
         }
 
         Ok(command_buffer)
@@ -781,16 +804,17 @@ impl VulkanContext {
         }
 
         let command_buffers = [command_buffer];
-        let submit_info = vk::SubmitInfo::builder()
-            .command_buffers(&command_buffers);
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&command_buffers);
 
         unsafe {
-            self.device.queue_submit(queue, &[submit_info.build()], vk::Fence::null())?;
+            self.device
+                .queue_submit(queue, &[submit_info.build()], vk::Fence::null())?;
             self.device.queue_wait_idle(queue)?;
         }
 
         unsafe {
-            self.device.free_command_buffers(command_pool, &[command_buffer]);
+            self.device
+                .free_command_buffers(command_pool, &[command_buffer]);
         }
 
         Ok(())
@@ -821,7 +845,9 @@ impl VulkanContext {
             layer_count: 1,
         };
 
-        let (src_stage, dst_stage, barrier) = if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+        let (src_stage, dst_stage, barrier) = if old_layout == vk::ImageLayout::UNDEFINED
+            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+        {
             let barrier = vk::ImageMemoryBarrier::builder()
                 .old_layout(old_layout)
                 .new_layout(new_layout)
@@ -832,8 +858,14 @@ impl VulkanContext {
                 .src_access_mask(vk::AccessFlags::empty())
                 .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
                 .build();
-            (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::TRANSFER, barrier)
-        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL {
+            (
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TRANSFER,
+                barrier,
+            )
+        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+        {
             let barrier = vk::ImageMemoryBarrier::builder()
                 .old_layout(old_layout)
                 .new_layout(new_layout)
@@ -844,8 +876,14 @@ impl VulkanContext {
                 .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
                 .dst_access_mask(vk::AccessFlags::SHADER_READ)
                 .build();
-            (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::FRAGMENT_SHADER, barrier)
-        } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+            (
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                barrier,
+            )
+        } else if old_layout == vk::ImageLayout::UNDEFINED
+            && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        {
             let barrier = vk::ImageMemoryBarrier::builder()
                 .old_layout(old_layout)
                 .new_layout(new_layout)
@@ -854,9 +892,16 @@ impl VulkanContext {
                 .image(image)
                 .subresource_range(subresource_range)
                 .src_access_mask(vk::AccessFlags::empty())
-                .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+                .dst_access_mask(
+                    vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                        | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                )
                 .build();
-            (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS, barrier)
+            (
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                barrier,
+            )
         } else {
             return Err(anyhow::anyhow!("Unsupported layout transition"));
         };
@@ -929,7 +974,8 @@ impl VulkanContext {
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
         let buffer = unsafe {
-            self.device.create_buffer(&buffer_info, None)
+            self.device
+                .create_buffer(&buffer_info, None)
                 .context("Failed to create buffer")?
         };
 
@@ -943,12 +989,14 @@ impl VulkanContext {
             );
 
         let buffer_memory = unsafe {
-            self.device.allocate_memory(&alloc_info, None)
+            self.device
+                .allocate_memory(&alloc_info, None)
                 .context("Failed to allocate buffer memory")?
         };
 
         unsafe {
-            self.device.bind_buffer_memory(buffer, buffer_memory, 0)
+            self.device
+                .bind_buffer_memory(buffer, buffer_memory, 0)
                 .context("Failed to bind buffer memory")?;
         }
 
@@ -981,7 +1029,8 @@ impl VulkanContext {
             .samples(vk::SampleCountFlags::TYPE_1);
 
         let image = unsafe {
-            self.device.create_image(&image_info, None)
+            self.device
+                .create_image(&image_info, None)
                 .context("Failed to create image")?
         };
 
@@ -995,12 +1044,14 @@ impl VulkanContext {
             );
 
         let image_memory = unsafe {
-            self.device.allocate_memory(&alloc_info, None)
+            self.device
+                .allocate_memory(&alloc_info, None)
                 .context("Failed to allocate image memory")?
         };
 
         unsafe {
-            self.device.bind_image_memory(image, image_memory, 0)
+            self.device
+                .bind_image_memory(image, image_memory, 0)
                 .context("Failed to bind image memory")?;
         }
 
@@ -1028,7 +1079,8 @@ impl VulkanContext {
             .subresource_range(subresource_range);
 
         unsafe {
-            self.device.create_image_view(&create_info, None)
+            self.device
+                .create_image_view(&create_info, None)
                 .context("Failed to create image view")
         }
     }
@@ -1039,7 +1091,8 @@ impl VulkanContext {
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
         unsafe {
-            self.device.create_command_pool(&pool_info, None)
+            self.device
+                .create_command_pool(&pool_info, None)
                 .context("Failed to create command pool")
         }
     }
@@ -1059,7 +1112,8 @@ impl VulkanContext {
             .layers(1);
 
         unsafe {
-            self.device.create_framebuffer(&create_info, None)
+            self.device
+                .create_framebuffer(&create_info, None)
                 .context("Failed to create framebuffer")
         }
     }
@@ -1120,10 +1174,19 @@ impl VulkanContext {
         let dependency = vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
             .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+            .src_stage_mask(
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
+            .dst_stage_mask(
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
             .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+            .dst_access_mask(
+                vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+                    | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            )
             .build();
 
         let dependencies = [dependency];
@@ -1133,9 +1196,7 @@ impl VulkanContext {
             .subpasses(&subpasses)
             .dependencies(&dependencies);
 
-        unsafe {
-            Ok(self.device.create_render_pass(&create_info.build(), None)?)
-        }
+        unsafe { Ok(self.device.create_render_pass(&create_info.build(), None)?) }
     }
 
     pub fn create_shader_module(&self, code: &[u8]) -> Result<vk::ShaderModule> {
@@ -1146,11 +1207,11 @@ impl VulkanContext {
             )
         };
 
-        let create_info = vk::ShaderModuleCreateInfo::builder()
-            .code(code);
+        let create_info = vk::ShaderModuleCreateInfo::builder().code(code);
 
         unsafe {
-            self.device.create_shader_module(&create_info, None)
+            self.device
+                .create_shader_module(&create_info, None)
                 .context("Failed to create shader module")
         }
     }
@@ -1159,7 +1220,8 @@ impl VulkanContext {
         let create_info = vk::SemaphoreCreateInfo::builder();
 
         unsafe {
-            self.device.create_semaphore(&create_info, None)
+            self.device
+                .create_semaphore(&create_info, None)
                 .context("Failed to create semaphore")
         }
     }
@@ -1171,7 +1233,8 @@ impl VulkanContext {
         }
 
         unsafe {
-            self.device.create_fence(&create_info, None)
+            self.device
+                .create_fence(&create_info, None)
                 .context("Failed to create fence")
         }
     }
@@ -1180,11 +1243,11 @@ impl VulkanContext {
         &self,
         bindings: &[vk::DescriptorSetLayoutBinding],
     ) -> Result<vk::DescriptorSetLayout> {
-        let create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(bindings);
+        let create_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(bindings);
 
         unsafe {
-            self.device.create_descriptor_set_layout(&create_info, None)
+            self.device
+                .create_descriptor_set_layout(&create_info, None)
                 .context("Failed to create descriptor set layout")
         }
     }
@@ -1199,7 +1262,8 @@ impl VulkanContext {
             .pool_sizes(pool_sizes);
 
         unsafe {
-            self.device.create_descriptor_pool(&create_info, None)
+            self.device
+                .create_descriptor_pool(&create_info, None)
                 .context("Failed to create descriptor pool")
         }
     }
@@ -1214,7 +1278,8 @@ impl VulkanContext {
             .set_layouts(layouts);
 
         unsafe {
-            self.device.allocate_descriptor_sets(&allocate_info)
+            self.device
+                .allocate_descriptor_sets(&allocate_info)
                 .context("Failed to allocate descriptor sets")
         }
     }
@@ -1225,7 +1290,8 @@ impl VulkanContext {
         descriptor_copies: &[vk::CopyDescriptorSet],
     ) {
         unsafe {
-            self.device.update_descriptor_sets(descriptor_writes, descriptor_copies);
+            self.device
+                .update_descriptor_sets(descriptor_writes, descriptor_copies);
         }
     }
 
@@ -1239,7 +1305,8 @@ impl VulkanContext {
             .push_constant_ranges(push_constant_ranges);
 
         unsafe {
-            self.device.create_pipeline_layout(&create_info, None)
+            self.device
+                .create_pipeline_layout(&create_info, None)
                 .context("Failed to create pipeline layout")
         }
     }
@@ -1250,11 +1317,7 @@ impl VulkanContext {
     ) -> Result<vk::Pipeline> {
         unsafe {
             self.device
-                .create_graphics_pipelines(
-                    vk::PipelineCache::null(),
-                    &[*pipeline_info],
-                    None,
-                )
+                .create_graphics_pipelines(vk::PipelineCache::null(), &[*pipeline_info], None)
                 .map_err(|(_, e)| e)
                 .context("Failed to create graphics pipeline")?
                 .first()
@@ -1269,11 +1332,7 @@ impl VulkanContext {
     ) -> Result<vk::Pipeline> {
         unsafe {
             self.device
-                .create_compute_pipelines(
-                    vk::PipelineCache::null(),
-                    &[*pipeline_info],
-                    None,
-                )
+                .create_compute_pipelines(vk::PipelineCache::null(), &[*pipeline_info], None)
                 .map_err(|(_, e)| e)
                 .context("Failed to create compute pipeline")?
                 .first()
@@ -1282,24 +1341,20 @@ impl VulkanContext {
         }
     }
 
-    pub fn begin_command_buffer(
-        &self,
-        command_buffer: vk::CommandBuffer,
-    ) -> Result<()> {
+    pub fn begin_command_buffer(&self, command_buffer: vk::CommandBuffer) -> Result<()> {
         let begin_info = vk::CommandBufferBeginInfo::builder();
 
         unsafe {
-            self.device.begin_command_buffer(command_buffer, &begin_info)
+            self.device
+                .begin_command_buffer(command_buffer, &begin_info)
                 .context("Failed to begin command buffer")
         }
     }
 
-    pub fn end_command_buffer(
-        &self,
-        command_buffer: vk::CommandBuffer,
-    ) -> Result<()> {
+    pub fn end_command_buffer(&self, command_buffer: vk::CommandBuffer) -> Result<()> {
         unsafe {
-            self.device.end_command_buffer(command_buffer)
+            self.device
+                .end_command_buffer(command_buffer)
                 .context("Failed to end command buffer")
         }
     }
@@ -1320,15 +1375,19 @@ impl VulkanContext {
             .signal_semaphores(signal_semaphores);
 
         unsafe {
-            self.device.queue_submit(queue, &[submit_info.build()], fence)
+            self.device
+                .queue_submit(queue, &[submit_info.build()], fence)
                 .context("Failed to submit command buffer")
         }
     }
 
     pub fn acquire_next_image(&self, image_index: &mut u32) -> Result<bool> {
-        let swapchain_loader = self.swapchain_loader.as_ref()
+        let swapchain_loader = self
+            .swapchain_loader
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
-        let swapchain = self.swapchain
+        let swapchain = self
+            .swapchain
             .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
 
         if self.current_frame >= self.image_available_semaphores.len() {
@@ -1351,9 +1410,12 @@ impl VulkanContext {
     }
 
     pub fn present(&self, image_index: u32) -> Result<bool> {
-        let swapchain_loader = self.swapchain_loader.as_ref()
+        let swapchain_loader = self
+            .swapchain_loader
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
-        let swapchain = self.swapchain
+        let swapchain = self
+            .swapchain
             .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
 
         if self.current_frame >= self.render_finished_semaphores.len() {
@@ -1379,7 +1441,8 @@ impl VulkanContext {
         }?;
 
         unsafe {
-            self.device.device_wait_idle()
+            self.device
+                .device_wait_idle()
                 .context("Failed to wait for device idle")?;
         }
 
@@ -1413,7 +1476,10 @@ impl VulkanContext {
     }
 
     pub fn get_resource_pool(&self, index: usize) -> Result<Arc<ResourcePool>> {
-        let pools = self.resource_pools.lock().map_err(|e| anyhow::anyhow!("Failed to lock resource pools: {}", e))?;
+        let pools = self
+            .resource_pools
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock resource pools: {}", e))?;
         if index >= pools.len() {
             return Err(anyhow::anyhow!("Resource pool index out of bounds"));
         }
@@ -1428,5 +1494,4 @@ impl VulkanContext {
         // TODO: Implement actual swapchain support check
         Ok(true)
     }
-
 }
