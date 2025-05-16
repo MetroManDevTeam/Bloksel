@@ -213,7 +213,7 @@ impl VoxelEngine {
         // We can't call begin_frame() directly on an Arc<ChunkRenderer>
     }
 
-    pub fn update(&mut self, delta_time: f32) {
+    pub fn update(&mut self, _delta_time: f32) {
         // For now, we'll just skip updating the player to make the code compile
         // In a real implementation, we would update the player with the terrain generator and input state
         /*
