@@ -1339,6 +1339,22 @@ impl VulkanContext {
         }
     }
 
+    pub fn destroy_swapchain(&self, swapchain: vk::SwapchainKHR) {
+        if let Some(swapchain_loader) = &self.swapchain_loader {
+            unsafe {
+                swapchain_loader.destroy_swapchain(swapchain, None);
+            }
+        }
+    }
+
+    pub fn destroy_surface(&self, surface: vk::SurfaceKHR) {
+        if let Some(surface_loader) = &self.surface_loader {
+            unsafe {
+                surface_loader.destroy_surface(surface, None);
+            }
+        }
+    }
+
     pub fn next_frame_index(&self) -> usize {
         let mut frame_index = self.frame_index.lock().unwrap();
         *frame_index = (*frame_index + 1) % self.settings.concurrent_resources;
