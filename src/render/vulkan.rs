@@ -720,7 +720,6 @@ impl VulkanContext {
                     && !properties.queue_flags.contains(vk::QueueFlags::COMPUTE)
                 {
                     families.transfer = Some(index);
-                    let surface_loader = Surface::new(entry, instance);
 
                     // Check surface support if needed
                     if let Some(surface) = surface {
