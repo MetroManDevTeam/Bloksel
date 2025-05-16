@@ -1055,11 +1055,16 @@ impl ChunkRenderer {
             RenderError::VulkanError(format!("Failed to end command buffer: {:?}", e))
         })?;
 
-        let submit_info = vk::SubmitInfo::builder().command_buffers(&[command_buffer]);
+        // Create a binding for the command buffer array to extend its lifetime
+        let command_buffers = [command_buffer];
+        let submit_info = vk::SubmitInfo::builder().command_buffers(&command_buffers);
+
+        // Build the submit info once to avoid the temporary value issue
+        let submit_info_built = submit_info.build();
 
         unsafe {
             device
-                .queue_submit(queue, &[submit_info.build()], vk::Fence::null())
+                .queue_submit(queue, &[submit_info_built], vk::Fence::null())
                 .map_err(|e| {
                     RenderError::VulkanError(format!("Failed to submit command buffer: {:?}", e))
                 })?;
