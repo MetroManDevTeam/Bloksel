@@ -16,8 +16,8 @@ use crate::{
     },
 };
 use anyhow::{Context, Result};
- use ash::vk;
-use crossbeam_channel::{Receiver, Sender, bounded};
+use ash::vk;
+use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec3;
 use log::warn;
 use parking_lot::Mutex;
@@ -27,8 +27,8 @@ use std::{
     collections::HashMap,
     path::Path,
     sync::{
-        Arc,
         atomic::{AtomicBool, AtomicU64},
+        Arc,
     },
     time::Instant,
 };
@@ -145,19 +145,22 @@ impl VoxelEngine {
         })
     }
 
-    pub fn initialize_vulkan(&mut self, vulkan_context: Arc<crate::render::vulkan::VulkanContext>) -> Result<()> {
+    pub fn initialize_vulkan(
+        &mut self,
+        vulkan_context: Arc<crate::render::vulkan::VulkanContext>,
+    ) -> Result<()> {
         // Reinitialize the chunk renderer with proper Vulkan context
         let new_renderer = ChunkRenderer::new(
             ShaderProgram::new("shaders/voxel.vert", "shaders/voxel.frag")?,
             0,
             self.block_registry.clone(),
         )?;
-        
+
         *Arc::make_mut(&mut self.chunk_renderer) = new_renderer;
-        
+
         // Load all block textures
         self.load_block_textures()?;
-        
+
         Ok(())
     }
 
@@ -165,14 +168,15 @@ impl VoxelEngine {
         // Load textures for all registered blocks
         for (block_id, block) in self.block_registry.blocks() {
             if let Some(texture_path) = block.material().texture_path() {
-                self.chunk_renderer.load_material(*block_id, block.material().clone())
+                self.chunk_renderer
+                    .load_material(*block_id, block.material().clone())
                     .with_context(|| format!("Failed to load texture for block {}", block_id))?;
             }
         }
-        
+
         // Process the texture queue and upload to GPU
         self.chunk_renderer.process_texture_queue()?;
-        
+
         Ok(())
     }
 
@@ -197,10 +201,11 @@ impl VoxelEngine {
         }
     }
 
-    
     pub fn get_stats(&self) -> EngineStats {
         EngineStats {
-            frame_count: self.frame_counter.load(std::sync::atomic::Ordering::Relaxed),
+            frame_count: self
+                .frame_counter
+                .load(std::sync::atomic::Ordering::Relaxed),
             active_chunks: self.active_chunks.read().len(),
             render_stats: RenderStats {
                 draw_calls: self.chunk_renderer.get_draw_call_count(),
@@ -215,20 +220,19 @@ impl VoxelEngine {
         }
     }
 
-    pub fn render_frame(&self, command_buffer: vk::CommandBuffer, camera: &crate::render::core::Camera) {
-        
-   
-        // Reset render statistics    
+    pub fn render_frame(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        camera: &crate::render::core::Camera,
+    ) {
+        // Reset render statistics
         self.chunk_renderer.begin_frame();
-        
+
         // Render all active chunks
         let active_chunks = self.active_chunks.read();
         for chunk in active_chunks.values() {
-            self.chunk_renderer.render_chunk(
-                command_buffer,
-                chunk,
-                camera,
-            );
+            self.chunk_renderer
+                .render_chunk(command_buffer, chunk, camera);
         }
     }
 
@@ -242,69 +246,62 @@ impl VoxelEngine {
     }
 
     fn update_chunk_loading(&self, player_position: Vec3) {
-    // Convert player position to chunk coordinates
-    let player_chunk = ChunkCoord::from_world_pos(
-        player_position,
-        self.config.chunk_size as i32
-    );
+        // Convert player position to chunk coordinates
+        let player_chunk =
+            ChunkCoord::from_world_pos(player_position, self.config.chunk_size as i32);
 
-    // Calculate render distance in chunks
-    let render_distance = self.config.render_distance as i32;
-    let load_distance = render_distance + 2; // Load slightly beyond render distance
+        // Calculate render distance in chunks
+        let render_distance = self.config.render_distance as i32;
+        let load_distance = render_distance + 2; // Load slightly beyond render distance
 
-    // Unload chunks outside the load distance
-    {
-        let mut chunks_to_unload = Vec::new();
-        let active_chunks = self.active_chunks.read();
-        for coord in active_chunks.keys() {
-            let distance = coord.distance(&player_chunk) as i32;
-            if distance > load_distance {
-                chunks_to_unload.push(*coord);
+        // Unload chunks outside the load distance
+        {
+            let mut chunks_to_unload = Vec::new();
+            let active_chunks = self.active_chunks.read();
+            for coord in active_chunks.keys() {
+                let distance = coord.distance(&player_chunk) as i32;
+                if distance > load_distance {
+                    chunks_to_unload.push(*coord);
+                }
+            }
+
+            for coord in chunks_to_unload {
+                self.unload_chunk(coord);
             }
         }
 
-        for coord in chunks_to_unload {
-            self.unload_chunk(coord);
-        }
-    }
+        // Load chunks within the load distance (circular area)
+        for x in -load_distance..=load_distance {
+            for z in -load_distance..=load_distance {
+                let coord =
+                    ChunkCoord::new(player_chunk.x() + x, player_chunk.y(), player_chunk.z() + z);
 
-    // Load chunks within the load distance (circular area)
-    for x in -load_distance..=load_distance {
-        for z in -load_distance..=load_distance {
-            let coord = ChunkCoord::new(
-                player_chunk.x() + x,
-                player_chunk.y(),
-                player_chunk.z() + z
-            );
+                // Use proper distance calculation
+                if coord.distance(&player_chunk) as i32 > load_distance {
+                    continue;
+                }
 
-            // Use proper distance calculation
-            if coord.distance(&player_chunk) as i32 > load_distance {
-                continue;
-            }
-
-            if !self.active_chunks.read().contains_key(&coord) {
-                self.load_chunk(coord);
+                if !self.active_chunks.read().contains_key(&coord) {
+                    self.load_chunk(coord);
+                }
             }
         }
     }
-}
 
     fn load_chunk(&self, coord: ChunkCoord) {
-    // Send to load queue
-    if let Err(e) = self.load_queue.send(coord) {
-        warn!("Failed to queue chunk load: {:?}", e);
+        // Send to load queue
+        if let Err(e) = self.load_queue.send(coord) {
+            warn!("Failed to queue chunk load: {:?}", e);
+        }
     }
-}
-
 
     fn unload_chunk(&self, coord: ChunkCoord) {
-    // Send to unload queue
-    if let Err(e) = self.unload_queue.send(coord) {
-        warn!("Failed to queue chunk unload: {:?}", e);
+        // Send to unload queue
+        if let Err(e) = self.unload_queue.send(coord) {
+            warn!("Failed to queue chunk unload: {:?}", e);
+        }
     }
-}
 
-    
     pub fn save_world(&self, path: &Path) -> Result<()> {
         let world_dir = path.join("world");
         fs::create_dir_all(&world_dir)?;
@@ -320,7 +317,12 @@ impl VoxelEngine {
         // Save all active chunks
         let active_chunks = self.active_chunks.read();
         for (coord, chunk) in active_chunks.iter() {
-            let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
+            let chunk_path = world_dir.join(format!(
+                "chunk_{}_{}_{}.bin",
+                coord.x(),
+                coord.y(),
+                coord.z()
+            ));
             let file = File::create(chunk_path)?;
             chunk.save_to_writer(file)?;
         }
@@ -330,30 +332,32 @@ impl VoxelEngine {
 
     pub fn load_world(&mut self, path: &Path) -> Result<()> {
         let world_dir = path.join("world");
-        
+
         // Load world metadata
         let metadata_path = world_dir.join("world.meta");
-        let metadata: WorldMetadata = bincode::deserialize(&fs::read(metadata_path)?;
+        let metadata: WorldMetadata = bincode::deserialize(&fs::read(metadata_path)?)?;
         self.config.worldgen.world_seed = metadata.seed;
         *self.player.lock().position_mut() = metadata.spawn_point;
 
         // Load chunks around player position
         let player_chunk = ChunkCoord::from_world_pos(
             self.player.lock().position(),
-            self.config.chunk_size as i32
+            self.config.chunk_size as i32,
         );
 
         // Queue chunks for loading
         let load_distance = self.config.render_distance as i32 + 2;
         for x in -load_distance..=load_distance {
             for z in -load_distance..=load_distance {
-                let coord = ChunkCoord::new(
-                    player_chunk.x() + x,
-                    player_chunk.y(),
-                    player_chunk.z() + z
-                );
-                
-                let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
+                let coord =
+                    ChunkCoord::new(player_chunk.x() + x, player_chunk.y(), player_chunk.z() + z);
+
+                let chunk_path = world_dir.join(format!(
+                    "chunk_{}_{}_{}.bin",
+                    coord.x(),
+                    coord.y(),
+                    coord.z()
+                ));
                 if chunk_path.exists() {
                     if let Err(e) = self.load_queue.send(coord) {
                         warn!("Failed to queue chunk load: {:?}", e);
@@ -408,8 +412,13 @@ impl VoxelEngine {
 
     fn try_load_chunk(&self, coord: ChunkCoord) -> Result<Option<Chunk>> {
         let world_dir = Path::new("worlds").join(&self.config.world_name);
-        let chunk_path = world_dir.join(format!("chunk_{}_{}_{}.bin", coord.x(), coord.y(), coord.z()));
-        
+        let chunk_path = world_dir.join(format!(
+            "chunk_{}_{}_{}.bin",
+            coord.x(),
+            coord.y(),
+            coord.z()
+        ));
+
         if !chunk_path.exists() {
             return Ok(None);
         }
@@ -418,8 +427,6 @@ impl VoxelEngine {
         let chunk = Chunk::load_from_reader(file)?;
         Ok(Some(chunk))
     }
-
-    
 }
 
 #[derive(Debug, Default)]
@@ -452,10 +459,7 @@ impl Default for RenderStats {
 pub struct ThreadPoolStats {
     active_threads: usize,
     queued_tasks: usize,
-    }
-
-
-
+}
 
 #[derive(Serialize, Deserialize)]
 struct WorldMetadata {
