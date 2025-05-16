@@ -314,5 +314,28 @@ pub struct ThreadPoolStats {
 #[derive(Serialize, Deserialize)]
 struct WorldMetadata {
     seed: u64,
+    #[serde(with = "vec3_serde")]
     spawn_point: Vec3,
+}
+
+// Custom serialization for Vec3
+mod vec3_serde {
+    use glam::Vec3;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(vec: &Vec3, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let arr = [vec.x, vec.y, vec.z];
+        arr.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec3, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let [x, y, z] = <[f32; 3]>::deserialize(deserializer)?;
+        Ok(Vec3::new(x, y, z))
+    }
 }
