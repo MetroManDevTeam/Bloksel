@@ -1301,57 +1301,39 @@ impl VulkanContext {
         }
     }
 
-    pub fn acquire_next_image(
-        &self,
-        swapchain: vk::SwapchainKHR,
-        semaphore: vk::Semaphore,
-        fence: vk::Fence,
-    ) -> Result<(u32, bool)> {
-        let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
-
-        let result = unsafe {
-            swapchain_loader.acquire_next_image(
-                swapchain,
-                std::u64::MAX,
-                semaphore,
-                fence,
-            )
-        };
-
-        match result {
-            Ok((image_index, suboptimal)) => {
-                Ok((image_index, suboptimal == vk::Result::SUBOPTIMAL_KHR))
+    pub fn acquire_next_image(&self, image_index: &mut u32) -> Result<bool> {
+        unsafe {
+            match self.swapchain_loader.acquire_next_image(
+                self.swapchain,
+                u64::MAX,
+                self.image_available_semaphores[self.current_frame],
+                vk::Fence::null(),
+                image_index,
+            ) {
+                Ok(_) => Ok(false),
+                Err(vk::Result::SUBOPTIMAL_KHR) => Ok(true),
+                Err(e) => Err(anyhow::anyhow!("Failed to acquire swapchain image: {}", e)),
             }
-            Err(e) => Err(anyhow::anyhow!("Failed to acquire swapchain image: {}", e))
         }
     }
 
-    pub fn queue_present(
-        &self,
-        queue: vk::Queue,
-        swapchain: vk::SwapchainKHR,
-        image_index: u32,
-        wait_semaphores: &[vk::Semaphore],
-    ) -> Result<bool> {
-        let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
+    pub fn present(&self, image_index: u32) -> Result<bool> {
+        let wait_semaphores = [self.render_finished_semaphores[self.current_frame]];
+        let swapchains = [self.swapchain];
+        let image_indices = [image_index];
 
         let present_info = vk::PresentInfoKHR::builder()
-            .wait_semaphores(wait_semaphores)
-            .swapchains(&[swapchain])
-            .image_indices(&[image_index]);
+            .wait_semaphores(&wait_semaphores)
+            .swapchains(&swapchains)
+            .image_indices(&image_indices)
+            .build();
 
-        let result = unsafe {
-            swapchain_loader.queue_present(queue, &present_info)
-        };
-
-        match result {
-            Ok(suboptimal) => Ok(suboptimal == vk::Result::SUBOPTIMAL_KHR),
-            Err(e) => Err(anyhow::anyhow!("Failed to present swapchain image: {}", e))
-        }
-    }
-
-    pub fn wait_idle(&self) -> Result<()> {
         unsafe {
+            match self.swapchain_loader.queue_present(self.present_queue, &present_info) {
+                Ok(_) => Ok(false),
+                Err(vk::Result::SUBOPTIMAL_KHR) => Ok(true),
+                Err(e) => Err(anyhow::anyhow!("Failed to present swapchain image: {}", e)),
+            }
             self.device.device_wait_idle()
                 .context("Failed to wait for device idle")
         }
