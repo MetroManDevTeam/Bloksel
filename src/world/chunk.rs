@@ -2,26 +2,17 @@ use crate::config::WorldGenConfig;
 use crate::render::core::Camera;
 use crate::render::pipeline::{ChunkRenderer, RenderError};
 use crate::world::block::{Block, SubBlock};
-use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
-use crate::world::block_material::BlockMaterial;
-use crate::world::block_visual::ConnectedDirections;
-use crate::world::blocks_data::get_block_registry;
 use crate::world::chunk_coord::ChunkCoord;
-use crate::world::generator::terrain::BiomeType;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
-use crate::world::BlockOrientation;
 use crate::world::BlockRegistry;
 use ash::vk;
-use bincode::{deserialize_from, serialize_into};
+use bincode;
 use glam::{IVec3, Mat4, Vec2, Vec3, Vec4};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter};
+use std::io::{self, BufReader};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -42,6 +33,15 @@ pub enum CompressedRegion {
         sub_blocks: Vec<CompressedSubBlock>,
     },
     Sparse(Vec<CompressedBlock>),
+}
+
+impl CompressedRegion {
+    pub fn uniform(block: CompressedBlock) -> Self {
+        CompressedRegion::Uniform {
+            block_id: block.id,
+            sub_blocks: block.sub_blocks,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -272,7 +272,7 @@ impl Chunk {
         self.needs_remesh = true;
     }
 
-    fn get_index(&mut self, x: u32, y: u32, z: u32) -> usize {
+    fn get_index(&self, x: u32, y: u32, z: u32) -> usize {
         (x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE) as usize
     }
 
@@ -322,12 +322,33 @@ impl Chunk {
         let first = blocks.first()?;
         if blocks
             .iter()
-            .all(|b| b.id == first.id && b.sub_blocks == first.sub_blocks)
+            .all(|b| b.id == first.id && Self::compare_sub_blocks(&b.sub_blocks, &first.sub_blocks))
         {
             Some(first)
         } else {
             None
         }
+    }
+
+    fn compare_sub_blocks(a: &[CompressedSubBlock], b: &[CompressedSubBlock]) -> bool {
+        if a.len() != b.len() {
+            return false;
+        }
+
+        // Simple comparison - in a real implementation you might want to sort or use a more efficient algorithm
+        for sub_a in a {
+            if !b.iter().any(|sub_b| {
+                sub_a.id == sub_b.id
+                    && sub_a.facing == sub_b.facing
+                    && sub_a.orientation == sub_b.orientation
+                    && sub_a.connections == sub_b.connections
+                    && sub_a.local_pos == sub_b.local_pos
+            }) {
+                return false;
+            }
+        }
+
+        true
     }
 
     pub fn load(path: &Path) -> io::Result<Self> {
