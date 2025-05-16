@@ -148,10 +148,11 @@ impl VulkanContext {
         let entry = unsafe { Entry::load()? };
 
         // Layers and extensions
-        let mut instance_extensions = ash_window::enumerate_required_extensions()?
-            .iter()
-            .map(|&e| e.as_ptr())
-            .collect::<Vec<_>>();
+        let mut instance_extensions =
+            ash_window::enumerate_required_extensions(window.raw_display_handle())?
+                .iter()
+                .map(|&e| e.as_ptr())
+                .collect::<Vec<_>>();
 
         let layers = if cfg!(debug_assertions) {
             vec![CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()]
