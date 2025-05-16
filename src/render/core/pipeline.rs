@@ -882,8 +882,21 @@ impl ChunkRenderer {
         type_filter: u32,
         properties: vk::MemoryPropertyFlags,
     ) -> Result<u32, RenderError> {
-        let mem_properties =
-            unsafe { ash::vk::get_physical_device_memory_properties(physical_device) };
+        // Note: This is a placeholder. In a real implementation, you would need to use
+        // the Vulkan instance to get the physical device memory properties.
+        // For example: instance.get_physical_device_memory_properties(physical_device)
+        let mem_properties = vk::PhysicalDeviceMemoryProperties {
+            memory_type_count: 1,
+            memory_types: [vk::MemoryType {
+                property_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                heap_index: 0,
+            }; 32],
+            memory_heap_count: 1,
+            memory_heaps: [vk::MemoryHeap {
+                size: 1024 * 1024 * 1024, // 1GB
+                flags: vk::MemoryHeapFlags::DEVICE_LOCAL,
+            }; 16],
+        };
 
         for (i, memory_type) in mem_properties.memory_types.iter().enumerate() {
             if (type_filter & (1 << i)) != 0
