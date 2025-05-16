@@ -247,13 +247,13 @@ impl VoxelEngine {
         }
     }
 
-    pub fn save_world(&self, path: &Path) -> Result<()> {
+    pub fn save_world(&self, _path: &Path) -> Result<()> {
         // This is a placeholder implementation to make the code compile
         // In a real implementation, we would save the world data
         Ok(())
     }
 
-    pub fn load_world(&mut self, path: &Path) -> Result<()> {
+    pub fn load_world(&mut self, _path: &Path) -> Result<()> {
         // This is a placeholder implementation to make the code compile
         // In a real implementation, we would load the world data
         Ok(())
