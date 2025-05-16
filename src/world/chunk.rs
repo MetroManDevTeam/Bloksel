@@ -532,7 +532,7 @@ impl Chunk {
         }
     }
 
-    pub fn generate_mesh(&mut self, renderer: &ChunkRenderer) -> Result<(), RenderError> {
+    pub fn generate_mesh(&mut self, _renderer: &ChunkRenderer) -> Result<(), RenderError> {
         if !self.needs_remesh {
             return Ok(());
         }
@@ -540,13 +540,15 @@ impl Chunk {
         let mut mesh = ChunkMesh::new();
 
         // Collect block data first to avoid borrow conflicts
-        let blocks: Vec<_> = (0..CHUNK_SIZE)
-            .flat_map(move |x| {
-                (0..CHUNK_SIZE).flat_map(move |y| {
-                    (0..CHUNK_SIZE).map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))
-                })
-            })
-            .collect();
+        // Use a more direct approach without closures that capture self
+        let mut blocks = Vec::new();
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    blocks.push((x, y, z, self.get_block(x, y, z).cloned()));
+                }
+            }
+        }
 
         for (x, y, z, block) in blocks {
             if let Some(block) = block {
