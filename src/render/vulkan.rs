@@ -498,7 +498,7 @@ impl VulkanContext {
 
                 // Check queue families
                 let queue_families = Self::find_queue_families(instance, device, surface).ok()?;
-                if queue_families.graphics.is_none() || queue_families.present.is_none() {
+                if queue_families.graphics == 0 || queue_families.present == 0 {
                     return None;
                 }
 
@@ -720,8 +720,7 @@ impl VulkanContext {
 
                 // Check surface support if needed
                 if let Some(surface) = surface {
-                    let entry_clone = instance.entry().clone();
-                    let surface_loader = Surface::new(&entry_clone, instance);
+                    let surface_loader = Surface::new(&self.entry, instance);
                     let supported = unsafe {
                         surface_loader
                             .get_physical_device_surface_support(device, index, surface)?
@@ -1403,7 +1402,6 @@ impl VulkanContext {
                 u64::MAX,
                 self.image_available_semaphores[self.current_frame],
                 vk::Fence::null(),
-                image_index,
             ) {
                 Ok(_) => Ok(false),
                 Err(vk::Result::SUBOPTIMAL_KHR) => Ok(true),
