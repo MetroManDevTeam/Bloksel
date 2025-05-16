@@ -442,10 +442,10 @@ impl Chunk {
         }
 
         let first_block = &blocks[0];
-        if blocks
-            .iter()
-            .all(|b| b.id == first_block.id && b.sub_blocks == first_block.sub_blocks)
-        {
+        if blocks.iter().all(|b| {
+            b.id == first_block.id
+                && Self::compare_sub_blocks(&b.sub_blocks, &first_block.sub_blocks)
+        }) {
             RegionAnalysis::Uniform(first_block.clone())
         } else {
             RegionAnalysis::Varied(blocks)
