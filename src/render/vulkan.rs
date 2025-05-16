@@ -210,17 +210,13 @@ impl VulkanContext {
             .queue_priorities(&queue_priorities);
 
         let present_queue_info = vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(
-                queue_families
-                    .present
-                    .ok_or(anyhow::anyhow!("Present queue family not found"))?,
-            )
+            .queue_family_index(queue_families.present)
             .queue_priorities(&queue_priorities);
 
         let queue_infos = if queue_families.graphics
             != queue_families
                 .present
-                .unwrap_or_else(|| panic!("Present queue family not found"))
+                .expect("Present queue family not found")
         {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
