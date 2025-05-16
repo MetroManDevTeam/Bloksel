@@ -686,6 +686,10 @@ impl VulkanContext {
         instance: &Instance,
         device: vk::PhysicalDevice,
         surface: Option<vk::SurfaceKHR>,
+        entry: &Entry,
+        instance: &Instance,
+        device: vk::PhysicalDevice,
+        surface: Option<vk::SurfaceKHR>,
     ) -> Result<QueueFamilies> {
         let queue_properties =
             unsafe { instance.get_physical_device_queue_family_properties(device) };
@@ -716,7 +720,7 @@ impl VulkanContext {
                     && !properties.queue_flags.contains(vk::QueueFlags::COMPUTE)
                 {
                     families.transfer = Some(index);
-                }
+                    let surface_loader = Surface::new(entry, instance);
 
                 // Check surface support if needed
                 if let Some(surface) = surface {
