@@ -205,21 +205,12 @@ impl VoxelEngine {
 
     pub fn render_frame(
         &self,
-        command_buffer: vk::CommandBuffer,
-        camera: &crate::render::core::Camera,
+        _command_buffer: vk::CommandBuffer,
+        _camera: &crate::render::core::Camera,
     ) {
-        // Reset render statistics
-        self.chunk_renderer.begin_frame();
-
-        // For now, we'll just skip rendering chunks to make the code compile
-        // In a real implementation, we would render each chunk
-        /*
-        let active_chunks = self.active_chunks.read();
-        for chunk in active_chunks.values() {
-            // We need to pass a device reference as the first parameter
-            // self.chunk_renderer.render_chunk(device, command_buffer, chunk, camera);
-        }
-        */
+        // This is a placeholder implementation to make the code compile
+        // In a real implementation, we would render chunks
+        // We can't call begin_frame() directly on an Arc<ChunkRenderer>
     }
 
     pub fn update(&mut self, delta_time: f32) {
