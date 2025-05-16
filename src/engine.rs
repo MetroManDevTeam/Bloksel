@@ -271,7 +271,7 @@ impl VoxelEngine {
         // In a real implementation, we would process chunk loading and unloading
     }
 
-    fn try_load_chunk(&self, coord: ChunkCoord) -> Result<Option<Chunk>> {
+    fn try_load_chunk(&self, _coord: ChunkCoord) -> Result<Option<Chunk>> {
         // This is a placeholder implementation to make the code compile
         // In a real implementation, we would try to load a chunk from disk
         Ok(None)
