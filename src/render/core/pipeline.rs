@@ -55,7 +55,7 @@ pub struct ChunkRenderer {
     pending_textures: HashSet<u16>,
     texture_atlas_size: u32,
     block_registry: Arc<BlockRegistry>,
-    
+
     // Vulkan resources
     pub vulkan_texture: Option<VulkanTexture>,
     pub vertex_buffer: Option<VulkanBuffer>,
@@ -67,8 +67,8 @@ pub struct ChunkRenderer {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub command_pool: vk::CommandPool,
 
-    
-    
+
+
     // Statistics tracking
     pub draw_call_count: usize,
     pub vertex_count: usize,
@@ -84,15 +84,15 @@ impl ChunkRenderer {
         block_registry: Arc<BlockRegistry>,
     ) -> Result<Self> {
         // Initialize Vulkan pipeline
-        let (descriptor_set_layout, pipeline_layout, pipeline) = 
+        let (descriptor_set_layout, pipeline_layout, pipeline) =
             Self::create_pipeline(device)?;
-        
+
         // Create command pool
         let command_pool = {
             let create_info = vk::CommandPoolCreateInfo::builder()
                 .queue_family_index(queue_family_index)
                 .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
-            
+
             unsafe { device.create_command_pool(&create_info, None) }
                 .map_err(|e| RenderError::VulkanError(format!("Failed to create command pool: {:?}", e)))?
         };
@@ -109,11 +109,11 @@ impl ChunkRenderer {
                     descriptor_count: 1,
                 },
             ];
-            
+
             let create_info = vk::DescriptorPoolCreateInfo::builder()
                 .max_sets(1)
                 .pool_sizes(&pool_sizes);
-            
+
             unsafe { device.create_descriptor_pool(&create_info, None) }
                 .map_err(|e| RenderError::VulkanError(format!("Failed to create descriptor pool: {:?}", e)))?
         };
@@ -124,7 +124,7 @@ impl ChunkRenderer {
             let allocate_info = vk::DescriptorSetAllocateInfo::builder()
                 .descriptor_pool(descriptor_pool)
                 .set_layouts(&layouts);
-            
+
             unsafe { device.allocate_descriptor_sets(&allocate_info) }
                 .map_err(|e| RenderError::VulkanError(format!("Failed to allocate descriptor sets: {:?}", e)))?
         };
@@ -154,7 +154,7 @@ impl ChunkRenderer {
 
     fn create_pipeline(
         device: &ash::Device,
-        render_pass: vk::RenderPass, 
+        render_pass: vk::RenderPass,
     ) -> Result<(vk::DescriptorSetLayout, vk::PipelineLayout, vk::Pipeline)> {
         // Create descriptor set layout
         let bindings = [
@@ -230,9 +230,9 @@ impl ChunkRenderer {
             format: vk::Format::R32G32B32_SFLOAT,
             offset: 12,
         },
-        
+
     ]);
-        
+
         let input_assembly = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
@@ -452,13 +452,13 @@ impl ChunkRenderer {
                 buffer_size,
                 vk::MemoryMapFlags::empty(),
             ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
-            
+
             std::ptr::copy_nonoverlapping(
                 atlas.as_ptr(),
                 data_ptr as *mut u8,
                 buffer_size as usize,
             );
-            
+
             device.unmap_memory(staging_buffer_memory);
         }
 
@@ -557,13 +557,13 @@ impl ChunkRenderer {
                 vertex_buffer_size,
                 vk::MemoryMapFlags::empty(),
             ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
-            
+
             std::ptr::copy_nonoverlapping(
                 mesh.vertices.as_ptr(),
                 data_ptr as *mut f32,
                 mesh.vertices.len(),
             );
-            
+
             device.unmap_memory(vertex_buffer_memory);
         }
 
@@ -585,13 +585,13 @@ impl ChunkRenderer {
                 index_buffer_size,
                 vk::MemoryMapFlags::empty(),
             ).map_err(|e| RenderError::VulkanError(format!("Failed to map memory: {:?}", e)))?;
-            
+
             std::ptr::copy_nonoverlapping(
                 mesh.indices.as_ptr(),
                 data_ptr as *mut u32,
                 mesh.indices.len(),
             );
-            
+
             device.unmap_memory(index_buffer_memory);
         }
 
@@ -652,26 +652,26 @@ impl ChunkRenderer {
                 let projection = camera.projection_matrix();
 
                 let ubo = UniformBufferObject {
-      
+
                     model: chunk.transform(),
-     
+
                     view: camera.view_matrix(),
-    
+
                     projection: camera.projection_matrix(),
-  
+
                 };
-    
-    
+
+
                 unsafe {
-      
-                    let data_ptr = device.map_memory(...);     
-  
+
+                    let data_ptr = device.map_memory(...);
+
                     std::ptr::copy_nonoverlapping(&ubo, data_ptr as *mut _, 1);
-  
+
                     device.unmap_memory(...);
-  
+
                 }
-                
+
 
                 // Bind descriptor sets
                 device.cmd_bind_descriptor_sets(
@@ -693,14 +693,14 @@ impl ChunkRenderer {
                     0,
                 );
 
-                
+
 
 
             // Update statistics
             self.draw_call_count += 1;
             self.vertex_count += mesh.vertex_count;
             self.triangle_count += mesh.index_count / 3; // Assuming triangle list (3 indices per triangle)
-      
+
             }
         }
     }
@@ -1003,7 +1003,7 @@ impl ChunkRenderer {
                 device.destroy_buffer(vertex_buffer.buffer, None);
                 device.free_memory(vertex_buffer.memory, None);
             }
-            
+
             if let Some(index_buffer) = &self.index_buffer {
                 device.destroy_buffer(index_buffer.buffer, None);
                 device.free_memory(index_buffer.memory, None);
@@ -1024,7 +1024,7 @@ impl ChunkRenderer {
             device.destroy_descriptor_pool(self.descriptor_pool, None);
             device.destroy_command_pool(self.command_pool, None);
         }
-        
+
 
     /// Resets the render statistics at the start of each frame
     pub fn begin_frame(&mut self) {
@@ -1047,10 +1047,6 @@ impl ChunkRenderer {
     pub fn get_triangle_count(&self) -> usize {
         self.triangle_count
     }
-
-    
-        
-    
 }
 
 pub struct RenderPipeline {
