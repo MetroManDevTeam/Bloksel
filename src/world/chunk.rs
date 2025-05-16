@@ -669,12 +669,12 @@ impl Chunk {
         // Check if face should be rendered based on connections or neighboring blocks
         // This is a simplified version - should be expanded based on your connection system
         match face {
-            FACE_FRONT => !sub_block.connections.contains(Direction::FRONT),
-            FACE_BACK => !sub_block.connections.contains(Direction::BACK),
-            FACE_TOP => !sub_block.connections.contains(Direction::TOP),
-            FACE_BOTTOM => !sub_block.connections.contains(Direction::BOTTOM),
-            FACE_RIGHT => !sub_block.connections.contains(Direction::RIGHT),
-            FACE_LEFT => !sub_block.connections.contains(Direction::LEFT),
+            FACE_FRONT => !sub_block.connections.contains(ConnectedDirections::NORTH),
+            FACE_BACK => !sub_block.connections.contains(ConnectedDirections::SOUTH),
+            FACE_TOP => !sub_block.connections.contains(ConnectedDirections::UP),
+            FACE_BOTTOM => !sub_block.connections.contains(ConnectedDirections::DOWN),
+            FACE_RIGHT => !sub_block.connections.contains(ConnectedDirections::EAST),
+            FACE_LEFT => !sub_block.connections.contains(ConnectedDirections::WEST),
             _ => true, // Default case, should never happen with 0..6 range
         }
     }
