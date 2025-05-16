@@ -731,10 +731,10 @@ impl VulkanContext {
 
                     // Check surface support if needed
                     if let Some(surface) = surface {
-                        let surface_loader = Surface::new(&self.entry, instance);
+                        let surface_loader = Surface::new(entry, instance);
                         let supported = unsafe {
                             surface_loader
-                                .get_physical_device_surface_support(device, index, surface)?
+                                surface_loader.get_physical_device_surface_support(device, index, surface)?
                         };
                         if supported && !present_found {
                             families.present = index;
