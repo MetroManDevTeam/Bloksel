@@ -473,6 +473,7 @@ impl Chunk {
                     let template = CompressedBlock {
                         id: block_id,
                         sub_blocks,
+                        position: (0, 0, 0), // Default position, will be adjusted in fill_region
                     };
                     self.fill_region(origin, REGION_SIZE, template);
                 }
