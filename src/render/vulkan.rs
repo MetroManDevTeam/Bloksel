@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
 use ash::{
-    extensions::{
-        ext::debug_utils,
-        khr::{Surface, Swapchain},
-    },
+    extensions::khr::{Surface, Swapchain},
     vk, Device, Entry, Instance,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
