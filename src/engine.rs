@@ -26,8 +26,7 @@ use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
-    fs::{self, File},
+    collections::HashMap,
     path::Path,
     sync::{
         atomic::{AtomicBool, AtomicU64},
