@@ -838,7 +838,7 @@ impl VulkanContext {
         command_pool: vk::CommandPool,
         queue: vk::Queue,
         image: vk::Image,
-        format: vk::Format,
+        _format: vk::Format,
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> Result<()> {
@@ -1396,7 +1396,7 @@ impl VulkanContext {
         }
     }
 
-    pub fn acquire_next_image(&self, image_index: &mut u32) -> Result<bool> {
+    pub fn acquire_next_image(&self, _image_index: &mut u32) -> Result<bool> {
         let swapchain_loader = self
             .swapchain_loader
             .as_ref()
