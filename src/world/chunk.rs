@@ -847,6 +847,7 @@ impl ChunkManager {
         for chunk in &self.visible_chunks {
             if let Some(mesh) = &chunk.mesh {
                 if !mesh.is_empty() {
+                    // Use a reference to the renderer instead of trying to mutate it
                     self.renderer
                         .render_chunk(device, command_buffer, chunk, camera);
                 }
