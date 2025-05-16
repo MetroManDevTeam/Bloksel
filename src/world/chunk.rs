@@ -883,10 +883,18 @@ impl ChunkManager {
     }
 
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
-        let chunk_coord = ChunkCoord::from_world_pos(world_pos);
+        // Use CHUNK_SIZE constant for the chunk size
+        let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
         let chunk = self.chunks.get(&chunk_coord)?;
 
-        let local_pos = chunk_coord.to_local_pos(world_pos);
+        // Calculate local position within the chunk
+        let chunk_world_pos = chunk_coord.to_world_pos(CHUNK_SIZE as i32);
+        let local_pos = IVec3::new(
+            (world_pos.x - chunk_world_pos.x) as i32,
+            (world_pos.y - chunk_world_pos.y) as i32,
+            (world_pos.z - chunk_world_pos.z) as i32,
+        );
+
         let block = chunk.get_block(local_pos.x as u32, local_pos.y as u32, local_pos.z as u32)?;
 
         Some((block, local_pos))
