@@ -737,12 +737,16 @@ impl VulkanContext {
             self.device.end_command_buffer(command_buffer)?;
         }
 
+        let command_buffers = [command_buffer];
         let submit_info = vk::SubmitInfo::builder()
-            .command_buffers(&[command_buffer]);
+            .command_buffers(&command_buffers);
 
         unsafe {
             self.device.queue_submit(queue, &[submit_info.build()], vk::Fence::null())?;
             self.device.queue_wait_idle(queue)?;
+        }
+
+        unsafe {
             self.device.free_command_buffers(command_pool, &[command_buffer]);
         }
 
