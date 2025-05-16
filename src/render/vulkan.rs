@@ -213,7 +213,7 @@ impl VulkanContext {
             .queue_family_index(
                 queue_families
                     .present
-                    .ok_or_else(|| anyhow::anyhow!("Present queue family not found"))?,
+                    .ok_or(anyhow::anyhow!("Present queue family not found"))?,
             )
             .queue_priorities(&queue_priorities);
 
