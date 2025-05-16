@@ -6,7 +6,7 @@ use ash::{
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 // Customizable settings
@@ -214,11 +214,7 @@ impl VulkanContext {
             .queue_family_index(queue_families.present)
             .queue_priorities(&queue_priorities);
 
-        let queue_infos = if queue_families.graphics
-            != queue_families
-                .present
-                .ok_or_else(|| anyhow::anyhow!("Present queue family not found"))?
-        {
+        let queue_infos = if queue_families.graphics != queue_families.present {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
             vec![graphics_queue_info.build()]
