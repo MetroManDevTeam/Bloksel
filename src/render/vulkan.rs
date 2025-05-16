@@ -215,6 +215,8 @@ impl VulkanContext {
             vec![graphics_queue_info.build(), present_queue_info.build()]
         } else {
             vec![graphics_queue_info.build()]
+        }
+
         if queue_families.present != queue_families.graphics {
             let present_queue_info = vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(queue_families.present)
