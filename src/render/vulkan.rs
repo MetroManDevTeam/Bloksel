@@ -26,8 +26,8 @@ pub struct VulkanSettings {
     pub concurrent_resources: usize,
     pub max_frames_in_flight: usize,
     pub enable_debug_markers: bool,
-        pub gpu_memory_budget_mb: Option<u32>,
-    }
+    pub gpu_memory_budget_mb: Option<u32>,
+}
 // Removed misplaced line
 
 impl Default for VulkanSettings {
@@ -498,7 +498,16 @@ impl VulkanContext {
                 }
 
                 // Check queue families
-                let queue_families = Self::find_queue_families(instance, device, surface, &self.entry, instance, device, surface).ok()?;
+                let queue_families = Self::find_queue_families(
+                    instance,
+                    device,
+                    surface,
+                    &self.entry,
+                    instance,
+                    device,
+                    surface,
+                )
+                .ok()?;
                 if queue_families.graphics == 0 || queue_families.present == 0 {
                     return None;
                 }
@@ -723,35 +732,36 @@ impl VulkanContext {
                     families.transfer = Some(index);
                     let surface_loader = Surface::new(entry, instance);
 
-                // Check surface support if needed
-                if let Some(surface) = surface {
-                    let surface_loader = Surface::new(&self.entry, instance);
-                    let supported = unsafe {
-                        surface_loader
-                            .get_physical_device_surface_support(device, index, surface)?
-                    };
-                    if supported && !present_found {
-                        families.present = index;
-                        present_found = true;
+                    // Check surface support if needed
+                    if let Some(surface) = surface {
+                        let surface_loader = Surface::new(&self.entry, instance);
+                        let supported = unsafe {
+                            surface_loader
+                                .get_physical_device_surface_support(device, index, surface)?
+                        };
+                        if supported && !present_found {
+                            families.present = index;
+                            present_found = true;
+                        }
                     }
                 }
             }
-        }
 
-        // Fallbacks
-        if families.transfer.is_none() {
-            families.transfer = Some(families.graphics);
-        }
+            // Fallbacks
+            if families.transfer.is_none() {
+                families.transfer = Some(families.graphics);
+            }
 
-        if families.compute.is_none() {
-            families.compute = Some(families.graphics);
-        }
+            if families.compute.is_none() {
+                families.compute = Some(families.graphics);
+            }
 
-        if surface.is_some() && !present_found {
-            families.present = families.graphics;
-        }
+            if surface.is_some() && !present_found {
+                families.present = families.graphics;
+            }
 
-        Ok(families)
+            Ok(families)
+        }
     }
 
     pub fn find_memory_type(
