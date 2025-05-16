@@ -1365,80 +1365,10 @@ impl VulkanContext {
         *self.frame_index.lock().unwrap()
     }
 
-    pub fn get_resource_pool(&self, index: usize) -> Result<std::sync::MutexGuard<ResourcePool>> {
-        let pools = self.resource_pools.lock().unwrap();
+    pub fn get_resource_pool(&self, index: usize) -> Result<Arc<ResourcePool>> {
+        let pools = self.resource_pools.lock().map_err(|e| anyhow::anyhow!("Failed to lock resource pools: {}", e))?;
         if index >= pools.len() {
             return Err(anyhow::anyhow!("Resource pool index out of bounds"));
         }
-        Ok(pools)
+        Ok(Arc::clone(&pools[index]))
     }
-}
-
-unsafe extern "system" fn vulkan_debug_callback(
-    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
-    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
-    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
-    _p_user_data: *mut std::ffi::c_void,
-) -> vk::Bool32 {
-    let severity = match message_severity {
-        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => "[VERBOSE]",
-        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => "[INFO]",
-        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => "[WARNING]",
-        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => "[ERROR]",
-        _ => "[UNKNOWN]",
-    };
-
-    let types = match message_type {
-        vk::DebugUtilsMessageTypeFlagsEXT::GENERAL => "[GENERAL]",
-        vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION => "[VALIDATION]",
-        vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE => "[PERFORMANCE]",
-        _ => "[UNKNOWN]",
-    };
-
-    let message = unsafe { CStr::from_ptr((*p_callback_data).p_message) };
-    eprintln!("{}{} {:?}", severity, types, message);
-
-    vk::FALSE
-}
-
-impl Drop for VulkanContext {
-    fn drop(&mut self) {
-        unsafe {
-            // Free all resources
-            let pools = self.resource_pools.lock().unwrap();
-            for pool in pools.iter() {
-                for &buffer in &pool.buffers {
-                    self.device.destroy_buffer(buffer, None);
-                }
-                for &image in &pool.images {
-                    self.device.destroy_image(image, None);
-                }
-                for &memory in &pool.memories {
-                    self.device.free_memory(memory, None);
-                }
-                for &pool in &pool.command_pools {
-                    self.device.destroy_command_pool(pool, None);
-                }
-            }
-
-            if let Some(debug_utils) = &self.debug_utils {
-                debug_utils
-                    .loader
-                    .destroy_debug_utils_messenger(debug_utils.messenger, None);
-            }
-
-            // Clean up swapchain loader
-            if let Some(swapchain_loader) = &self.swapchain_loader {
-                // Note: Swapchain should be destroyed explicitly before this point
-            }
-
-            // Clean up surface loader
-            if let Some(surface_loader) = &self.surface_loader {
-                // Note: Surface should be destroyed explicitly before this point
-            }
-
-            self.device.destroy_device(None);
-            self.instance.destroy_instance(None);
-        }
-    }
-}
