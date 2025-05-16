@@ -1324,8 +1324,14 @@ impl VulkanContext {
     }
 
     pub fn acquire_next_image(&self, image_index: &mut u32) -> Result<bool> {
-        let swapchain_loader = self.swapchain_loader.as_ref().expect("Swapchain loader not initialized");
-        let swapchain = self.swapchain.expect("Swapchain not initialized");
+        let swapchain_loader = self.swapchain_loader.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
+        let swapchain = self.swapchain
+            .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
+        
+        if self.current_frame >= self.image_available_semaphores.len() {
+            return Err(anyhow::anyhow!("Current frame index out of bounds"));
+        }
         
         unsafe {
             match swapchain_loader.acquire_next_image(
@@ -1343,8 +1349,14 @@ impl VulkanContext {
     }
 
     pub fn present(&self, image_index: u32) -> Result<bool> {
-        let swapchain_loader = self.swapchain_loader.as_ref().expect("Swapchain loader not initialized");
-        let swapchain = self.swapchain.expect("Swapchain not initialized");
+        let swapchain_loader = self.swapchain_loader.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
+        let swapchain = self.swapchain
+            .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
+        
+        if self.current_frame >= self.render_finished_semaphores.len() {
+            return Err(anyhow::anyhow!("Current frame index out of bounds"));
+        }
         
         let wait_semaphores = [self.render_finished_semaphores[self.current_frame]];
         let swapchains = [swapchain];
