@@ -343,8 +343,8 @@ impl VulkanContext {
             ash_window::create_surface(
                 &self.entry,
                 &self.instance,
-                window.raw_display_handle(),
-                window.raw_window_handle(),
+                window.raw_display_handle().map_err(|e| anyhow::anyhow!("Failed to get display handle: {}", e))?,
+                window.raw_window_handle().map_err(|e| anyhow::anyhow!("Failed to get window handle: {}", e))?,
                 None,
             )?
         };
