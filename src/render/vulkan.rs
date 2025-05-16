@@ -86,8 +86,9 @@ pub struct VulkanContext {
 
 #[derive(Debug)]
 struct DebugUtilsWrapper {
-    loader: debug_utils::DebugUtils,
-    messenger: vk::DebugUtilsMessengerEXT,
+    // We'll implement this later when we need debug utils
+    // loader: debug_utils::DebugUtils,
+    // messenger: vk::DebugUtilsMessengerEXT,
 }
 
 #[derive(Debug)]
@@ -157,33 +158,8 @@ impl VulkanContext {
         }
         .context("Failed to create Vulkan instance")?;
 
-        // Debug utils setup
-        let debug_utils = if settings.enable_validation {
-            let debug_utils_loader = debug_utils::DebugUtils::new(&entry, &instance);
-            let messenger = unsafe {
-                debug_utils_loader.create_debug_utils_messenger(
-                    &vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                        .message_severity(
-                            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
-                        )
-                        .message_type(
-                            vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-                        )
-                        .pfn_user_callback(Some(debug_utils::vulkan_debug_callback)),
-                    None,
-                )
-            }
-            .context("Failed to create debug utils messenger")?;
-
-            Some(DebugUtilsWrapper {
-                loader: debug_utils_loader,
-                messenger,
-            })
-        } else {
-            None
-        };
+        // Debug utils setup - we'll implement this later
+        let debug_utils = None;
 
         // Physical device selection
         let (physical_device, queue_families) =
