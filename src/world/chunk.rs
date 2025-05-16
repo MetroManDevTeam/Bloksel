@@ -466,7 +466,10 @@ impl Chunk {
 
             match region {
                 CompressedRegion::Empty => (),
-                CompressedRegion::Uniform { block_id, sub_blocks } => {
+                CompressedRegion::Uniform {
+                    block_id,
+                    sub_blocks,
+                } => {
                     let template = CompressedBlock {
                         id: block_id,
                         sub_blocks,
@@ -537,9 +540,9 @@ impl Chunk {
 
         // Collect block data first to avoid borrow conflicts
         let blocks: Vec<_> = (0..CHUNK_SIZE)
-            .flat_map(|x| {
-                (0..CHUNK_SIZE).flat_map(|y| {
-                    (0..CHUNK_SIZE).map(|z| (x, y, z, self.get_block(x, y, z).cloned()))
+            .flat_map(move |x| {
+                (0..CHUNK_SIZE).flat_map(move |y| {
+                    (0..CHUNK_SIZE).map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))
                 })
             })
             .collect();
@@ -570,12 +573,7 @@ impl Chunk {
         }
     }
 
-    fn generate_subblock_mesh(
-        &self,
-        mesh: &mut ChunkMesh,
-        sub_block: &SubBlock,
-        position: Vec3,
-    ) {
+    fn generate_subblock_mesh(&self, mesh: &mut ChunkMesh, sub_block: &SubBlock, position: Vec3) {
         // Generate faces based on block type and connections
         let block_id = sub_block.id;
         let variant_data = self.calculate_variant_data(sub_block);
@@ -885,22 +883,22 @@ impl ChunkManager {
     pub fn get_block_at(&self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos);
         let chunk = self.chunks.get(&chunk_coord)?;
-        
+
         let local_pos = chunk_coord.to_local_pos(world_pos);
         let block = chunk.get_block(local_pos.x as u32, local_pos.y as u32, local_pos.z as u32)?;
-        
+
         Some((block, local_pos))
     }
 
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
         let (block, local_pos) = self.get_block_at(world_pos)?;
-        
+
         let sub_pos = (
             (world_pos.x.fract() * 16.0) as u8,
             (world_pos.y.fract() * 16.0) as u8,
             (world_pos.z.fract() * 16.0) as u8,
         );
-        
+
         let sub_block = block.sub_blocks.get(&sub_pos)?;
         Some((sub_block, local_pos))
     }
