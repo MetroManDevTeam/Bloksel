@@ -342,7 +342,7 @@ impl VulkanContext {
 
         // Initialize surface loader if not already initialized
         if self.surface_loader.is_none() {
-            self.surface_loader = Some(Surface::new(&self.instance));
+            self.surface_loader = Some(Surface::new(&self.entry, &self.instance));
         }
 
         // Verify surface support
@@ -450,12 +450,15 @@ impl VulkanContext {
         }
 
         // Handle queue family sharing
-        if self.graphics_queue_family != self.present_queue_family {
+        let queue_family_indices = if self.graphics_queue_family != self.present_queue_family {
             let indices = [self.graphics_queue_family, self.present_queue_family];
             swapchain_create_info = swapchain_create_info
                 .image_sharing_mode(vk::SharingMode::CONCURRENT)
                 .queue_family_indices(&indices);
-        }
+            Some(indices)
+        } else {
+            None
+        };
 
         // Initialize swapchain loader if not already initialized
         if self.swapchain_loader.is_none() {
@@ -791,44 +794,53 @@ impl VulkanContext {
             vk::ImageAspectFlags::COLOR
         };
 
-        let barrier = vk::ImageMemoryBarrier::builder()
-            .old_layout(old_layout)
-            .new_layout(new_layout)
-            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .image(image)
-            .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            });
+        let subresource_range = vk::ImageSubresourceRange {
+            aspect_mask,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        };
 
-        let src_stage;
-        let dst_stage;
-
-        if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
-            barrier
+        let (src_stage, dst_stage, barrier) = if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+            let barrier = vk::ImageMemoryBarrier::builder()
+                .old_layout(old_layout)
+                .new_layout(new_layout)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .image(image)
+                .subresource_range(subresource_range)
                 .src_access_mask(vk::AccessFlags::empty())
-                .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE);
-            src_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
-            dst_stage = vk::PipelineStageFlags::TRANSFER;
+                .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                .build();
+            (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::TRANSFER, barrier)
         } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL {
-            barrier
+            let barrier = vk::ImageMemoryBarrier::builder()
+                .old_layout(old_layout)
+                .new_layout(new_layout)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .image(image)
+                .subresource_range(subresource_range)
                 .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-                .dst_access_mask(vk::AccessFlags::SHADER_READ);
-            src_stage = vk::PipelineStageFlags::TRANSFER;
-            dst_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+                .dst_access_mask(vk::AccessFlags::SHADER_READ)
+                .build();
+            (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::FRAGMENT_SHADER, barrier)
         } else if old_layout == vk::ImageLayout::UNDEFINED && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
-            barrier
+            let barrier = vk::ImageMemoryBarrier::builder()
+                .old_layout(old_layout)
+                .new_layout(new_layout)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .image(image)
+                .subresource_range(subresource_range)
                 .src_access_mask(vk::AccessFlags::empty())
-                .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE);
-            src_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
-            dst_stage = vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
+                .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+                .build();
+            (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS, barrier)
         } else {
             return Err(anyhow::anyhow!("Unsupported layout transition"));
-        }
+        };
 
         unsafe {
             self.device.cmd_pipeline_barrier(
@@ -838,7 +850,7 @@ impl VulkanContext {
                 vk::DependencyFlags::empty(),
                 &[],
                 &[],
-                &[barrier.build()],
+                &[barrier],
             );
         }
 
@@ -1297,16 +1309,20 @@ impl VulkanContext {
     ) -> Result<(u32, bool)> {
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
-        unsafe {
-            swapchain_loader
-                .acquire_next_image(
-                    swapchain,
-                    std::u64::MAX,
-                    semaphore,
-                    fence,
-                )
-                .map(|(i, suboptimal)| (i, suboptimal == vk::Result::SUBOPTIMAL_KHR))
-                .context("Failed to acquire swapchain image")
+        let result = unsafe {
+            swapchain_loader.acquire_next_image(
+                swapchain,
+                std::u64::MAX,
+                semaphore,
+                fence,
+            )
+        };
+
+        match result {
+            Ok((image_index, suboptimal)) => {
+                Ok((image_index, suboptimal == vk::Result::SUBOPTIMAL_KHR))
+            }
+            Err(e) => Err(anyhow::anyhow!("Failed to acquire swapchain image: {}", e))
         }
     }
 
@@ -1324,11 +1340,13 @@ impl VulkanContext {
             .swapchains(&[swapchain])
             .image_indices(&[image_index]);
 
-        unsafe {
-            swapchain_loader
-                .queue_present(queue, &present_info)
-                .map(|suboptimal| suboptimal == vk::Result::SUBOPTIMAL_KHR)
-                .context("Failed to present swapchain image")
+        let result = unsafe {
+            swapchain_loader.queue_present(queue, &present_info)
+        };
+
+        match result {
+            Ok(suboptimal) => Ok(suboptimal == vk::Result::SUBOPTIMAL_KHR),
+            Err(e) => Err(anyhow::anyhow!("Failed to present swapchain image: {}", e))
         }
     }
 
@@ -1370,7 +1388,7 @@ impl VulkanContext {
         if index >= pools.len() {
             return Err(anyhow::anyhow!("Resource pool index out of bounds"));
         }
-        Ok(std::sync::MutexGuard::map(pools, |p| &mut p[index]))
+        Ok(pools)
     }
 }
 
