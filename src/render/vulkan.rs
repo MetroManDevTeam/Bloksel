@@ -1096,30 +1096,21 @@ impl VulkanContext {
             attachments.push(depth_attachment.build());
         }
 
-        let mut subpass = vk::SubpassDescription::builder()
+        let subpass = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .color_attachments(&[color_reference.build()])
             .depth_stencil_attachment(depth_reference.as_ref().expect("Depth attachment reference not found"));
 
-        let dependency = vk::SubpassDependency::builder()
-            .src_subpass(vk::SUBPASS_EXTERNAL)
-            .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_access_mask(
-                vk::AccessFlags::COLOR_ATTACHMENT_READ |
-                vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            );
+        let subpasses = [subpass.build()];
+        let dependencies = [dependency.build()];
 
         let create_info = vk::RenderPassCreateInfo::builder()
             .attachments(&attachments)
-            .subpasses(&[subpass.build()])
-            .dependencies(&[dependency.build()]);
+            .subpasses(&subpasses)
+            .dependencies(&dependencies);
 
         unsafe {
-            self.device.create_render_pass(&create_info, None)
-                .context("Failed to create render pass")
+            self.device.create_render_pass(&create_info.build(), None)
         }
     }
 
