@@ -171,10 +171,10 @@ impl VulkanContext {
         let engine_name = CString::new(settings.engine_name.clone())?;
         let app_info = vk::ApplicationInfo::builder()
             .application_name(app_name.as_c_str())
-            .application_version(vk::make_version(1, 0, 0))
+            .application_version(vk::API_VERSION_1_0)
             .engine_name(engine_name.as_c_str())
-            .engine_version(vk::make_version(1, 0, 0))
-            .api_version(vk::make_version(1, 2, 0));
+            .engine_version(vk::API_VERSION_1_0)
+            .api_version(vk::API_VERSION_1_2);
 
         // Create instance
         let instance = unsafe {
