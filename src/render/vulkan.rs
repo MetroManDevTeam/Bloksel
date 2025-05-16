@@ -492,7 +492,18 @@ impl VulkanContext {
             .into_iter()
             .filter_map(|device| {
                 // Check extensions
-                if !Self::check_device_extensions(instance, device, settings)? {
+                if !Self::check_device_extensions(instance, device, settings).ok()? {
+                    return None;
+                }
+
+                // Check queue families
+                let queue_families = Self::find_queue_families(instance, device, surface).ok()?;
+                if queue_families.graphics.is_none() || queue_families.present.is_none() {
+                    return None;
+                }
+
+                // Check swapchain support
+                if !Self::check_swapchain_support(instance, device, surface).ok()? {
                     return None;
                 }
 
@@ -501,9 +512,6 @@ impl VulkanContext {
                 if !Self::check_required_features(&features, &settings.required_features) {
                     return None;
                 }
-
-                // Find queue families
-                let queue_families = Self::find_queue_families(instance, device, surface)?;
 
                 // Score device
                 let props = unsafe { instance.get_physical_device_properties(device) };
