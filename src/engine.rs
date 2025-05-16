@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use ash::vk;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec3;
-use log::warn;
+use log::{info, warn};
 use parking_lot::Mutex;
 use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
