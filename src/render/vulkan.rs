@@ -340,7 +340,25 @@ impl VulkanContext {
             )?
         };
 
-        self.surface_loader = Some(Surface::new(&self.instance));
+        // Initialize surface loader if not already initialized
+        if self.surface_loader.is_none() {
+            self.surface_loader = Some(Surface::new(&self.instance));
+        }
+
+        // Verify surface support
+        let surface_loader = self.surface_loader.as_ref().unwrap();
+        let supported = unsafe {
+            surface_loader.get_physical_device_surface_support(
+                self.physical_device,
+                self.graphics_queue_family,
+                surface,
+            )?
+        };
+
+        if !supported {
+            return Err(anyhow::anyhow!("Surface not supported by physical device"));
+        }
+
         Ok(surface)
     }
 
