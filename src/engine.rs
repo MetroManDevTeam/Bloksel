@@ -146,7 +146,7 @@ impl VoxelEngine {
 
     pub fn initialize_vulkan(
         &mut self,
-        vulkan_context: Arc<crate::render::vulkan::VulkanContext>,
+        _vulkan_context: Arc<crate::render::vulkan::VulkanContext>,
     ) -> Result<()> {
         // We'll skip the actual initialization for now since we're just fixing compilation errors
         // In a real implementation, we would create a proper ChunkRenderer with the Vulkan context
