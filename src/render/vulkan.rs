@@ -349,7 +349,6 @@ impl VulkanContext {
                 window.raw_window_handle().map_err(|e| anyhow::anyhow!("Failed to get window handle: {}", e))?,
                 None,
             )?
-            Surface::new(&self.entry, &self.instance)
         };
 
         // Initialize surface loader if not already initialized
