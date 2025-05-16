@@ -26,7 +26,8 @@ pub struct VulkanSettings {
     pub concurrent_resources: usize,
     pub max_frames_in_flight: usize,
     pub enable_debug_markers: bool,
-    pub gpu_memory_budget_mb: Option<u32>,
+        pub gpu_memory_budget_mb: Option<u32>,
+    }
 // Removed misplaced line
 
 impl Default for VulkanSettings {
