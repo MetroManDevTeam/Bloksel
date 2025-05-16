@@ -99,8 +99,17 @@ impl ChunkRenderer {
         queue_family_index: u32,
         block_registry: Arc<BlockRegistry>,
     ) -> Result<Self> {
+        // Create a dummy render pass for pipeline creation
+        let render_pass = Self::create_dummy_render_pass(device)?;
+
         // Initialize Vulkan pipeline
-        let (descriptor_set_layout, pipeline_layout, pipeline) = Self::create_pipeline(device)?;
+        let (descriptor_set_layout, pipeline_layout, pipeline) =
+            Self::create_pipeline(device, render_pass)?;
+
+        // Clean up the dummy render pass
+        unsafe {
+            device.destroy_render_pass(render_pass, None);
+        }
 
         // Create command pool
         let command_pool = {
