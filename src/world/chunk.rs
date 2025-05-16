@@ -1,7 +1,6 @@
 use crate::config::WorldGenConfig;
+use crate::render::core::Camera;
 use crate::render::pipeline::{ChunkRenderer, RenderError};
-use crate::world::BlockOrientation;
-use crate::world::BlockRegistry;
 use crate::world::block::{Block, SubBlock};
 use crate::world::block_facing::BlockFacing;
 use crate::world::block_id::BlockId;
@@ -11,6 +10,9 @@ use crate::world::blocks_data::get_block_registry;
 use crate::world::chunk_coord::ChunkCoord;
 use crate::world::generator::terrain::BiomeType;
 use crate::world::storage::core::{CompressedBlock, CompressedSubBlock};
+use crate::world::BlockOrientation;
+use crate::world::BlockRegistry;
+use ash::vk;
 use bincode::{deserialize_from, serialize_into};
 use glam::{IVec3, Mat4, Vec2, Vec3, Vec4};
 use rand::{Rng, SeedableRng};
@@ -22,8 +24,6 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
-use ash::vk;
-use crate::render::core::Camera;
 
 pub const CHUNK_SIZE: u32 = 32;
 pub const CHUNK_VOLUME: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as usize;
@@ -46,14 +46,14 @@ pub enum CompressedRegion {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkMesh {
-    pub vertices: Vec<f32>,        // 3D positions (x, y, z)
-    pub normals: Vec<f32>,         // Normal vectors (nx, ny, nz)
-    pub uvs: Vec<f32>,             // Texture coordinates (u, v)
-    pub block_ids: Vec<u32>,       // Block type identifiers
-    pub variant_data: Vec<u32>,    // Variant and connection data
-    pub indices: Vec<u32>,         // Vertex indices
-    pub vertex_count: usize,       // Total vertex count
-    pub index_count: usize,        // Total index count
+    pub vertices: Vec<f32>,     // 3D positions (x, y, z)
+    pub normals: Vec<f32>,      // Normal vectors (nx, ny, nz)
+    pub uvs: Vec<f32>,          // Texture coordinates (u, v)
+    pub block_ids: Vec<u32>,    // Block type identifiers
+    pub variant_data: Vec<u32>, // Variant and connection data
+    pub indices: Vec<u32>,      // Vertex indices
+    pub vertex_count: usize,    // Total vertex count
+    pub index_count: usize,     // Total index count
 }
 
 impl ChunkMesh {
@@ -90,7 +90,7 @@ impl ChunkMesh {
         variant_data: u32,
     ) {
         let base_index = self.vertex_count as u32;
-        
+
         // Add vertices
         for (pos, uv) in positions.iter().zip(uvs) {
             self.vertices.extend(&[pos.x, pos.y, pos.z]);
@@ -100,7 +100,7 @@ impl ChunkMesh {
             self.variant_data.push(variant_data);
             self.vertex_count += 1;
         }
-        
+
         // Add indices (two triangles per quad face)
         self.indices.extend(&[
             base_index,
@@ -129,12 +129,42 @@ impl Frustum {
         let m = view_proj.to_cols_array_2d();
 
         // Extract frustum planes from view-projection matrix
-        planes[0] = Vec4::new(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0], m[3][3] + m[3][0]); // Left
-        planes[1] = Vec4::new(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0], m[3][3] - m[3][0]); // Right
-        planes[2] = Vec4::new(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1], m[3][3] + m[3][1]); // Bottom
-        planes[3] = Vec4::new(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1], m[3][3] - m[3][1]); // Top
-        planes[4] = Vec4::new(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2], m[3][3] + m[3][2]); // Near
-        planes[5] = Vec4::new(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2], m[3][3] - m[3][2]); // Far
+        planes[0] = Vec4::new(
+            m[0][3] + m[0][0],
+            m[1][3] + m[1][0],
+            m[2][3] + m[2][0],
+            m[3][3] + m[3][0],
+        ); // Left
+        planes[1] = Vec4::new(
+            m[0][3] - m[0][0],
+            m[1][3] - m[1][0],
+            m[2][3] - m[2][0],
+            m[3][3] - m[3][0],
+        ); // Right
+        planes[2] = Vec4::new(
+            m[0][3] + m[0][1],
+            m[1][3] + m[1][1],
+            m[2][3] + m[2][1],
+            m[3][3] + m[3][1],
+        ); // Bottom
+        planes[3] = Vec4::new(
+            m[0][3] - m[0][1],
+            m[1][3] - m[1][1],
+            m[2][3] - m[2][1],
+            m[3][3] - m[3][1],
+        ); // Top
+        planes[4] = Vec4::new(
+            m[0][3] + m[0][2],
+            m[1][3] + m[1][2],
+            m[2][3] + m[2][2],
+            m[3][3] + m[3][2],
+        ); // Near
+        planes[5] = Vec4::new(
+            m[0][3] - m[0][2],
+            m[1][3] - m[1][2],
+            m[2][3] - m[2][2],
+            m[3][3] - m[3][2],
+        ); // Far
 
         // Normalize planes
         for plane in &mut planes {
@@ -152,9 +182,15 @@ impl Frustum {
 
             // Find the farthest point in the negative direction of the plane normal
             let mut farthest = min;
-            if p.x > 0.0 { farthest.x = max.x; }
-            if p.y > 0.0 { farthest.y = max.y; }
-            if p.z > 0.0 { farthest.z = max.z; }
+            if p.x > 0.0 {
+                farthest.x = max.x;
+            }
+            if p.y > 0.0 {
+                farthest.y = max.y;
+            }
+            if p.z > 0.0 {
+                farthest.z = max.z;
+            }
 
             // If the farthest point is outside the plane, the AABB is outside the frustum
             if p.dot(farthest) + d < 0.0 {
@@ -205,15 +241,18 @@ impl Chunk {
             needs_remesh: true,
             bounds: (Vec3::ZERO, Vec3::ZERO),
         };
-        
+
         // Recalculate bounds
         let min = Vec3::new(
             chunk.position.x() as f32 * CHUNK_SIZE as f32,
             chunk.position.y() as f32 * CHUNK_SIZE as f32,
             chunk.position.z() as f32 * CHUNK_SIZE as f32,
         );
-        chunk.bounds = (min, min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32));
-        
+        chunk.bounds = (
+            min,
+            min + Vec3::new(CHUNK_SIZE as f32, CHUNK_SIZE as f32, CHUNK_SIZE as f32),
+        );
+
         Ok(chunk)
     }
 
@@ -279,26 +318,23 @@ impl Chunk {
         Self::load(&chunk_file)
     }
 
-
     fn check_uniform_region(blocks: &[CompressedBlock]) -> Option<&CompressedBlock> {
         let first = blocks.first()?;
-        if blocks.iter().all(|b| b.id == first.id && b.sub_blocks == first.sub_blocks) {
+        if blocks
+            .iter()
+            .all(|b| b.id == first.id && b.sub_blocks == first.sub_blocks)
+        {
             Some(first)
         } else {
             None
         }
     }
 
-
     pub fn load(path: &Path) -> io::Result<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         Self::load_from_reader(reader)
     }
-
-    
-
-    
 
     pub fn save_to_writer(&self, writer: impl io::Write) -> io::Result<()> {
         let compressed = self.compress();
@@ -317,8 +353,10 @@ impl Chunk {
     fn compress(&self) -> CompressedChunk {
         const REGION_SIZE: u32 = 8;
         const REGIONS_PER_CHUNK: u32 = CHUNK_SIZE / REGION_SIZE;
-        
-        let mut regions = Vec::with_capacity((REGIONS_PER_CHUNK * REGIONS_PER_CHUNK * REGIONS_PER_CHUNK) as usize);
+
+        let mut regions = Vec::with_capacity(
+            (REGIONS_PER_CHUNK * REGIONS_PER_CHUNK * REGIONS_PER_CHUNK) as usize,
+        );
 
         for rx in 0..REGIONS_PER_CHUNK {
             for ry in 0..REGIONS_PER_CHUNK {
@@ -343,7 +381,7 @@ impl Chunk {
 
     fn collect_region_blocks(&self, origin: (u32, u32, u32), size: u32) -> Vec<CompressedBlock> {
         let mut blocks = Vec::new();
-        
+
         for x in origin.0..origin.0 + size {
             for y in origin.1..origin.1 + size {
                 for z in origin.2..origin.2 + size {
@@ -353,11 +391,13 @@ impl Chunk {
                             (y - origin.1) as u8,
                             (z - origin.2) as u8,
                         );
-                        
+
                         blocks.push(CompressedBlock {
-                            position: rel_pos,
+                            position: (rel_pos.0 as usize, rel_pos.1 as usize, rel_pos.2 as usize),
                             id: block.id,
-                            sub_blocks: block.sub_blocks.iter()
+                            sub_blocks: block
+                                .sub_blocks
+                                .iter()
                                 .map(|(pos, sub)| CompressedSubBlock {
                                     local_pos: *pos,
                                     id: sub.id,
@@ -371,7 +411,7 @@ impl Chunk {
                 }
             }
         }
-        
+
         blocks
     }
 
@@ -379,12 +419,12 @@ impl Chunk {
         if blocks.is_empty() {
             return RegionAnalysis::Empty;
         }
-        
+
         let first_block = &blocks[0];
-        if blocks.iter().all(|b| {
-            b.id == first_block.id && 
-            b.sub_blocks == first_block.sub_blocks
-        }) {
+        if blocks
+            .iter()
+            .all(|b| b.id == first_block.id && b.sub_blocks == first_block.sub_blocks)
+        {
             RegionAnalysis::Uniform(first_block.clone())
         } else {
             RegionAnalysis::Varied(blocks)
@@ -393,13 +433,13 @@ impl Chunk {
 
     fn decompress(&mut self, compressed: CompressedChunk) -> io::Result<()> {
         const REGION_SIZE: u32 = 8;
-        
+
         for (idx, region) in compressed.regions.into_iter().enumerate() {
             let rx = idx as u32 / (4 * 4);
             let ry = (idx as u32 / 4) % 4;
             let rz = idx as u32 % 4;
             let origin = (rx * REGION_SIZE, ry * REGION_SIZE, rz * REGION_SIZE);
-            
+
             match region {
                 CompressedRegion::Empty => (),
                 CompressedRegion::Uniform(block) => {
@@ -410,7 +450,7 @@ impl Chunk {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -443,7 +483,7 @@ impl Chunk {
                 origin.1 + compressed.position.1 as u32,
                 origin.2 + compressed.position.2 as u32,
             );
-            
+
             let mut block = Block::new(compressed.id);
             for sub in compressed.sub_blocks {
                 block.sub_blocks.insert(
@@ -460,41 +500,34 @@ impl Chunk {
         }
     }
 
-
-
     pub fn generate_mesh(&mut self, renderer: &ChunkRenderer) -> Result<(), RenderError> {
-    if !self.needs_remesh {
-        return Ok(());
-    }
-
-    let mut mesh = ChunkMesh::new();
-
-    // Collect block data first to avoid borrow conflicts
-    let blocks: Vec<_> = (0..CHUNK_SIZE)
-        .flat_map(|x| (0..CHUNK_SIZE)
-            .flat_map(move |y| (0..CHUNK_SIZE)
-                .map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))))
-        .collect();
-
-    for (x, y, z, block) in blocks {
-        if let Some(block) = block {
-            self.generate_block_mesh(&mut mesh, &block, x, y, z);
+        if !self.needs_remesh {
+            return Ok(());
         }
+
+        let mut mesh = ChunkMesh::new();
+
+        // Collect block data first to avoid borrow conflicts
+        let blocks: Vec<_> = (0..CHUNK_SIZE)
+            .flat_map(|x| {
+                (0..CHUNK_SIZE).flat_map(move |y| {
+                    (0..CHUNK_SIZE).map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))
+                })
+            })
+            .collect();
+
+        for (x, y, z, block) in blocks {
+            if let Some(block) = block {
+                self.generate_block_mesh(&mut mesh, &block, x, y, z);
+            }
+        }
+
+        self.mesh = if mesh.is_empty() { None } else { Some(mesh) };
+        self.needs_remesh = false;
+        Ok(())
     }
 
-    self.mesh = if mesh.is_empty() { None } else { Some(mesh) };
-    self.needs_remesh = false;
-    Ok(())
-}
-
-    fn generate_block_mesh(
-        &mut self,
-        mesh: &mut ChunkMesh,
-        block: &Block,
-        x: u32,
-        y: u32,
-        z: u32,
-    ) {
+    fn generate_block_mesh(&mut self, mesh: &mut ChunkMesh, block: &Block, x: u32, y: u32, z: u32) {
         // Convert block coordinates to world space
         let world_pos = Vec3::new(
             x as f32 + self.position.x() as f32 * CHUNK_SIZE as f32,
@@ -556,11 +589,11 @@ impl Chunk {
         // Define face normals
         let normals = [
             Vec3::new(0.0, 0.0, 1.0),  // Front
-            Vec3::new(0.0, 0.0, -1.0),  // Back
-            Vec3::new(0.0, 1.0, 0.0),   // Top
-            Vec3::new(0.0, -1.0, 0.0),  // Bottom
-            Vec3::new(1.0, 0.0, 0.0),   // Right
-            Vec3::new(-1.0, 0.0, 0.0),  // Left
+            Vec3::new(0.0, 0.0, -1.0), // Back
+            Vec3::new(0.0, 1.0, 0.0),  // Top
+            Vec3::new(0.0, -1.0, 0.0), // Bottom
+            Vec3::new(1.0, 0.0, 0.0),  // Right
+            Vec3::new(-1.0, 0.0, 0.0), // Left
         ];
 
         // Define UV coordinates (basic, can be adjusted per face)
@@ -596,7 +629,7 @@ impl Chunk {
         // Pack variant and connection data into a single u32
         let variant = sub_block.id.1 as u32; // Variant ID
         let connections = sub_block.connections.bits() as u32;
-        
+
         // Pack as: variant in upper 16 bits, connections in lower 16 bits
         (variant << 16) | connections
     }
@@ -633,9 +666,6 @@ impl Chunk {
             .map_or(false, |block| block.is_solid())
     }
 }
-
-
-
 
 enum RegionAnalysis {
     Empty,
@@ -783,14 +813,13 @@ impl ChunkManager {
         for chunk in &self.visible_chunks {
             if let Some(mesh) = &chunk.mesh {
                 if !mesh.is_empty() {
-                    self.renderer.render_chunk(device, command_buffer, chunk, camera);
+                    self.renderer
+                        .render_chunk(device, command_buffer, chunk, camera);
                 }
             }
         }
     }
 
-
-    
     pub fn save_world(&mut self) -> std::io::Result<()> {
         let world_dir = format!("worlds/{}", self.world_config.world_name);
         fs::create_dir_all(&world_dir)?;
@@ -816,7 +845,6 @@ impl ChunkManager {
         }
         Ok(())
     }
-
 
     pub fn get_block_at(&mut self, world_pos: Vec3) -> Option<(&Block, IVec3)> {
         let chunk_coord = ChunkCoord::from_world_pos(world_pos, CHUNK_SIZE as i32);
