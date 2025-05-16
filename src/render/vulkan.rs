@@ -174,7 +174,7 @@ impl VulkanContext {
                             vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
                                 | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
                         )
-                        .pfn_user_callback(Some(vulkan_debug_callback)),
+                        .pfn_user_callback(Some(debug_utils::vulkan_debug_callback)),
                     None,
                 )
             }
