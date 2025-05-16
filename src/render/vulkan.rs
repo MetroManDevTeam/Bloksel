@@ -450,26 +450,16 @@ impl VulkanContext {
             .image_extent(extent)
             .image_array_layers(1)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .pre_transform(capabilities.current_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            .present_mode(*present_mode)
-            .clipped(true);
+            .image_sharing_mode(if self.graphics_queue_family != self.present_queue_family {
+                vk::SharingMode::CONCURRENT
+            } else {
+                vk::SharingMode::EXCLUSIVE
+            });
 
-        if let Some(old_swapchain) = old_swapchain {
-            swapchain_create_info = swapchain_create_info.old_swapchain(old_swapchain);
+        let indices = [self.graphics_queue_family, self.present_queue_family];
+        if self.graphics_queue_family != self.present_queue_family {
+            swapchain_create_info = swapchain_create_info.queue_family_indices(&indices);
         }
-
-        // Handle queue family sharing
-        let queue_family_indices = if self.graphics_queue_family != self.present_queue_family {
-            let indices = [self.graphics_queue_family, self.present_queue_family];
-            swapchain_create_info = swapchain_create_info
-                .image_sharing_mode(vk::SharingMode::CONCURRENT)
-                .queue_family_indices(&indices);
-            Some(indices)
-        } else {
-            None
-        };
 
         // Initialize swapchain loader if not already initialized
         if self.swapchain_loader.is_none() {
@@ -478,7 +468,7 @@ impl VulkanContext {
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
         let swapchain = unsafe {
-            swapchain_loader.create_swapchain(&swapchain_create_info, None)?
+            swapchain_loader.create_swapchain(&swapchain_create_info.build(), None)?
         };
 
         // Get swapchain images
