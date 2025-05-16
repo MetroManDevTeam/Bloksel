@@ -903,6 +903,8 @@ impl ChunkManager {
     pub fn get_subblock_at(&self, world_pos: Vec3) -> Option<(&SubBlock, IVec3)> {
         let (block, local_pos) = self.get_block_at(world_pos)?;
 
+        // Calculate sub-block position within the block
+        // Use the fractional part of the world position to determine the sub-block
         let sub_pos = (
             (world_pos.x.fract() * 16.0) as u8,
             (world_pos.y.fract() * 16.0) as u8,
