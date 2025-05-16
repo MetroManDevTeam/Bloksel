@@ -697,9 +697,6 @@ impl VulkanContext {
         device: vk::PhysicalDevice,
         surface: Option<vk::SurfaceKHR>,
         entry: &Entry,
-        instance: &Instance,
-        device: vk::PhysicalDevice,
-        surface: Option<vk::SurfaceKHR>,
     ) -> Result<QueueFamilies> {
         let queue_properties =
             unsafe { instance.get_physical_device_queue_family_properties(device) };
