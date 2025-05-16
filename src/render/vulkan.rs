@@ -129,11 +129,13 @@ impl VulkanContext {
             .map(|&e| e.as_ptr())
             .collect::<Vec<_>>();
 
-        let mut layers = Vec::new();
-        if settings.enable_validation {
-            layers.push(CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap());
-            instance_extensions.push(debug_utils::NAME.as_ptr());
-        }
+        let layers = if cfg!(debug_assertions) {
+            vec![CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()]
+        } else {
+            vec![]
+        };
+
+        let layer_ptrs: Vec<*const i8> = layers.iter().map(|layer| layer.as_ptr()).collect();
 
         // Application info
         let app_name = CString::new(settings.application_name.clone())?;
@@ -150,7 +152,7 @@ impl VulkanContext {
             entry.create_instance(
                 &vk::InstanceCreateInfo::builder()
                     .application_info(&app_info)
-                    .enabled_layer_names(&layers)
+                    .enabled_layer_names(&layer_ptrs)
                     .enabled_extension_names(&instance_extensions),
                 None,
             )
@@ -340,6 +342,13 @@ impl VulkanContext {
         window: &W,
     ) -> Result<vk::SurfaceKHR> {
         let surface = unsafe {
+            ash_window::create_surface(
+                &self.entry,
+                &self.instance,
+                window.raw_display_handle().map_err(|e| anyhow::anyhow!("Failed to get display handle: {}", e))?,
+                window.raw_window_handle().map_err(|e| anyhow::anyhow!("Failed to get window handle: {}", e))?,
+                None,
+            )?
             Surface::new(&self.entry, &self.instance)
         };
 
