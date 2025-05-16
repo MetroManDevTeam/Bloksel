@@ -102,10 +102,21 @@ struct ResourcePool {
 
 #[derive(Debug, Clone, Copy)]
 struct QueueFamilies {
-    graphics: u32,
-    present: u32,
+    graphics: Option<u32>,
+    present: Option<u32>,
     transfer: Option<u32>,
     compute: Option<u32>,
+}
+
+impl QueueFamilies {
+    fn new() -> Self {
+        Self {
+            graphics: None,
+            present: None,
+            transfer: None,
+            compute: None,
+        }
+    }
 }
 
 impl VulkanContext {
@@ -428,7 +439,7 @@ impl VulkanContext {
                 .queue_family_indices(&indices);
         }
 
-        self.swapchain_loader = Some(Swapchain::new(&self.device));
+        self.swapchain_loader = Some(Swapchain::new(&self.instance, &self.device));
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
         let swapchain = unsafe {
@@ -619,12 +630,7 @@ impl VulkanContext {
     ) -> Result<QueueFamilies> {
         let queue_properties = unsafe { instance.get_physical_device_queue_family_properties(device) };
 
-        let mut families = QueueFamilies {
-            graphics: None,
-            present: None,
-            transfer: None,
-            compute: None,
-        };
+        let mut families = QueueFamilies::new();
 
         // Find graphics and present queues (may be the same)
         for (index, properties) in queue_properties.iter().enumerate() {
@@ -677,12 +683,7 @@ impl VulkanContext {
             families.present = families.graphics;
         }
 
-        Ok(QueueFamilies {
-            graphics: families.graphics.context("No graphics queue found")?,
-            present: families.present.context("No present queue found")?,
-            transfer: families.transfer,
-            compute: families.compute,
-        })
+        Ok(families)
     }
 
     pub fn find_memory_type(
@@ -1384,4 +1385,4 @@ impl Drop for VulkanContext {
             self.instance.destroy_instance(None);
         }
     }
-            }
+}
