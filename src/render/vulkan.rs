@@ -353,8 +353,8 @@ impl VulkanContext {
             ash_window::create_surface(
                 &self.entry,
                 &self.instance,
-                window.raw_display_handle().map_err(|e| anyhow::anyhow!("Failed to get display handle: {}", e))?,
-                window.raw_window_handle().map_err(|e| anyhow::anyhow!("Failed to get window handle: {}", e))?,
+                window.raw_display_handle(),
+                window.raw_window_handle(),
                 None,
             )?
         };
@@ -672,16 +672,17 @@ impl VulkanContext {
         let queue_properties = unsafe { instance.get_physical_device_queue_family_properties(device) };
 
         let mut families = QueueFamilies::new();
+        let mut graphics_found = false;
+        let mut present_found = false;
 
         // Find graphics and present queues (may be the same)
         for (index, properties) in queue_properties.iter().enumerate() {
             let index = index as u32;
 
             if properties.queue_count > 0 {
-                if properties.queue_flags.contains(vk::QueueFlags::GRAPHICS) {
-                    if families.graphics.is_none() {
-                        families.graphics = Some(index);
-                    }
+                if properties.queue_flags.contains(vk::QueueFlags::GRAPHICS) && !graphics_found {
+                    families.graphics = index;
+                    graphics_found = true;
                 }
 
                 if properties.queue_flags.contains(vk::QueueFlags::COMPUTE) {
@@ -700,12 +701,13 @@ impl VulkanContext {
 
                 // Check surface support if needed
                 if let Some(surface) = surface {
+                    let surface_loader = Surface::new(&instance.entry().clone(), instance);
                     let supported = unsafe {
-                        Surface::new(&Entry::linked(), instance)
-                            .get_physical_device_surface_support(device, index, surface)?
+                        surface_loader.get_physical_device_surface_support(device, index, surface)?
                     };
-                    if supported && families.present.is_none() {
-                        families.present = Some(index);
+                    if supported && !present_found {
+                        families.present = index;
+                        present_found = true;
                     }
                 }
             }
@@ -713,14 +715,14 @@ impl VulkanContext {
 
         // Fallbacks
         if families.transfer.is_none() {
-            families.transfer = families.graphics;
+            families.transfer = Some(families.graphics);
         }
 
         if families.compute.is_none() {
-            families.compute = families.graphics;
+            families.compute = Some(families.graphics);
         }
 
-        if surface.is_some() && families.present.is_none() {
+        if surface.is_some() && !present_found {
             families.present = families.graphics;
         }
 
