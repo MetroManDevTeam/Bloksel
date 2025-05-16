@@ -106,8 +106,8 @@ struct ResourcePool {
 
 #[derive(Debug, Clone, Copy)]
 struct QueueFamilies {
-    graphics: Option<u32>,
-    present: Option<u32>,
+    graphics: u32,
+    present: u32,
     transfer: Option<u32>,
     compute: Option<u32>,
 }
@@ -115,8 +115,8 @@ struct QueueFamilies {
 impl QueueFamilies {
     fn new() -> Self {
         Self {
-            graphics: None,
-            present: None,
+            graphics: 0,
+            present: 0,
             transfer: None,
             compute: None,
         }
@@ -1328,11 +1328,11 @@ impl VulkanContext {
             .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
         let swapchain = self.swapchain
             .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
-        
+
         if self.current_frame >= self.image_available_semaphores.len() {
             return Err(anyhow::anyhow!("Current frame index out of bounds"));
         }
-        
+
         unsafe {
             match swapchain_loader.acquire_next_image(
                 swapchain,
@@ -1353,11 +1353,11 @@ impl VulkanContext {
             .ok_or_else(|| anyhow::anyhow!("Swapchain loader not initialized"))?;
         let swapchain = self.swapchain
             .ok_or_else(|| anyhow::anyhow!("Swapchain not initialized"))?;
-        
+
         if self.current_frame >= self.render_finished_semaphores.len() {
             return Err(anyhow::anyhow!("Current frame index out of bounds"));
         }
-        
+
         let wait_semaphores = [self.render_finished_semaphores[self.current_frame]];
         let swapchains = [swapchain];
         let image_indices = [image_index];
