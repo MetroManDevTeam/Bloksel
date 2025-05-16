@@ -497,7 +497,7 @@ impl VulkanContext {
                 }
 
                 // Check queue families
-                let queue_families = Self::find_queue_families(instance, device, surface).ok()?;
+                let queue_families = Self::find_queue_families(instance, device, surface, &self.entry, instance, device, surface).ok()?;
                 if queue_families.graphics == 0 || queue_families.present == 0 {
                     return None;
                 }
