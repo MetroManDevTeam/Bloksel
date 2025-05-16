@@ -66,7 +66,10 @@ pub struct VoxelEngine {
 }
 
 impl VoxelEngine {
-    pub fn new(config: EngineConfig) -> Result<Self> {
+    pub fn new(
+        config: EngineConfig,
+        vulkan_context: Arc<crate::render::vulkan::VulkanContext>,
+    ) -> Result<Self> {
         // Initialize core systems
         let block_registry = Arc::new(BlockRegistry::default());
         let terrain_config = TerrainWorldGenConfig {
