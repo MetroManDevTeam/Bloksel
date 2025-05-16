@@ -27,10 +27,7 @@ pub struct VulkanSettings {
     pub max_frames_in_flight: usize,
     pub enable_debug_markers: bool,
     pub gpu_memory_budget_mb: Option<u32>,
-    }
-
-    // Removed misplaced line
-}
+// Removed misplaced line
 
 impl Default for VulkanSettings {
     fn default() -> Self {
