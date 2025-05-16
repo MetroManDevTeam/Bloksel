@@ -457,7 +457,10 @@ impl VulkanContext {
                 .queue_family_indices(&indices);
         }
 
-        self.swapchain_loader = Some(Swapchain::new(&self.instance, &self.device));
+        // Initialize swapchain loader if not already initialized
+        if self.swapchain_loader.is_none() {
+            self.swapchain_loader = Some(Swapchain::new(&self.instance, &self.device));
+        }
         let swapchain_loader = self.swapchain_loader.as_ref().unwrap();
 
         let swapchain = unsafe {
