@@ -29,7 +29,7 @@ pub struct VulkanSettings {
     pub gpu_memory_budget_mb: Option<u32>,
     }
 
-    Ok(families)
+    // Removed misplaced line
 }
 
 impl Default for VulkanSettings {
