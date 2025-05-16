@@ -757,6 +757,7 @@ impl VulkanContext {
                 families.present = families.graphics;
             }
 
+                }
             }
     
             Ok(families)
