@@ -498,16 +498,8 @@ impl VulkanContext {
                 }
 
                 // Check queue families
-                let queue_families = Self::find_queue_families(
-                    instance,
-                    device,
-                    surface,
-                    &self.entry,
-                    instance,
-                    device,
-                    surface,
-                )
-                .ok()?;
+                let queue_families =
+                    Self::find_queue_families(instance, device, surface, &entry).ok()?;
                 if queue_families.graphics == 0 || queue_families.present == 0 {
                     return None;
                 }
@@ -733,8 +725,8 @@ impl VulkanContext {
                     if let Some(surface) = surface {
                         let surface_loader = Surface::new(entry, instance);
                         let supported = unsafe {
-                            let supported = surface_loader
-                                .get_physical_device_surface_support(device, index, surface)?;
+                            surface_loader
+                                .get_physical_device_surface_support(device, index, surface)?
                         };
                         if supported && !present_found {
                             families.present = index;
