@@ -633,6 +633,14 @@ impl Chunk {
             Vec2::new(0.0, 1.0),
         ];
 
+        // Define face indices for clarity
+        const FACE_FRONT: usize = 0;
+        const FACE_BACK: usize = 1;
+        const FACE_TOP: usize = 2;
+        const FACE_BOTTOM: usize = 3;
+        const FACE_RIGHT: usize = 4;
+        const FACE_LEFT: usize = 5;
+
         // Add each face to the mesh if it's visible
         for face in 0..6 {
             if self.should_render_face(sub_block, face) {
@@ -648,10 +656,26 @@ impl Chunk {
         }
     }
 
-    fn should_render_face(&self, _sub_block: &SubBlock, _face: usize) -> bool {
+    fn should_render_face(&self, sub_block: &SubBlock, face: usize) -> bool {
+        // Define face indices for clarity (same as in generate_subblock_mesh)
+        const FACE_FRONT: usize = 0;
+        const FACE_BACK: usize = 1;
+        const FACE_TOP: usize = 2;
+        const FACE_BOTTOM: usize = 3;
+        const FACE_RIGHT: usize = 4;
+        const FACE_LEFT: usize = 5;
+
         // Check if face should be rendered based on connections or neighboring blocks
         // This is a simplified version - should be expanded based on your connection system
-        true
+        match face {
+            FACE_FRONT => !sub_block.connections.contains(Direction::FRONT),
+            FACE_BACK => !sub_block.connections.contains(Direction::BACK),
+            FACE_TOP => !sub_block.connections.contains(Direction::TOP),
+            FACE_BOTTOM => !sub_block.connections.contains(Direction::BOTTOM),
+            FACE_RIGHT => !sub_block.connections.contains(Direction::RIGHT),
+            FACE_LEFT => !sub_block.connections.contains(Direction::LEFT),
+            _ => true, // Default case, should never happen with 0..6 range
+        }
     }
 
     fn calculate_variant_data(&self, sub_block: &SubBlock) -> u32 {
