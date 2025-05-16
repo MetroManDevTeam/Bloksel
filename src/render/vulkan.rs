@@ -498,6 +498,7 @@ impl VulkanContext {
                 }
 
                 // Check queue families
+                let entry = unsafe { Entry::load().ok()? };
                 let queue_families =
                     Self::find_queue_families(instance, device, surface, &entry).ok()?;
                 if queue_families.graphics == 0 || queue_families.present == 0 {
@@ -1505,11 +1506,27 @@ impl VulkanContext {
     }
 
     fn check_swapchain_support(
-        _instance: &Instance,
-        _device: vk::PhysicalDevice,
-        _surface: Option<vk::SurfaceKHR>,
+        instance: &Instance,
+        device: vk::PhysicalDevice,
+        surface: Option<vk::SurfaceKHR>,
     ) -> Result<bool> {
-        // TODO: Implement actual swapchain support check
-        Ok(true)
+        if let Some(surface) = surface {
+            let entry = unsafe { Entry::load()? };
+            let surface_loader = Surface::new(&entry, instance);
+
+            // Check if the device supports the surface
+            let formats =
+                unsafe { surface_loader.get_physical_device_surface_formats(device, surface)? };
+
+            let present_modes = unsafe {
+                surface_loader.get_physical_device_surface_present_modes(device, surface)?
+            };
+
+            // Device is suitable if it has at least one supported format and present mode
+            Ok(!formats.is_empty() && !present_modes.is_empty())
+        } else {
+            // If no surface is provided, we don't need swapchain support
+            Ok(true)
+        }
     }
 }
