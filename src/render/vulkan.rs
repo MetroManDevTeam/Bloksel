@@ -27,6 +27,9 @@ pub struct VulkanSettings {
     pub max_frames_in_flight: usize,
     pub enable_debug_markers: bool,
     pub gpu_memory_budget_mb: Option<u32>,
+    }
+
+    Ok(families)
 }
 
 impl Default for VulkanSettings {
