@@ -733,8 +733,8 @@ impl VulkanContext {
                     if let Some(surface) = surface {
                         let surface_loader = Surface::new(entry, instance);
                         let supported = unsafe {
-                            surface_loader
-                                surface_loader.get_physical_device_surface_support(device, index, surface)?
+                            let supported = surface_loader
+                                .get_physical_device_surface_support(device, index, surface)?;
                         };
                         if supported && !present_found {
                             families.present = index;
@@ -759,6 +759,8 @@ impl VulkanContext {
 
             Ok(families)
         }
+
+        Ok(families)
     }
 
     pub fn find_memory_type(
