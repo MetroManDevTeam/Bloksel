@@ -55,7 +55,6 @@ impl Default for VulkanSettings {
     }
 }
 
-#[derive(Debug)]
 pub struct VulkanContext {
     pub entry: Entry,
     pub instance: Instance,
@@ -82,6 +81,32 @@ pub struct VulkanContext {
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
     current_frame: usize,
+}
+
+impl std::fmt::Debug for VulkanContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VulkanContext")
+            .field("instance", &self.instance.handle())
+            .field("physical_device", &self.physical_device)
+            .field("device", &self.device.handle())
+            .field("graphics_queue", &self.graphics_queue)
+            .field("present_queue", &self.present_queue)
+            .field("transfer_queue", &self.transfer_queue)
+            .field("compute_queue", &self.compute_queue)
+            .field("graphics_queue_family", &self.graphics_queue_family)
+            .field("present_queue_family", &self.present_queue_family)
+            .field("transfer_queue_family", &self.transfer_queue_family)
+            .field("compute_queue_family", &self.compute_queue_family)
+            .field("surface_loader", &self.surface_loader.is_some())
+            .field("swapchain_loader", &self.swapchain_loader.is_some())
+            .field("debug_utils", &self.debug_utils)
+            .field("settings", &self.settings)
+            .field("memory_properties", &self.memory_properties)
+            .field("device_properties", &self.device_properties)
+            .field("device_features", &self.device_features)
+            .field("current_frame", &self.current_frame)
+            .finish()
+    }
 }
 
 #[derive(Debug)]
