@@ -84,6 +84,10 @@ pub struct VulkanContext {
     pub device_features: vk::PhysicalDeviceFeatures,
     frame_index: Mutex<usize>,
     resource_pools: Mutex<Vec<Arc<ResourcePool>>>,
+    swapchain: Option<vk::SwapchainKHR>,
+    image_available_semaphores: Vec<vk::Semaphore>,
+    render_finished_semaphores: Vec<vk::Semaphore>,
+    current_frame: usize,
 }
 
 #[derive(Debug)]
@@ -121,7 +125,7 @@ impl QueueFamilies {
 
 impl VulkanContext {
     pub fn new(settings: VulkanSettings) -> Result<Arc<Self>> {
-        let entry = Entry::linked();
+        let entry = unsafe { Entry::load()? };
 
         // Layers and extensions
         let mut instance_extensions = ash_window::enumerate_required_extensions()?
@@ -334,6 +338,10 @@ impl VulkanContext {
             device_features,
             frame_index: Mutex::new(0),
             resource_pools,
+            swapchain: None,
+            image_available_semaphores: Vec::new(),
+            render_finished_semaphores: Vec::new(),
+            current_frame: 0,
         }))
     }
 
@@ -1302,9 +1310,12 @@ impl VulkanContext {
     }
 
     pub fn acquire_next_image(&self, image_index: &mut u32) -> Result<bool> {
+        let swapchain_loader = self.swapchain_loader.as_ref().expect("Swapchain loader not initialized");
+        let swapchain = self.swapchain.expect("Swapchain not initialized");
+        
         unsafe {
-            match self.swapchain_loader.acquire_next_image(
-                self.swapchain,
+            match swapchain_loader.acquire_next_image(
+                swapchain,
                 u64::MAX,
                 self.image_available_semaphores[self.current_frame],
                 vk::Fence::null(),
@@ -1318,8 +1329,11 @@ impl VulkanContext {
     }
 
     pub fn present(&self, image_index: u32) -> Result<bool> {
+        let swapchain_loader = self.swapchain_loader.as_ref().expect("Swapchain loader not initialized");
+        let swapchain = self.swapchain.expect("Swapchain not initialized");
+        
         let wait_semaphores = [self.render_finished_semaphores[self.current_frame]];
-        let swapchains = [self.swapchain];
+        let swapchains = [swapchain];
         let image_indices = [image_index];
 
         let present_info = vk::PresentInfoKHR::builder()
@@ -1329,14 +1343,19 @@ impl VulkanContext {
             .build();
 
         unsafe {
-            match self.swapchain_loader.queue_present(self.present_queue, &present_info) {
+            match swapchain_loader.queue_present(self.present_queue, &present_info) {
                 Ok(_) => Ok(false),
                 Err(vk::Result::SUBOPTIMAL_KHR) => Ok(true),
                 Err(e) => Err(anyhow::anyhow!("Failed to present swapchain image: {}", e)),
             }
+        }?;
+
+        unsafe {
             self.device.device_wait_idle()
-                .context("Failed to wait for device idle")
+                .context("Failed to wait for device idle")?;
         }
+
+        Ok(false)
     }
 
     pub fn destroy_swapchain(&self, swapchain: vk::SwapchainKHR) {
