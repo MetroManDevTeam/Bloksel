@@ -387,7 +387,10 @@ impl Chunk {
 
                     regions.push(match Self::analyze_region(region_blocks) {
                         RegionAnalysis::Empty => CompressedRegion::Empty,
-                        RegionAnalysis::Uniform(block) => CompressedRegion::Uniform(block),
+                        RegionAnalysis::Uniform(block) => CompressedRegion::Uniform {
+                            block_id: block.id,
+                            sub_blocks: block.sub_blocks,
+                        },
                         RegionAnalysis::Varied(blocks) => CompressedRegion::Sparse(blocks),
                     });
                 }
@@ -463,8 +466,12 @@ impl Chunk {
 
             match region {
                 CompressedRegion::Empty => (),
-                CompressedRegion::Uniform(block) => {
-                    self.fill_region(origin, REGION_SIZE, block);
+                CompressedRegion::Uniform { block_id, sub_blocks } => {
+                    let template = CompressedBlock {
+                        id: block_id,
+                        sub_blocks,
+                    };
+                    self.fill_region(origin, REGION_SIZE, template);
                 }
                 CompressedRegion::Sparse(blocks) => {
                     self.place_blocks(origin, blocks);
