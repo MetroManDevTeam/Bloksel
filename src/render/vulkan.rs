@@ -722,7 +722,8 @@ impl VulkanContext {
 
                 // Check surface support if needed
                 if let Some(surface) = surface {
-                    let surface_loader = Surface::new(&instance.entry().clone(), instance);
+                    let entry_clone = instance.entry().clone();
+                    let surface_loader = Surface::new(&entry_clone, instance);
                     let supported = unsafe {
                         surface_loader
                             .get_physical_device_surface_support(device, index, surface)?
@@ -1162,9 +1163,11 @@ impl VulkanContext {
             attachments.push(depth_attachment.build());
         }
 
+        let color_ref_built = color_reference.build();
+        let color_refs = [color_ref_built];
         let mut subpass_builder = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&[color_reference.build()]);
+            .color_attachments(&color_refs);
 
         if let Some(depth_ref) = depth_reference.as_ref() {
             subpass_builder = subpass_builder.depth_stencil_attachment(depth_ref);
