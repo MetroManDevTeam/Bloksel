@@ -340,13 +340,7 @@ impl VulkanContext {
         window: &W,
     ) -> Result<vk::SurfaceKHR> {
         let surface = unsafe {
-            ash_window::create_surface(
-                &self.entry,
-                &self.instance,
-                window.raw_display_handle().map_err(|e| anyhow::anyhow!("Failed to get display handle: {}", e))?,
-                window.raw_window_handle().map_err(|e| anyhow::anyhow!("Failed to get window handle: {}", e))?,
-                None,
-            )?
+            Surface::new(&self.entry, &self.instance)
         };
 
         // Initialize surface loader if not already initialized
@@ -535,7 +529,7 @@ impl VulkanContext {
                 score += (device_local_memory / 1024 / 1024) as i32; // MB
 
                 // Prefer higher limits
-                score += (props.limits.max_image_dimension2D / 1024) as i32;
+                score += (props.limits.max_image_dimension2_d / 1024) as i32;
                 score += props.limits.max_descriptor_set_samplers as i32 / 16;
 
                 Some((device, queue_families, score))
@@ -1096,10 +1090,10 @@ impl VulkanContext {
             attachments.push(depth_attachment.build());
         }
 
-        let subpass = vk::SubpassDescription::builder()
+        let mut subpass = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .color_attachments(&[color_reference.build()])
-            .depth_stencil_attachment(depth_reference.as_ref());
+            .depth_stencil_attachment(depth_reference.as_ref().expect("Depth attachment reference not found"));
 
         let dependency = vk::SubpassDependency::builder()
             .src_subpass(vk::SUBPASS_EXTERNAL)
