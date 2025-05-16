@@ -510,8 +510,8 @@ impl Chunk {
         // Collect block data first to avoid borrow conflicts
         let blocks: Vec<_> = (0..CHUNK_SIZE)
             .flat_map(|x| {
-                (0..CHUNK_SIZE).flat_map(move |y| {
-                    (0..CHUNK_SIZE).map(move |z| (x, y, z, self.get_block(x, y, z).cloned()))
+                (0..CHUNK_SIZE).flat_map(|y| {
+                    (0..CHUNK_SIZE).map(|z| (x, y, z, self.get_block(x, y, z).cloned()))
                 })
             })
             .collect();
