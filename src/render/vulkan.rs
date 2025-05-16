@@ -303,12 +303,12 @@ impl VulkanContext {
         // Create resource pools
         let resource_pools = Mutex::new(
             (0..settings.concurrent_resources)
-                .map(|_| ResourcePool {
+                .map(|_| Arc::new(ResourcePool {
                     buffers: Vec::new(),
                     images: Vec::new(),
                     memories: Vec::new(),
                     command_pools: Vec::new(),
-                })
+                }))
                 .collect(),
         );
 
@@ -693,7 +693,7 @@ impl VulkanContext {
                 // Check surface support if needed
                 if let Some(surface) = surface {
                     let supported = unsafe {
-                        Surface::new(instance)
+                        Surface::new(&Entry::linked(), instance)
                             .get_physical_device_surface_support(device, index, surface)?
                     };
                     if supported && families.present.is_none() {
@@ -1110,7 +1110,7 @@ impl VulkanContext {
             .dependencies(&dependencies);
 
         unsafe {
-            self.device.create_render_pass(&create_info.build(), None)
+            Ok(self.device.create_render_pass(&create_info.build(), None)?)
         }
     }
 
@@ -1371,6 +1371,15 @@ impl VulkanContext {
             return Err(anyhow::anyhow!("Resource pool index out of bounds"));
         }
         Ok(Arc::clone(&pools[index]))
+    }
+
+    fn check_swapchain_support(
+        _instance: &Instance,
+        _device: vk::PhysicalDevice,
+        _surface: Option<vk::SurfaceKHR>,
+    ) -> Result<bool> {
+        // TODO: Implement actual swapchain support check
+        Ok(true)
     }
 
 }
