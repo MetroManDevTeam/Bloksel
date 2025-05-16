@@ -1104,12 +1104,15 @@ impl VulkanContext {
             attachments.push(depth_attachment.build());
         }
 
-        let subpass = vk::SubpassDescription::builder()
+        let mut subpass_builder = vk::SubpassDescription::builder()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&[color_reference.build()])
-            .depth_stencil_attachment(depth_reference.as_ref().expect("Depth attachment reference not found"));
+            .color_attachments(&[color_reference.build()]);
 
-        let subpasses = [subpass.build()];
+        if let Some(depth_ref) = depth_reference.as_ref() {
+            subpass_builder = subpass_builder.depth_stencil_attachment(depth_ref);
+        }
+
+        let subpasses = [subpass_builder.build()];
 
         // Add subpass dependency
         let dependency = vk::SubpassDependency::builder()
