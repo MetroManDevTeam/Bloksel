@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use ash::vk;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use glam::Vec3;
-use log::{info, warn};
+use log::warn;
 use parking_lot::Mutex;
 use rayon::ThreadPool;
 use rayon::ThreadPoolBuilder;
@@ -168,7 +168,7 @@ impl VoxelEngine {
 
     pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
         // Use the name parameter to avoid unused variable warning
-        log::info!("Creating world config for world: {}", name);
+        let _world_name = name; // Assign to a variable to avoid unused parameter warning
 
         EngineConfig {
             world_seed: seed,
