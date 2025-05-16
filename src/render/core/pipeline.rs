@@ -12,6 +12,25 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use thiserror::Error;
 
+// Define Vertex structure for rendering
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Vertex {
+    pub position: Vec3,
+    pub normal: Vec3,
+    pub tex_coord: Vec2,
+    pub color: Vec4,
+}
+
+// Define UniformBufferObject for shader uniforms
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct UniformBufferObject {
+    pub model: Mat4,
+    pub view: Mat4,
+    pub projection: Mat4,
+}
+
 const ATLAS_START_SIZE: u32 = 16;
 const MAX_ATLAS_SIZE: u32 = 2048;
 const TEXTURE_PADDING: u32 = 2;
@@ -237,6 +256,20 @@ impl ChunkRenderer {
                     binding: 0,
                     format: vk::Format::R32G32B32_SFLOAT,
                     offset: 12,
+                },
+                // Texture coordinates
+                vk::VertexInputAttributeDescription {
+                    location: 2,
+                    binding: 0,
+                    format: vk::Format::R32G32_SFLOAT,
+                    offset: 24,
+                },
+                // Color
+                vk::VertexInputAttributeDescription {
+                    location: 3,
+                    binding: 0,
+                    format: vk::Format::R32G32B32A32_SFLOAT,
+                    offset: 32,
                 },
             ]);
 
