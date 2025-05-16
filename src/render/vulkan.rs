@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     ffi::{CStr, CString},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 // Customizable settings
