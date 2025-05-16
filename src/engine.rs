@@ -166,7 +166,10 @@ impl VoxelEngine {
         Ok(())
     }
 
-    pub fn create_world_config(&mut self, _name: String, seed: u64) -> EngineConfig {
+    pub fn create_world_config(&mut self, name: String, seed: u64) -> EngineConfig {
+        // Use the name parameter to avoid unused variable warning
+        log::info!("Creating world config for world: {}", name);
+
         EngineConfig {
             world_seed: seed,
             render_distance: 8,
