@@ -6,6 +6,7 @@ use egui_winit::State as EguiWinitState;
 use log::{debug, error, info, warn};
 use std::sync::Arc;
 
+#[derive(Debug)] 
 pub struct EguiRenderer {
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
