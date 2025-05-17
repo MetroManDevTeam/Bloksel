@@ -124,7 +124,7 @@ impl MenuState {
         }
     }
 
-    pub fn handle_event(&mut self, event: &winit::event::WindowEvent<'_>) -> bool {
+    pub fn handle_event(&mut self, event: &winit::event::WindowEvent) -> bool {
         self.egui_winit_state.on_event(&self.egui_context, event).consumed
     }
 
